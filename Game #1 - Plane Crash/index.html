@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plane Crash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <div class="layout">
+    <div class="game">
+      <div class="hud">
+        <div class="hud-row">
+          <span class="logo">PLANE <b>CRASH</b></span>
+          <span class="wallet"><span class="amt" id="balance">1,000.00</span><span class="cur">FUN</span><button class="reset" id="refill" type="button" title="Reset demo balance to 1,000 FUN">Reset</button></span>
+        </div>
+        <div class="history" id="history" aria-label="Your recent flights"></div>
+      </div>
+      <div class="stage" id="stage">
+        <canvas id="cv" aria-label="Flight view"></canvas>
+        <div class="readout" id="readout">
+          <span class="phase" id="phase">Fuelling up</span>
+          <span class="big wait" id="big">—</span>
+          <span class="sub" id="sub" hidden></span>
+          <span class="timer" id="timer" hidden><i id="tbar"></i></span>
+        </div>
+        <div class="banner" id="banner" hidden>
+          <span class="phase">Round complete</span>
+          <span class="counts"><span>Landed <b id="bLanded">0</b></span><span>Crashed <b id="bCrashed">0</b></span><span>Best landing <b id="bBest">—</b></span></span>
+          <span class="you" id="bYou"></span>
+        </div>
+        <div class="controls" id="controls">
+          <div class="ctl-top"><span class="chip" id="status">Waiting</span><span id="hint">Space: start or land · 1–5: routes</span></div>
+          <div class="ladder" id="ladder" aria-label="Payout ladder"></div>
+          <div id="setup" class="setup">
+            <div class="diffs" id="diffs"></div>
+            <div class="stake">
+              <button class="step" type="button" id="dec" aria-label="Decrease stake">−</button>
+              <input id="amt" type="number" inputmode="decimal" step="0.1" aria-label="Stake">
+              <button class="step" type="button" id="inc" aria-label="Increase stake">+</button>
+            </div>
+            <div class="chips" id="chips">
+              <button type="button" data-chip="1">1</button><button type="button" data-chip="5">5</button><button type="button" data-chip="10">10</button>
+              <button type="button" data-chip="50">50</button><button type="button" data-chip="half">½</button><button type="button" data-chip="dbl">×2</button>
+            </div>
+            <div class="autos">
+              <label><input type="checkbox" id="alOn"> Auto land after</label>
+              <select id="alN" aria-label="Safe routes before auto land"></select><span>safe routes</span>
+              <label><input type="checkbox" id="ab"> Auto bet</label>
+            </div>
+            <button class="go bet" id="go" type="button"><span class="l1">Start flight</span><span class="l2">10.00 FUN</span></button>
+          </div>
+          <div id="flight" class="setup" hidden>
+            <div class="routes" id="routes"></div>
+            <button class="go land" id="land" type="button"><span class="l1">Land</span><span class="l2">—</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="live" aria-selected="true" id="t-live">Pilots</button>
+        <button role="tab" data-tab="mine" aria-selected="false" id="t-mine">My flights</button>
+        <button role="tab" data-tab="fair" aria-selected="false" id="t-fair">Fairness</button>
+        <button role="tab" data-tab="math" aria-selected="false" id="t-math">Math</button>
+      </div>
+
+      <section class="pane" id="p-live" role="tabpanel">
+        <div class="sum"><span><b id="lvN">0</b> pilots</span><span><b id="lvF">0</b> flying</span><span><b id="lvL">0</b> landed</span><span><b id="lvC">0</b> crashed</span></div>
+        <label class="toggle"><input type="checkbox" id="showStakes"> Show stakes</label>
+        <div class="rows" id="lvRows"></div>
+        <p class="note">Route picks show live, but the safe routes stay hidden until every pilot has chosen.</p>
+      </section>
+
+      <section class="pane" id="p-mine" role="tabpanel" hidden>
+        <dl class="kv">
+          <dt>Wagered</dt><dd id="myWag">0.00</dd>
+          <dt>Returned</dt><dd id="myRet">0.00</dd>
+          <dt>Profit / loss</dt><dd id="myPl">0.00</dd>
+          <dt>Session RTP</dt><dd id="myRtp">—</dd>
+        </dl>
+        <div class="tbl"><table><thead><tr><th>Round</th><th>Level</th><th>Stake</th><th>Routes</th><th>Result</th><th>Payout</th></tr></thead><tbody id="myRows"></tbody></table></div>
+        <p class="note" id="myEmpty">Start a flight and your rounds will appear here.</p>
+      </section>
+
+      <section class="pane" id="p-fair" role="tabpanel" hidden>
+        <h3>Provably fair</h3>
+        <ol class="steps">
+          <li>Before bets open, the server commits to a secret <b>server seed</b> by publishing its SHA-256 hash.</li>
+          <li>For every difficulty and intersection, HMAC-SHA256(server seed, "route:nonce:difficulty:step") shuffles the routes. The first ones in the shuffle are the safe routes.</li>
+          <li>Pilots on the same difficulty fly the same map, so one pilot's choice never changes another's result.</li>
+          <li>After the round the seed is revealed and every intersection can be recomputed.</li>
+        </ol>
+        <hr>
+        <dl class="kv"><dt>Round</dt><dd id="fRound">—</dd><dt>Commit</dt><dd id="fHash">—</dd><dt>Nonce</dt><dd id="fNonce">—</dd></dl>
+        <hr>
+        <h3>Verify a round</h3>
+        <label class="field">Server seed<input id="vSeed" spellcheck="false"></label>
+        <div class="inline">
+          <label class="field">Nonce<input id="vNonce" inputmode="numeric"></label>
+          <label class="field">Difficulty<select id="vDiff"></select></label>
+          <button class="btn" id="vGo" type="button">Verify</button>
+        </div>
+        <div class="out" id="vOut" hidden></div>
+        <hr>
+        <h3>Past rounds</h3>
+        <div class="tbl"><table><thead><tr><th>Round</th><th>Nonce</th><th>Intersections</th><th></th></tr></thead><tbody id="fRows"></tbody></table></div>
+      </section>
+
+      <section class="pane" id="p-math" role="tabpanel" hidden>
+        <h3>Payout ladder</h3>
+        <p class="note">After n safe routes the multiplier is RTP ÷ pⁿ, where p is the chance of a safe route, rounded down to the cent. Landing at any point returns the target RTP, so no landing strategy beats another. Changes apply from the next round drawn.</p>
+        <label class="field">Target RTP
+          <span class="range"><input type="range" id="mRtp" min="90" max="98" step="0.5" value="96"><output id="mRtpV">96.0%</output></span>
+        </label>
+        <div class="tbl"><table>
+          <thead><tr><th>Level</th><th>Routes</th><th>Safe</th><th>Win %</th><th>Max steps</th><th>Top ×</th></tr></thead>
+          <tbody id="mTable"></tbody>
+        </table></div>
+        <p class="warn" id="mWarn" hidden></p>
+        <div class="tbl"><table><thead><tr><th>Level</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th></tr></thead><tbody id="mLadder"></tbody></table></div>
+        <hr>
+        <h3>Pace and limits</h3>
+        <div class="grid3">
+          <label class="field">Decision (s)<input id="mDec" type="number" min="3" max="15" step="1" value="6"></label>
+          <label class="field">Betting (s)<input id="mBet" type="number" min="3" max="20" step="1" value="8"></label>
+          <label class="field">Max win<input id="mWin" type="number" min="10" step="100" value="25000"></label>
+          <label class="field">Min bet<input id="mMin" type="number" min="0.1" step="0.1" value="0.1"></label>
+          <label class="field">Max bet<input id="mMax" type="number" min="1" step="1" value="500"></label>
+          <label class="field">Missed choice<select id="mFall"><option value="land">Auto land</option><option value="random">Random route</option></select></label>
+        </div>
+        <p class="note">With no safe route passed yet there is nothing to land, so a missed first choice always takes a random route.</p>
+        <hr>
+        <h3>Strategy simulator</h3>
+        <p class="note">Plays the four strategies from the concept doc at every difficulty and compares the fixed ladder with the doc's random step ranges.</p>
+        <div class="inline">
+          <label class="field">Flights per cell<input id="sN" type="number" value="200000" step="50000" min="10000" max="1000000"></label>
+          <button class="btn" id="sGo" type="button">Run simulation</button>
+        </div>
+        <div class="out" id="sOut" hidden></div>
+      </section>
+    </aside>
+  </div>
+  <footer class="foot">
+    <span>Prototype with demo credits. Rounds are drawn in the browser so the math can be inspected; a production build draws and settles on the server.</span>
+    <span>Plane Crash · concept build</span>
+  </footer>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="game.js"></script>
+</body>
+</html>
