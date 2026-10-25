@@ -36,6 +36,10 @@ The player's Brainer robot flies a plane toward five hoops while bombs fall ahea
 
 The step counts and first multipliers follow Chicken Road; the tops were brought down from Chicken Road's to sensible values. The bomb chance rises with every step, fitted so that jumping out at any step returns the RTP. Every path at every step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"), so the chosen path survives with the same odds whichever one is picked. The shield button in the game shows the next flight's seed hash and re-checks the last flight: it re-hashes the revealed seed and redraws every bomb.
 
+### Look
+
+Everything is drawn in code on a canvas, with no image files except the Brainer portraits. The plane and the Brainer are shaded as solids lit from the upper left. The default world is Lavender fields: patchwork farmland with a river, a road, trees and clouds casting shadows. Two other worlds can be compared with `?world=clouds` (a sea of clouds at sunset) and `?world=city` (Brainer city at dusk); adding `?worlds` shows a switcher on the stage.
+
 ### Brain levels
 
 Every path flown earns brain cells: stake × that step's bomb chance × 10. Cells follow the risk taken rather than the time spent, so grinding Easy is slow (a $10 Easy path earns about 6 cells, a $10 Hardcore path about 39). Ten levels need 0, 50, 150, 300, 550, 900, 1,400, 2,100, 3,000 and 4,200 cells (`cfg.brain.cells`).

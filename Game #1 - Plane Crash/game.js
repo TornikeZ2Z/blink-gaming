@@ -252,12 +252,12 @@ let shake = 0, flashAt = -1e9, flashCol = '255,255,255', nextDropAt = 0, sky = n
 const view = { d: LEVELS[0], n: 0, rtp: cfg.refRtp, camX: 0, gz: Z_WAIT, introT: -1e9, pick: -1, row: null, struck: false, scroll: 0, fieldX: 0, speed: 1, bank: 0, hit: [], hover: -1 };
 const plane = { state: 'cruise', t0: 0, x: 0, y: 0, rot: 0, vx: 0, vy: 0, vr: 0, brain: 1 };
 let chute = null, iris = null, parts = [], booms = [], drops = [], texts = [];
-const clouds = Array.from({ length: 16 }, () => ({ x: (Math.random() - 0.5) * 34, alt: -2.6 + Math.random() * 4.2, z: 4 + Math.random() * 56, s: 0.9 + Math.random() * 1.4 }));
+let clouds = [];
 
 function layout() {
   W = stage.clientWidth; H = stage.clientHeight; dpr = Math.min(2, window.devicePixelRatio || 1);
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-  F = H * 0.95; HY = H * 0.4; PX = W / 2; PY = H * 0.8;
+  F = H * 0.95; HY = H * 0.4; PX = W / 2; PY = H * 0.74;
   PS = clamp(Math.min(W / 900, H / 560), 0.45, 1);
   const dx = Math.min(W * 0.17, 170);   // gap between waiting gates on screen
   SPREAD = dx * Z_WAIT / F; RING = Math.min(dx * 0.34, 56) * Z_WAIT / F;
@@ -267,24 +267,240 @@ new ResizeObserver(layout).observe(stage);
 
 function paintSky() {
   sky = document.createElement('canvas'); sky.width = Math.max(1, Math.round(W * dpr)); sky.height = Math.max(1, Math.round((HY + 2) * dpr));
-  const g = sky.getContext('2d'); g.scale(dpr, dpr);
-  const gr = g.createLinearGradient(0, 0, 0, HY);
-  gr.addColorStop(0, '#4b36fc'); gr.addColorStop(0.45, '#8447fb'); gr.addColorStop(0.8, '#c8a9ff'); gr.addColorStop(1, '#f1e9ff');
-  g.fillStyle = gr; g.fillRect(0, 0, W, HY + 2);
-  const sx = W * 0.82, sy = HY * 0.36, sr = clamp(H * 0.045, 16, 30);
-  const halo = g.createRadialGradient(sx, sy, sr * 0.4, sx, sy, sr * 4.5);
-  halo.addColorStop(0, 'rgba(255,214,240,.7)'); halo.addColorStop(1, 'rgba(255,214,240,0)');
-  g.fillStyle = halo; g.fillRect(0, 0, W, HY);
-  g.fillStyle = '#fff4fb'; g.beginPath(); g.arc(sx, sy, sr, 0, 7); g.fill();
+  const g = sky.getContext('2d'); g.scale(dpr, dpr); world.sky(g);
 }
-const cloudImg = (() => {
-  const c = document.createElement('canvas'); c.width = 300; c.height = 170; const g = c.getContext('2d');
-  const P = [[78, 108, 46], [128, 80, 58], [190, 92, 50], [112, 120, 42], [170, 122, 44], [232, 116, 36], [48, 124, 30]];
-  const blob = (x, y, r, col) => { const gr = g.createRadialGradient(x, y, r * 0.2, x, y, r); gr.addColorStop(0, col); gr.addColorStop(0.78, col); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); };
-  P.forEach(([x, y, r]) => blob(x, y + 10, r, 'rgba(201,184,255,.95)'));
-  P.forEach(([x, y, r]) => blob(x - 3, y - 3, r * 0.9, 'rgba(255,255,255,.98)'));
-  return c;
-})();
+
+/* ---------- worlds: what the flight passes over ---------- */
+// Lavender fields is the game's world. Two other directions stay reachable for comparison: ?world=clouds (a sea of
+// clouds at sunset) and ?world=city (Brainer city at dusk); ?worlds adds a switcher to the stage.
+const hash = (a, b) => { let h = Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+const mix = (a, b, t) => { const p = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)), x = p(a), y = p(b); return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * t)).join(',')})`; };
+const groundY = z => altY(G_H, z);
+const halfSpan = z => (W / 2) * z / F + 4;   // half the visible ground width at depth z, in world units, plus a margin
+const gpt = (u, z, alt = G_H) => [projX(u + view.fieldX, z), altY(alt, z)];   // a point on the ground grid
+function poly(pts, fill) { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); if (fill) { ctx.fillStyle = fill; ctx.fill(); } }
+function forRows(D, maxZ, fn) {   // ground rows from far to near; z0 is a row's near edge, z1 its far edge
+  const base = Math.floor(view.scroll / D);
+  for (let k = Math.ceil(maxZ / D) + 1; k >= 0; k--) {
+    const row = base + k, z0 = row * D - view.scroll, z1 = z0 + D;
+    if (z1 > 0.6) fn(row, Math.max(0.6, z0), z1);
+  }
+}
+function sprite(w, h, paint) { const c = document.createElement('canvas'); c.width = w; c.height = h; paint(c.getContext('2d')); return c; }
+function puffCloud(top, mid, under) {   // a cumulus lit from the upper left, with a flat, soft base
+  return sprite(300, 170, g => {
+    const blob = (x, y, r, c0, c1) => { const gr = g.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.05, x, y, r); gr.addColorStop(0, c0); gr.addColorStop(1, c1); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); };
+    const P = [[66, 112, 38], [112, 86, 52], [172, 76, 58], [226, 100, 44], [146, 112, 46], [258, 118, 30], [92, 120, 34]];
+    P.forEach(([x, y, r]) => blob(x, y + 8, r, mid, under));
+    P.forEach(([x, y, r]) => blob(x - 7, y - 6, r * 0.84, top, mid));
+    g.globalCompositeOperation = 'destination-out';
+    const f = g.createLinearGradient(0, 120, 0, 150); f.addColorStop(0, 'rgba(0,0,0,0)'); f.addColorStop(1, 'rgba(0,0,0,1)');
+    g.fillStyle = f; g.fillRect(0, 120, 300, 50);
+  });
+}
+function skyBase(g, stops) { const gr = g.createLinearGradient(0, 0, 0, HY); stops.forEach(([o, c]) => gr.addColorStop(o, c)); g.fillStyle = gr; g.fillRect(0, 0, W, HY + 2); }
+function skySun(g, x, y, r, halo, core) {
+  const h = g.createRadialGradient(x, y, r * 0.5, x, y, r * 6); h.addColorStop(0, halo); h.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = h; g.fillRect(0, 0, W, HY + 2);
+  g.fillStyle = core; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+}
+function skyHills(g, col, amp, f, seed) {   // a band of rolling hills standing on the horizon
+  g.beginPath(); g.moveTo(0, HY + 2);
+  for (let x = 0; x <= W + 8; x += 8) g.lineTo(x, HY - amp * (0.55 + 0.3 * Math.sin(x * f + seed) + 0.15 * Math.sin(x * f * 2.7 + seed * 3)));
+  g.lineTo(W, HY + 2); g.closePath(); g.fillStyle = col; g.fill();
+}
+function haze(col, depth) { const g = ctx.createLinearGradient(0, HY - 1, 0, HY + H * depth); g.addColorStop(0, col); g.addColorStop(1, col.replace(/[\d.]+\)$/, '0)')); ctx.fillStyle = g; ctx.fillRect(0, HY - 1, W, H * depth + 1); }
+
+/* Lavender fields: patchwork farmland in brand-tinted colours, hedges and trees, a river and a country road,
+   and clouds drifting below the plane with their shadows on the fields. */
+const FIELDS = ['#a6d873', '#8cc95f', '#c4df86', '#e6d585', '#d8bd6b', '#b292e9', '#c8acf3', '#9cd187', '#ece2a6', '#a98ae4'];
+function groundFields() {
+  const D = 3.2, CW = 3.2, cx = view.camX - view.fieldX;
+  ctx.fillStyle = '#b9d98c'; ctx.fillRect(0, HY, W, H - HY);
+  const river = zw => 9 + 5 * Math.sin(zw * 0.04) + 2.2 * Math.sin(zw * 0.13 + 1), road = zw => -12 + 2 * Math.sin(zw * 0.025);
+  forRows(D, 64, (row, z0, z1) => {
+    if (groundY(z1) > H) return;
+    const g2 = row >> 1, span = 1 + Math.floor(hash(g2, 3) * 3);   // fields are two rows deep and one to three cells wide
+    const hs = halfSpan(z0), c0 = Math.floor((cx - hs) / CW), c1 = Math.ceil((cx + hs) / CW), zm = (z0 + z1) / 2, near = zm < 28;
+    const edges = [], stripes = [], trees = [];
+    for (let c = c0; c <= c1;) {
+      const fc = Math.floor(c / span), ce = (fc + 1) * span, ua = c * CW, ub = ce * CW;
+      poly([gpt(ua, z0), gpt(ub, z0), gpt(ub, z1), gpt(ua, z1)], FIELDS[Math.floor(hash(fc * 7 + span, g2) * FIELDS.length)]);
+      if (near && hash(fc, g2 * 7 + 1) < 0.55) stripes.push([ua, ub]);
+      if (near && hash(fc + 3, g2) < 0.22) trees.push([(ua + ub) / 2 + (hash(fc, row) - 0.5) * CW, z0 + D * 0.5]);
+      edges.push(ub); c = ce;
+    }
+    const lw = Math.max(1, 0.14 * F / zm);
+    ctx.beginPath();
+    for (const u of edges) { const [xa, ya] = gpt(u, z0), [xb, yb] = gpt(u, z1); ctx.moveTo(xa, ya); ctx.lineTo(xb, yb); }
+    if (row % 2 === 0) { const [xa, ya] = gpt(cx - hs, z0), [xb] = gpt(cx + hs, z0); ctx.moveTo(xa, ya); ctx.lineTo(xb, ya); }
+    ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(74,124,50,.5)'; ctx.stroke();   // hedges
+    if (stripes.length) {
+      ctx.beginPath();
+      for (const [ua, ub] of stripes) for (let i = 1; i < 4; i++) { const z = z0 + D * i / 4, [xa, y] = gpt(ua, z), [xb] = gpt(ub, z); ctx.moveTo(xa, y); ctx.lineTo(xb, y); }
+      ctx.lineWidth = Math.max(0.7, 0.05 * F / zm); ctx.strokeStyle = 'rgba(60,70,30,.14)'; ctx.stroke();   // crop rows
+    }
+    const r0 = river(z0 + view.scroll), r1 = river(z1 + view.scroll), w = 0.75;
+    poly([gpt(r0 - w - 0.35, z0), gpt(r0 + w + 0.35, z0), gpt(r1 + w + 0.35, z1), gpt(r1 - w - 0.35, z1)], '#dfcf9c');
+    poly([gpt(r0 - w, z0), gpt(r0 + w, z0), gpt(r1 + w, z1), gpt(r1 - w, z1)], mix('#7ab6ef', '#b9d7fb', clamp(zm / 60, 0, 1)));
+    poly([gpt(r0 - w * 0.55, z0), gpt(r0 - w * 0.25, z0), gpt(r1 - w * 0.25, z1), gpt(r1 - w * 0.55, z1)], 'rgba(255,255,255,.28)');
+    const d0 = road(z0 + view.scroll), d1 = road(z1 + view.scroll);
+    poly([gpt(d0 - 0.6, z0), gpt(d0 + 0.6, z0), gpt(d1 + 0.6, z1), gpt(d1 - 0.6, z1)], '#e6dfcf');
+    if (near) { const za = z0 + D * 0.15, zb = z0 + D * 0.55, ra = road(za + view.scroll), rb = road(zb + view.scroll); ctx.beginPath(); ctx.moveTo(...gpt(ra, za)); ctx.lineTo(...gpt(rb, zb)); ctx.lineWidth = Math.max(1, 0.07 * F / zm); ctx.strokeStyle = '#ffffff'; ctx.stroke(); }
+    if (row % 2 === 0) for (const u of edges) if (hash(u * 13, row) < 0.45) trees.push([u, z0]);   // trees where hedges meet
+    if (zm < 40) for (const [u, z] of trees) {
+      const zz = Math.max(2, z), rv = river(zz + view.scroll), rd = road(zz + view.scroll);
+      if (Math.abs(u - rv) < 1.6 || Math.abs(u - rd) < 1.1) continue;
+      const [x, y] = gpt(u, zz), r = 0.48 * F / zz;
+      if (x < -r || x > W + r) continue;
+      ell(x + r * 0.55, y + r * 0.05, r * 0.95, r * 0.32); ctx.fillStyle = 'rgba(40,60,20,.25)'; ctx.fill();
+      ell(x, y - r * 0.8, r, r * 0.95); ctx.fillStyle = '#4c8b3c'; ctx.fill();
+      ell(x - r * 0.3, y - r * 1.05, r * 0.55, r * 0.5); ctx.fillStyle = '#76b755'; ctx.fill();
+    }
+  });
+  for (const c of clouds) {   // cloud shadows on the fields
+    if (c.alt < 0.5 || c.z < 1.5) continue;
+    const rx = c.s * 1.25 * F / c.z, x = projX(c.x, c.z), y = groundY(c.z), ry = rx * Math.min(1, G_H / c.z);
+    if (x + rx < 0 || x - rx > W || y - ry > H) continue;
+    ctx.globalAlpha = clamp((60 - c.z) / 14, 0, 1); ell(x, y, rx, ry); ctx.fillStyle = 'rgba(40,40,110,.12)'; ctx.fill(); ctx.globalAlpha = 1;
+  }
+  haze('rgba(238,241,255,.95)', 0.22);
+}
+function skyFields(g) {
+  skyBase(g, [[0, '#5b4af6'], [0.5, '#8f88ff'], [0.85, '#cdd0ff'], [1, '#eef1ff']]);
+  skySun(g, W * 0.8, HY * 0.34, clamp(H * 0.045, 16, 30), 'rgba(255,240,250,.7)', '#fffaf2');
+  skyHills(g, '#cfccf7', H * 0.05, 0.004, 1);
+  skyHills(g, '#bcd2b6', H * 0.028, 0.009, 2);
+}
+
+/* A sea of clouds at sunset: rows of lit cloud tops rolling toward the plane, with peaks breaking through. */
+let spires = [];
+function spawnSpire(s, far) {
+  const sd = Math.random() < 0.5 ? -1 : 1;
+  return Object.assign(s || {}, { x: view.camX + sd * (6 + Math.random() * 11), z: far ? 58 + Math.random() * 14 : 10 + Math.random() * 56, h: 2.6 + Math.random() * 2.4, w: 2 + Math.random() * 1.6 });
+}
+function drawSpire(s) {
+  if (s.z < 1.4) return;
+  const P = (u, alt) => [projX(u, s.z), altY(alt, s.z)], base = G_H + 0.5, top = G_H - s.h;
+  const L = P(s.x - s.w, base), R = P(s.x + s.w, base), A = P(s.x + s.w * 0.08, top), M1 = P(s.x - s.w * 0.5, G_H - s.h * 0.45), M2 = P(s.x + s.w * 0.55, G_H - s.h * 0.5), B = P(s.x + s.w * 0.15, base);
+  if (Math.max(L[0], R[0]) < 0 || Math.min(L[0], R[0]) > W) return;
+  ctx.globalAlpha = clamp((72 - s.z) / 16, 0, 1);
+  poly([L, M1, A, B], '#b9a0f1'); poly([A, M2, R, B], '#7457c9');
+  const q = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+  poly([A, q(A, M1, 0.42), q(A, B, 0.22), q(A, M2, 0.36)], '#fff1fb');   // snow on the peak
+  ctx.globalAlpha = 1;
+}
+function groundClouds() {
+  const D = 2.3, P = 1.55, cx = view.camX - view.fieldX;
+  const base = ctx.createLinearGradient(0, HY, 0, H); base.addColorStop(0, '#ffd8e2'); base.addColorStop(0.45, '#e8c6f1'); base.addColorStop(1, '#a28cef');
+  ctx.fillStyle = base; ctx.fillRect(0, HY, W, H - HY);
+  const sp = spires.slice().sort((a, b) => b.z - a.z); let si = 0;
+  forRows(D, 66, (row, z0, z1) => {
+    while (si < sp.length && sp[si].z >= z0) drawSpire(sp[si++]);
+    if (groundY(z1) > H + 60) return;
+    const y0 = groundY(z0), f = Math.pow(clamp(z0 / 66, 0, 1), 0.7), hs = halfSpan(z0), k0 = Math.floor((cx - hs) / P) - 1, k1 = Math.ceil((cx + hs) / P) + 1;
+    let maxR = 0; ctx.beginPath();
+    for (let k = k0; k <= k1; k++) {
+      const R = 0.9 + hash(k, row) * 0.8, u = k * P + (hash(row, k) - 0.5) * 0.6, rx = R * F / z0, ry = rx * 0.6;
+      const x = projX(u + view.fieldX, z0), y = y0 - ry * (0.1 + 0.3 * hash(k + 9, row));
+      if (x + rx < 0 || x - rx > W) continue;
+      ctx.moveTo(x + rx, y); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); maxR = Math.max(maxR, ry);
+    }
+    const g = ctx.createLinearGradient(0, y0 - maxR * 1.35, 0, y0 + maxR * 0.7);
+    g.addColorStop(0, mix('#fff9f3', '#ffd9e3', f)); g.addColorStop(0.5, mix('#f6def3', '#f2cde6', f)); g.addColorStop(1, mix('#b29ef1', '#e3c4ee', f));
+    ctx.fillStyle = g; ctx.fill();
+  });
+  while (si < sp.length) drawSpire(sp[si++]);
+  haze('rgba(255,214,226,.9)', 0.16);
+}
+function skyClouds(g) {
+  skyBase(g, [[0, '#2b1fa0'], [0.36, '#6a3fe2'], [0.64, '#cf68d6'], [0.84, '#ff9fb5'], [1, '#ffd7aa']]);
+  skySun(g, W * 0.3, HY * 0.88, clamp(H * 0.06, 22, 44), 'rgba(255,214,170,.8)', '#fff4de');
+  let s = 3; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  g.fillStyle = 'rgba(255,225,240,.22)';
+  for (let i = 0; i < 7; i++) { g.beginPath(); g.ellipse(rnd() * W, HY * (0.15 + rnd() * 0.5), W * (0.06 + rnd() * 0.12), 2 + rnd() * 3, 0, 0, 7); g.fill(); }   // high cirrus
+  for (let i = 0; i < 5; i++) {   // distant peaks on the horizon
+    const x = W * (0.08 + i * 0.22 + rnd() * 0.08), w = W * (0.05 + rnd() * 0.05), h = H * (0.03 + rnd() * 0.04);
+    g.beginPath(); g.moveTo(x - w, HY + 2); g.lineTo(x, HY - h); g.lineTo(x + w, HY + 2); g.closePath(); g.fillStyle = '#b39be6'; g.fill();
+    g.beginPath(); g.moveTo(x, HY - h); g.lineTo(x + w, HY + 2); g.lineTo(x + w * 0.2, HY + 2); g.closePath(); g.fillStyle = '#9a80dc'; g.fill();
+    g.beginPath(); g.moveTo(x, HY - h); g.lineTo(x - w * 0.3, HY - h * 0.7); g.lineTo(x + w * 0.25, HY - h * 0.68); g.closePath(); g.fillStyle = '#fff0fa'; g.fill();
+  }
+}
+
+/* Brainer city at dusk: lit blocks either side of a wide avenue under the flight path, with streetlights and traffic. */
+const CITY = [['#45329a', '#2e2270', '#241a5a'], ['#3b2b86', '#291e63', '#1f1650'], ['#52389f', '#35267a', '#281d61']];
+function groundCity(now) {
+  const D = 4.4, CW = 4.4, cx = view.camX - view.fieldX, sc = view.scroll;
+  ctx.fillStyle = '#1d1550'; ctx.fillRect(0, HY, W, H - HY);
+  poly([gpt(-3.5, 1), gpt(3.5, 1), gpt(3.5, 64), gpt(-3.5, 64)], '#2a1f68');   // the avenue
+  const dot = (u, z, alt, r, col) => { if (z < 2.5) return; const [x, y] = gpt(u, z, alt), rr = clamp(r * F / z, 1, 16); if (x < -rr || x > W + rr || y > H + rr) return; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, rr, 0, 7); ctx.fill(); };
+  for (let k = 0; k < 30; k++) {   // streetlights along both kerbs, and headlights and tail lights in the lanes
+    const z = ((k * 2.2 - sc) % 66 + 66) % 66 + 1;
+    for (const u of [-3.6, 3.6]) { if (z < 16) dot(u, z, G_H - 0.02, 0.5, 'rgba(255,195,107,.16)'); dot(u, z, G_H - 0.02, 0.14, '#ffc36b'); }
+    const zo = ((k * 5.3 - sc * 1.7) % 66 + 66) % 66 + 1, zs = ((k * 4.1 + 2 - sc * 0.45) % 66 + 66) % 66 + 1;
+    if (k < 14) { dot(-1.5, zo, G_H, 0.1, '#fff6d8'); dot(-1.0, zo, G_H, 0.1, '#fff6d8'); dot(1.0, zs, G_H, 0.09, '#ff4d6d'); dot(1.5, zs, G_H, 0.09, '#ff4d6d'); }
+  }
+  forRows(D, 62, (row, z0) => {
+    const zn = row * D - sc + 0.7, zf = zn + 3;
+    if (zf < 1.2 || groundY(zf) > H) return;
+    const zN = Math.max(1, zn), hs = halfSpan(zN), c0 = Math.floor((cx - hs) / CW), c1 = Math.ceil((cx + hs) / CW), list = [];
+    for (let c = c0; c <= c1; c++) if (c !== -1 && c !== 0) list.push(c);
+    list.sort((a, b) => Math.abs(b * CW + 2.2 - cx) - Math.abs(a * CW + 2.2 - cx));   // outer blocks first, so nearer ones overlap them
+    const warm = new Path2D(), cool = new Path2D();
+    for (const c of list) {
+      const ua = c * CW + 0.7, ub = ua + 3, hh = hash(c, row), h = hh > 0.93 ? 3.3 : 0.5 + 2.3 * hh * hh, top = G_H - h, pal = CITY[Math.floor(hash(row, c) * CITY.length)];
+      const side = (ua + ub) / 2 > cx ? ua : ub;
+      poly([gpt(side, zN), gpt(side, zN, top), gpt(side, zf, top), gpt(side, zf)], pal[2]);
+      poly([gpt(ua, zN, top), gpt(ub, zN, top), gpt(ub, zf, top), gpt(ua, zf, top)], pal[0]);
+      poly([gpt(ua, zN), gpt(ub, zN), gpt(ub, zN, top), gpt(ua, zN, top)], pal[1]);
+      if (zN < 24) {
+        const floors = Math.max(1, Math.round(h * 2)), fh = (h - 0.25) / floors;
+        for (let fy = 0; fy < floors; fy++) for (let fx = 0; fx < 3; fx++) {
+          const v = hash(c * 31 + fx, row * 17 + fy); if (v < 0.42) continue;
+          const [x0, y0] = gpt(ua + 0.4 + fx * 0.85, zN, G_H - 0.15 - fy * fh), [x1, y1] = gpt(ua + 0.85 + fx * 0.85, zN, G_H - 0.15 - fy * fh - fh * 0.55);
+          (v > 0.9 ? cool : warm).rect(x0, y1, x1 - x0, y0 - y1);
+        }
+      }
+      const nv = hash(c + 5, row);
+      if (nv < 0.14) { ctx.beginPath(); ctx.moveTo(...gpt(ua, zN, top)); ctx.lineTo(...gpt(ub, zN, top)); ctx.lineWidth = Math.max(1.5, 0.09 * F / zN); ctx.strokeStyle = nv < 0.07 ? '#ff5fb3' : '#55e6ff'; ctx.stroke(); }   // neon roof edge
+      if (h > 3 && (now / 600 | 0) % 2) { const [x, y] = gpt((ua + ub) / 2, (zN + zf) / 2, top - 0.15); ctx.fillStyle = '#ff3b58'; ctx.beginPath(); ctx.arc(x, y, Math.max(1.5, 0.12 * F / zN), 0, 7); ctx.fill(); }
+    }
+    ctx.fillStyle = '#ffd27a'; ctx.fill(warm); ctx.fillStyle = '#8fe8ff'; ctx.fill(cool);
+  });
+  haze('rgba(223,95,174,.5)', 0.15);
+}
+function skyCity(g) {
+  skyBase(g, [[0, '#0c0a2c'], [0.42, '#271b6e'], [0.72, '#6c35c9'], [0.9, '#df5fae'], [1, '#ff9c7d']]);
+  let s = 11; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 90; i++) { const y = rnd() * HY * 0.62; g.fillStyle = `rgba(255,255,255,${(0.9 - y / HY) * (0.4 + rnd() * 0.6)})`; g.fillRect(rnd() * W, y, 1 + rnd() * 1.2, 1 + rnd() * 1.2); }
+  skySun(g, W * 0.78, HY * 0.3, clamp(H * 0.032, 12, 24), 'rgba(255,220,240,.35)', '#fff2df');
+  for (const [col, hmax, lit] of [['#4a2f99', 0.06, 0], ['#2f2170', 0.1, 1]]) {   // two layers of skyline
+    for (let x = -10; x < W + 10;) {
+      const w = W * (0.012 + rnd() * 0.03), h = H * (0.015 + rnd() * hmax);
+      g.fillStyle = col; g.fillRect(x, HY - h, w, h + 2);
+      if (lit) { g.fillStyle = 'rgba(255,207,122,.75)'; for (let wy = HY - h + 3; wy < HY - 2; wy += 4) for (let wx = x + 2; wx < x + w - 2; wx += 4) if (rnd() < 0.3) g.fillRect(wx, wy, 1.5, 1.5); }
+      x += w + rnd() * 3;
+    }
+  }
+}
+
+const WORLDS = {
+  fields: { name: 'Lavender fields', sky: skyFields, ground: groundFields, shade: 'rgba(75,54,252,.2)',
+    clouds: { n: 14, alt: () => Math.random() < 0.6 ? 2 + Math.random() * 1.8 : -2.8 + Math.random() * 1.6, alpha: 0.95, img: () => puffCloud('#ffffff', '#efeaff', '#c9bdf2') } },
+  clouds: { name: 'Cloud sea', sky: skyClouds, ground: groundClouds, shade: 'rgba(75,54,252,.18)',
+    clouds: { n: 9, alt: () => -0.9 + Math.random() * 2.2, alpha: 0.85, img: () => puffCloud('#fff6f4', '#f8d9ea', '#d6b5ee') } },
+  city: { name: 'City at dusk', sky: skyCity, ground: groundCity, shade: 'rgba(8,6,30,.4)', rim: true,
+    clouds: { n: 6, alt: () => -3.2 + Math.random() * 1.4, alpha: 0.55, img: () => puffCloud('#8a6ad8', '#5a3fb0', '#c35fbf') } }
+};
+let world = WORLDS.fields, worldKey = 'fields', cloudImg = null;
+function setWorld(key) {
+  worldKey = WORLDS[key] ? key : 'fields'; world = WORLDS[worldKey];
+  cloudImg = world.cloudImg || (world.cloudImg = world.clouds.img());
+  clouds = Array.from({ length: world.clouds.n }, () => ({ x: view.camX + (Math.random() - 0.5) * 34, alt: world.clouds.alt(), z: 4 + Math.random() * 56, s: 0.9 + Math.random() * 1.4 }));
+  spires = worldKey === 'clouds' ? Array.from({ length: 5 }, () => spawnSpire(null, false)) : [];
+  if (W) paintSky();
+  document.querySelectorAll('#worlds button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.w === worldKey)));
+}
 
 const gateX = k => (k - 2) * SPREAD;
 const projX = (x, z) => W / 2 + (x - view.camX) * F / z;
@@ -293,7 +509,7 @@ const H_GATE = () => (PY - HY) * ZP / F;   // gates fly at the plane's height
 const gatePos = k => { const z = view.gz; return { x: projX(gateX(k), z), y: altY(H_GATE(), z), r: RING * F / z, z }; };
 
 function setTrack(d, n, rtp) { Object.assign(view, { d, n, rtp, pick: -1, row: null, struck: false, introT: performance.now(), camX: 0 }); }
-function recenter() { for (const c of clouds) c.x -= view.camX; view.fieldX -= view.camX; view.camX = 0; }
+function recenter() { for (const c of clouds) c.x -= view.camX; for (const p of spires) p.x -= view.camX; view.fieldX -= view.camX; view.camX = 0; }
 function sceneStart(d) {
   const now = performance.now();
   recenter(); setTrack(d, 0, round.rtp); plane.brain = myLevel();
@@ -322,7 +538,7 @@ function sceneCrash(now) {
   burst(PX, PY - 40 * PS, 40, ['#ffc147', '#fa7b5b', '#ed2b4b', NAVY], 0.6);
   flashAt = now; flashCol = '255,240,245'; shake = reduced ? 0 : 16;
   Object.assign(plane, { state: 'fall', t0: now, x: PX, y: PY, rot: view.bank, vx: 0.05 * (view.bank >= 0 ? 1 : -1), vy: -0.25, vr: 0.0028 });
-  iris = { t0: now + 450, brain: myLevel() };
+  iris = { t0: now + 380, brain: myLevel() };
 }
 function scenePassed(now) {
   recenter(); setTrack(view.d, round.n, round.rtp);
@@ -335,7 +551,6 @@ function sceneJump(now, m) {
   const big = m >= 10, huge = m >= 100;
   for (let i = 0; i < (big ? 40 : 26); i++) parts.push({ type: 'coin', x: PX, y: PY - 70 * PS, vx: (Math.random() - 0.5) * 0.7, vy: -0.4 - Math.random() * 0.5, g: 0.0011, life: 0, max: 1500 + Math.random() * 600, r: 5 + Math.random() * 4 });
   for (let i = 0; i < (huge ? 160 : big ? 110 : 70); i++) parts.push({ type: 'confetti', x: Math.random() * W, y: -20 - Math.random() * H * 0.4, vx: (Math.random() - 0.5) * 0.08, vy: 0.08 + Math.random() * 0.12, g: 0, life: 0, max: 3200, r: 5 + Math.random() * 4, rot: Math.random() * 7, vr: (Math.random() - 0.5) * 0.02, c: ['#4b36fc', '#8447fb', '#33d66d', '#ffc147', '#ffffff', '#ed6b6b'][i % 6] });
-  if (big) texts.push({ text: huge ? 'HUGE WIN!' : 'BIG WIN!', x: W / 2, y: H * 0.36, t0: now + 250, col: '#ffc147', size: 54, dur: 1800, still: true });
   flashAt = now; flashCol = '200,180,255';
 }
 function burst(x, y, n, cols, sp) {
@@ -353,87 +568,141 @@ function brandText(text, x, y, size, fill, rot, shadow) {
   ctx.fillStyle = fill; ctx.fillText(text, 0, 0); ctx.restore();
 }
 
-/* the player's Brainer from behind in the cockpit (rim at 0,0), built like the Brainer art: a barrel body, a ribbed
-   collar, a wide glass dome holding the brain for this brain level, and floating hands */
+/* the player's Brainer from behind, sitting in the cockpit (rim centre at 0,0), built like the Brainer art: a barrel
+   body, a ribbed collar, a wide glass dome holding the brain for this brain level, and hands gripping the rim.
+   Lit from the upper left like the rest of the scene, so every part reads as a solid. */
 function robotBack(t, L) {
   const [c1, c2, n] = BRAIN[L - 1];
-  const bob = reduced ? 0 : Math.sin(t / 260) * 1.5, side = round && round.status === 'choose' && view.hover >= 0 ? Math.sign(view.hover - 2) : 0;
+  const bob = reduced ? 0 : Math.sin(t / 260) * 1.5;
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   ctx.save(); ctx.translate(0, bob);
-  ctx.beginPath(); ctx.roundRect(-50, -50, 100, 64, 28);   // barrel body, shaded like a cylinder
-  const bg = ctx.createLinearGradient(-50, 0, 50, 0); bg.addColorStop(0, '#bfb3f2'); bg.addColorStop(0.32, '#ffffff'); bg.addColorStop(0.62, '#f3f0ff'); bg.addColorStop(1, '#b9adef');
-  ctx.fillStyle = bg; ctx.fill(); ctx.strokeStyle = LINE; ctx.lineWidth = 2; ctx.stroke();
-  ctx.strokeStyle = 'rgba(140,120,220,.35)'; ctx.lineWidth = 1.5;
-  for (const sx of [-30, 30]) { ctx.beginPath(); ctx.moveTo(sx, -40); ctx.lineTo(sx, 10); ctx.stroke(); }
-  ctx.beginPath(); ctx.roundRect(-14, -36, 28, 15, 7.5); ctx.fillStyle = lin(-14, 0, 14, 0, '#4b36fc', '#8447fb'); ctx.fill();   // level badge on the back
-  ctx.fillStyle = '#ffffff'; ctx.font = '800 11px FiraGO, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(L), 0, -28);
+  // barrel body, a lit cylinder; its lower half sits inside the cockpit
+  ctx.beginPath(); ctx.roundRect(-42, -52, 84, 70, 24);
+  const bg = ctx.createLinearGradient(-42, 0, 42, 0);
+  bg.addColorStop(0, '#8b7dd8'); bg.addColorStop(0.16, '#cfc6ff'); bg.addColorStop(0.36, '#ffffff'); bg.addColorStop(0.62, '#eeeaff'); bg.addColorStop(0.86, '#b2a6ee'); bg.addColorStop(1, '#8476d2');
+  ctx.fillStyle = bg; ctx.fill();
+  const ao = ctx.createLinearGradient(0, -52, 0, -28); ao.addColorStop(0, 'rgba(40,22,120,.28)'); ao.addColorStop(1, 'rgba(40,22,120,0)');
+  ctx.fillStyle = ao; ctx.fill();   // shade under the collar
+  ctx.beginPath(); ctx.roundRect(-22, -38, 44, 30, 9);   // back plate with a bevel
+  ctx.fillStyle = lin(0, -38, 0, -8, '#e9e4ff', '#c4b9f6'); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-17, -37); ctx.lineTo(17, -37); ctx.stroke();
+  ctx.strokeStyle = 'rgba(70,50,170,.35)'; ctx.beginPath(); ctx.moveTo(-17, -9); ctx.lineTo(17, -9); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(-13, -33, 26, 14, 7); ctx.fillStyle = lin(-13, 0, 13, 0, '#4b36fc', '#8447fb'); ctx.fill();   // level badge
+  ctx.fillStyle = '#ffffff'; ctx.font = '800 11px FiraGO, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(L), 0, -25.5);
+  ctx.fillStyle = 'rgba(70,50,170,.4)';
+  for (const vy of [-15, -12]) { ctx.beginPath(); ctx.roundRect(-10, vy, 20, 1.6, 0.8); ctx.fill(); }   // vent slots
   const glow = clamp(1 - (t - (view.glowT || -1e9)) / 700, 0, 1);   // the brain lights up as new cells arrive
   if (glow > 0) { const gg = ctx.createRadialGradient(0, -92, 10, 0, -92, 90); gg.addColorStop(0, c2 + 'cc'); gg.addColorStop(1, c2 + '00'); ctx.globalAlpha = glow; ctx.fillStyle = gg; ctx.fillRect(-90, -182, 180, 180); ctx.globalAlpha = 1; }
-  ctx.save(); ctx.beginPath(); ctx.rect(-70, -160, 140, 106); ctx.clip();   // dome above the collar
-  const gl = ctx.createRadialGradient(-14, -110, 6, 0, -92, 60); gl.addColorStop(0, 'rgba(240,235,255,.75)'); gl.addColorStop(1, 'rgba(176,156,255,.45)');
-  ell(0, -92, 56, 48); ctx.fillStyle = gl; ctx.fill();
+  // dome: a glass sphere with the brain inside
+  ctx.save(); ctx.beginPath(); ctx.rect(-70, -160, 140, 106); ctx.clip();
+  const inner = ctx.createRadialGradient(8, -80, 8, 0, -92, 58); inner.addColorStop(0, 'rgba(226,216,255,.55)'); inner.addColorStop(1, 'rgba(136,108,250,.55)');
+  ell(0, -92, 56, 48); ctx.fillStyle = inner; ctx.fill();
   ctx.save(); ell(0, -92, 54, 46); ctx.clip();
+  const bglow = ctx.createRadialGradient(0, -90, 4, 0, -90, 50); bglow.addColorStop(0, c2 + '55'); bglow.addColorStop(1, c2 + '00');
+  ctx.fillStyle = bglow; ctx.fillRect(-56, -140, 112, 96);
   ctx.lineWidth = 2.5; ctx.strokeStyle = c1;
   for (let i = 1; i < n; i++) { const a = NEURONS[i], b = NEURONS[a.link]; ctx.beginPath(); ctx.moveTo(a.x * 1.15, a.y * 1.04); ctx.lineTo(b.x * 1.15, b.y * 1.04); ctx.stroke(); }
   const pulse = reduced ? 1 : 1 + Math.sin(t / 300) * 0.08;
-  for (let i = 0; i < n; i++) { const a = NEURONS[i], x = a.x * 1.15, y = a.y * 1.04, rr = a.r * 1.15 * pulse, g = ctx.createRadialGradient(x - rr * 0.35, y - rr * 0.35, 0, x, y, rr); g.addColorStop(0, c2); g.addColorStop(1, c1); ell(x, y, rr, rr); ctx.fillStyle = g; ctx.fill(); }
+  for (let i = 0; i < n; i++) {
+    const a = NEURONS[i], x = a.x * 1.15, y = a.y * 1.04, rr = a.r * 1.15 * pulse, g = ctx.createRadialGradient(x - rr * 0.4, y - rr * 0.45, 0, x, y, rr);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.28, c2); g.addColorStop(1, c1); ell(x, y, rr, rr); ctx.fillStyle = g; ctx.fill();
+  }
+  const fres = ctx.createRadialGradient(-6, -98, 22, 0, -92, 56);   // glass gets brighter toward its rim
+  fres.addColorStop(0, 'rgba(255,255,255,0)'); fres.addColorStop(0.72, 'rgba(255,255,255,.08)'); fres.addColorStop(1, 'rgba(255,255,255,.55)');
+  ctx.fillStyle = fres; ctx.fillRect(-56, -140, 112, 96);
   ctx.restore();
-  ell(0, -92, 56, 48); ctx.strokeStyle = 'rgba(83,42,255,.4)'; ctx.lineWidth = 2; ctx.stroke();
-  ell(0, -92, 54, 46); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2.5; ctx.stroke();
-  ctx.beginPath(); ctx.ellipse(0, -92, 44, 37, 0, Math.PI * 1.1, Math.PI * 1.45); ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 6; ctx.stroke();
-  ell(26, -122, 4, 3); ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fill();
+  ell(0, -92, 55, 47); ctx.strokeStyle = 'rgba(83,42,255,.45)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0, -92, 43, 36, 0, Math.PI * 1.08, Math.PI * 1.46); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 7; ctx.stroke();   // window reflection
+  ctx.beginPath(); ctx.ellipse(0, -92, 47, 40, 0, Math.PI * 1.55, Math.PI * 1.7); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; ctx.stroke();
+  ell(24, -121, 4.5, 3); ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0, -92, 50, 42, 0, Math.PI * 0.15, Math.PI * 0.85); ctx.strokeStyle = 'rgba(60,30,170,.18)'; ctx.lineWidth = 5; ctx.stroke();   // the dome's lower edge in shadow
   ctx.restore();
-  ctx.beginPath(); ctx.roundRect(-57, -60, 114, 15, 7.5); ctx.fillStyle = lin(0, -60, 0, -45, '#ffffff', '#d6cdfb'); ctx.fill(); ctx.strokeStyle = LINE; ctx.lineWidth = 2; ctx.stroke();   // ribbed collar
-  ctx.strokeStyle = 'rgba(140,120,220,.4)'; ctx.lineWidth = 1.5;
-  for (let rx = -45; rx <= 45; rx += 15) { ctx.beginPath(); ctx.moveTo(rx, -57); ctx.lineTo(rx, -48); ctx.stroke(); }
+  // ribbed collar, a ring with a lit top
+  ell(0, -50, 56, 9); ctx.fillStyle = 'rgba(40,22,120,.25)'; ctx.fill();   // contact shadow under the dome
+  ctx.beginPath(); ctx.roundRect(-57, -61, 114, 15, 7.5);
+  const cg = ctx.createLinearGradient(0, -61, 0, -46); cg.addColorStop(0, '#ffffff'); cg.addColorStop(0.5, '#e6e0ff'); cg.addColorStop(1, '#a99ce9');
+  ctx.fillStyle = cg; ctx.fill(); ctx.strokeStyle = 'rgba(40,22,120,.25)'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.strokeStyle = 'rgba(110,90,210,.45)'; ctx.lineWidth = 1.5;
+  for (let rx = -45; rx <= 45; rx += 15) { ctx.beginPath(); ctx.moveTo(rx, -58); ctx.lineTo(rx, -49); ctx.stroke(); }
   ctx.restore();
-  for (const sd of [-1, 1]) {   // floating hands; the one on the side you're hovering lifts
-    const hb = (reduced ? 0 : Math.sin(t / 300 + sd) * 2.5) + (side === sd ? -12 : 0);
-    ctx.save(); ctx.translate(sd * 66, -14 + hb); ctx.rotate(sd * (side === sd ? 0.9 : 0.45));
-    ell(0, 0, 11, 17); ctx.fillStyle = lin(-11, 0, 11, 0, sd < 0 ? '#c3b8f3' : '#ffffff', sd < 0 ? '#ffffff' : '#c3b8f3'); ctx.fill(); ctx.strokeStyle = LINE; ctx.lineWidth = 2; ctx.stroke();
+}
+function robotHands(t) {   // hands on the cockpit rim; the one on the side you're hovering lifts toward that path
+  const side = round && round.status === 'choose' && view.hover >= 0 ? Math.sign(view.hover - 2) : 0;
+  for (const sd of [-1, 1]) {
+    const lift = side === sd ? -16 : 0, hb = (reduced ? 0 : Math.sin(t / 300 + sd) * 1.5) + lift;
+    ctx.save(); ctx.translate(sd * 58, 0 + hb); ctx.rotate(sd * (side === sd ? 0.8 : 0.25));
+    ell(sd * 2, 6, 12, 5); ctx.fillStyle = 'rgba(30,16,90,.25)'; ctx.fill();
+    const hg = ctx.createRadialGradient(-sd * 4 - 2, -5, 1, 0, 0, 15); hg.addColorStop(0, '#ffffff'); hg.addColorStop(0.55, '#e4ddff'); hg.addColorStop(1, '#9c8fe2');
+    ell(0, 0, 12, 14); ctx.fillStyle = hg; ctx.fill();
     ctx.restore();
   }
 }
 
-/* the plane from behind; origin at the cockpit rim. Slim wings with winglets, a V-tail and no wheels. */
+/* the plane from behind and a little above; origin at the cockpit rim. A rounded fuselage tapering to the tail,
+   wings with dihedral and a visible trailing edge, a twin tail nearest the camera, and the propeller spinning out
+   ahead of the nose. Shaded as solids lit from the upper left. */
 function planeBack(x, y, s, rot, t, pilot, soot, L) {
   ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
   if (soot) ctx.filter = 'brightness(.45) saturate(.5)';
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  if (!soot && !reduced) for (const sd of [-1, 1]) {   // contrails streaming back from the wingtips
-    const w = Math.sin(t / 140 + sd) * 3, tr = ctx.createLinearGradient(sd * 214, 0, sd * 246, 130);
-    tr.addColorStop(0, 'rgba(255,255,255,.6)'); tr.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.beginPath(); ctx.moveTo(sd * 213, 0); ctx.quadraticCurveTo(sd * (226 + w), 60, sd * (244 + w), 130); ctx.lineTo(sd * (252 + w), 130); ctx.quadraticCurveTo(sd * (232 + w), 60, sd * 219, 0); ctx.closePath(); ctx.fillStyle = tr; ctx.fill();
+  if (!soot && !reduced) for (const sd of [-1, 1]) {   // short contrails from the wingtips
+    const w = Math.sin(t / 140 + sd) * 2, tr = ctx.createLinearGradient(0, -10, 0, 52);
+    tr.addColorStop(0, 'rgba(255,255,255,.5)'); tr.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.beginPath(); ctx.moveTo(sd * 229, -10); ctx.quadraticCurveTo(sd * (236 + w), 20, sd * (244 + w), 52); ctx.lineTo(sd * (249 + w), 52); ctx.quadraticCurveTo(sd * (241 + w), 20, sd * 235, -10); ctx.closePath(); ctx.fillStyle = tr; ctx.fill();
   }
-  const disc = ctx.createRadialGradient(0, 22, 20, 0, 22, 98); disc.addColorStop(0, 'rgba(255,255,255,.28)'); disc.addColorStop(1, 'rgba(255,255,255,.04)');
-  ell(0, 22, 98, 98); ctx.fillStyle = disc; ctx.fill();   // propeller disc
-  ctx.save(); const pa = t / 18;
-  for (const o of [0, Math.PI * 2 / 3, Math.PI * 4 / 3]) { ctx.beginPath(); ctx.moveTo(0, 22); ctx.arc(0, 22, 94, pa + o, pa + o + 0.18); ctx.closePath(); ctx.fillStyle = 'rgba(10,19,34,.16)'; ctx.fill(); }
-  ctx.restore();
-  ctx.strokeStyle = LINE; ctx.lineWidth = 2;
+  // propeller disc out ahead of the nose, seen around the fuselage
+  const disc = ctx.createRadialGradient(0, -10, 30, 0, -10, 100); disc.addColorStop(0, 'rgba(255,255,255,.05)'); disc.addColorStop(0.85, 'rgba(255,255,255,.22)'); disc.addColorStop(1, 'rgba(255,255,255,0)');
+  ell(0, -10, 100, 100); ctx.fillStyle = disc; ctx.fill();
+  if (!reduced) {
+    const pa = t / 16, bl = ctx.createRadialGradient(0, -10, 20, 0, -10, 96); bl.addColorStop(0, 'rgba(27,22,64,0)'); bl.addColorStop(1, 'rgba(27,22,64,.08)');
+    for (const o of [0, Math.PI * 2 / 3, Math.PI * 4 / 3]) { ctx.beginPath(); ctx.moveTo(0, -10); ctx.arc(0, -10, 96, pa + o, pa + o + 0.32); ctx.closePath(); ctx.fillStyle = bl; ctx.fill(); }
+  }
+  // main wing: the top surface, then the trailing edge facing the camera
   for (const sd of [-1, 1]) {
-    ctx.beginPath(); ctx.moveTo(sd * 40, 18); ctx.lineTo(sd * 206, 0); ctx.quadraticCurveTo(sd * 220, 0, sd * 218, 10); ctx.lineTo(sd * 212, 16); ctx.lineTo(sd * 40, 40); ctx.closePath();
-    ctx.fillStyle = lin(0, 0, 0, 40, '#ffffff', '#cfc6f7'); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(sd * 60, 33); ctx.lineTo(sd * 200, 14); ctx.strokeStyle = lin(sd * 60, 0, sd * 200, 0, '#4b36fc', '#8447fb'); ctx.lineWidth = 4; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(sd * 208, 2); ctx.lineTo(sd * 214, -26); ctx.quadraticCurveTo(sd * 218, -30, sd * 222, -26); ctx.lineTo(sd * 220, 8); ctx.closePath();   // winglet
-    ctx.fillStyle = lin(0, -30, 0, 8, '#8447fb', '#4b36fc'); ctx.fill();
-    ell(sd * 216, -27, 3, 3); ctx.fillStyle = (t / 500 | 0) % 2 ? '#ffffff' : (sd < 0 ? '#ed2b4b' : '#33d66d'); ctx.fill();   // blinking nav lights
-    ctx.strokeStyle = LINE; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(sd * 56, 0); ctx.lineTo(sd * 222, -18); ctx.quadraticCurveTo(sd * 236, -17, sd * 236, -6); ctx.lineTo(sd * 224, 4); ctx.lineTo(sd * 56, 38); ctx.closePath();
+    const wg = ctx.createLinearGradient(0, -18, 0, 36); wg.addColorStop(0, '#ffffff'); wg.addColorStop(0.5, '#f1edff'); wg.addColorStop(1, '#c9bdf7');
+    ctx.fillStyle = wg; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(sd * 56, 38); ctx.lineTo(sd * 224, 4); ctx.lineTo(sd * 224, 10); ctx.lineTo(sd * 56, 47); ctx.closePath();
+    ctx.fillStyle = lin(0, 4, 0, 45, '#a395e6', '#7a6bd0'); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(sd * 132, -6); ctx.lineTo(sd * 196, -14); ctx.lineTo(sd * 198, -4); ctx.lineTo(sd * 134, 6); ctx.closePath();   // brand stripe near the tip
+    ctx.fillStyle = lin(sd * 132, 0, sd * 198, 0, '#4b36fc', '#8447fb'); ctx.fill();
+    ctx.strokeStyle = 'rgba(80,60,180,.25)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(sd * 120, 20); ctx.lineTo(sd * 210, 6); ctx.stroke();   // aileron hinge
+    ctx.beginPath(); ctx.moveTo(sd * 222, -18); ctx.quadraticCurveTo(sd * 236, -17, sd * 236, -6); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; ctx.stroke();
+    ell(sd * 232, -14, 6, 4); ctx.fillStyle = lin(0, -18, 0, -10, '#ffffff', '#c9bdf7'); ctx.fill();   // wingtip light housing
+    ell(sd * 232, -15, 2.6, 2.6); ctx.fillStyle = (t / 500 | 0) % 2 ? '#ffffff' : (sd < 0 ? '#ff3b58' : '#33d66d'); ctx.fill();
   }
-  const body = ctx.createRadialGradient(-20, 4, 6, 0, 26, 72); body.addColorStop(0, '#ffffff'); body.addColorStop(1, '#c8bdf5');
-  ell(0, 26, 60, 50); ctx.fillStyle = body; ctx.fill(); ctx.stroke();
-  ctx.save(); ctx.strokeStyle = lin(-50, 0, 50, 0, '#4b36fc', '#8447fb'); ctx.lineWidth = 8; ctx.beginPath(); ctx.ellipse(0, 26, 50, 40, 0, Math.PI * 0.12, Math.PI * 0.88); ctx.stroke(); ctx.restore();
-  ctx.beginPath(); ctx.ellipse(-20, 8, 22, 9, -0.5, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fill();   // gloss
-  ell(0, -4, 52, 15); ctx.fillStyle = '#1b1640'; ctx.fill();   // cockpit
+  // fuselage, a lit cylinder tapering to the tail cone
+  const hull = () => { ctx.beginPath(); ctx.moveTo(-70, 8); ctx.bezierCurveTo(-74, 50, -38, 92, -14, 106); ctx.quadraticCurveTo(0, 113, 14, 106); ctx.bezierCurveTo(38, 92, 74, 50, 70, 8); ctx.bezierCurveTo(68, -18, -68, -18, -70, 8); ctx.closePath(); };
+  hull(); const fg = ctx.createLinearGradient(-72, 0, 72, 0);
+  fg.addColorStop(0, '#a093e4'); fg.addColorStop(0.2, '#e4defe'); fg.addColorStop(0.38, '#ffffff'); fg.addColorStop(0.66, '#ebe6ff'); fg.addColorStop(1, '#9284dc');
+  ctx.fillStyle = fg; ctx.fill();
+  const fsh = ctx.createLinearGradient(0, 40, 0, 112); fsh.addColorStop(0, 'rgba(50,30,150,0)'); fsh.addColorStop(1, 'rgba(50,30,150,.3)'); ctx.fillStyle = fsh; ctx.fill();
+  ctx.save(); hull(); ctx.clip();
+  ctx.beginPath(); ctx.moveTo(-9, 40); ctx.lineTo(9, 40); ctx.lineTo(4, 112); ctx.lineTo(-4, 112); ctx.closePath(); ctx.fillStyle = lin(0, 40, 0, 112, '#8447fb', '#4b36fc'); ctx.fill();   // spine stripe
+  ell(-38, 36, 10, 32, 0.25); ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fill();   // highlight
+  ctx.restore();
+  // windscreen ahead of the pilot
+  ctx.beginPath(); ctx.moveTo(-50, -2); ctx.quadraticCurveTo(-48, -34, 0, -38); ctx.quadraticCurveTo(48, -34, 50, -2); ctx.closePath();
+  ctx.fillStyle = 'rgba(200,225,255,.35)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2.5; ctx.stroke();
+  // cockpit: a dark opening, the pilot inside, then the padded near lip
+  ell(0, 2, 56, 18); ctx.fillStyle = lin(0, -16, 0, 20, '#120d33', '#2a2163'); ctx.fill();
   if (pilot) robotBack(t, L);
-  ctx.strokeStyle = '#d6cdfb'; ctx.lineWidth = 8; ctx.beginPath(); ctx.ellipse(0, -4, 52, 15, 0, 0, Math.PI); ctx.stroke();
-  ctx.strokeStyle = LINE; ctx.lineWidth = 2;
-  for (const sd of [-1, 1]) {   // V-tail, nearest to the camera
-    ctx.beginPath(); ctx.moveTo(sd * 8, 64); ctx.lineTo(sd * 50, 36); ctx.quadraticCurveTo(sd * 58, 32, sd * 58, 40); ctx.lineTo(sd * 18, 74); ctx.closePath();
-    ctx.fillStyle = lin(0, 20, 0, 76, '#8447fb', '#4b36fc'); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0, 2, 56, 18, 0, 0, Math.PI); ctx.lineWidth = 10; ctx.strokeStyle = lin(0, 2, 0, 24, '#ffffff', '#c3b6f5'); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0, 2, 56, 18, 0, Math.PI * 0.15, Math.PI * 0.85); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.stroke();
+  if (pilot) robotHands(t);
+  // twin tail, nearest the camera: the tailplane, then a fin at each tip
+  for (const sd of [-1, 1]) {
+    ctx.beginPath(); ctx.moveTo(sd * 12, 84); ctx.lineTo(sd * 92, 72); ctx.quadraticCurveTo(sd * 102, 72, sd * 100, 80); ctx.lineTo(sd * 92, 86); ctx.lineTo(sd * 12, 98); ctx.closePath();
+    ctx.fillStyle = lin(0, 72, 0, 98, '#ffffff', '#cbbff7'); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(sd * 12, 98); ctx.lineTo(sd * 92, 86); ctx.lineTo(sd * 92, 91); ctx.lineTo(sd * 12, 104); ctx.closePath(); ctx.fillStyle = '#8e80dc'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(sd * 54, 86); ctx.lineTo(sd * 96, 80); ctx.lineTo(sd * 118, 38); ctx.quadraticCurveTo(sd * 114, 28, sd * 98, 30); ctx.closePath();   // fins canted outward, so their inner face shows
+    ctx.fillStyle = lin(sd * 54, 86, sd * 112, 30, sd < 0 ? '#6a4dff' : '#5a3ffc', sd < 0 ? '#b79bff' : '#9a7cff'); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(sd * 76, 82); ctx.lineTo(sd * 104, 34); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sd * 98, 30); ctx.quadraticCurveTo(sd * 114, 28, sd * 118, 38); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.stroke();
+    ell(sd * 113, 31, 2.6, 2.6); ctx.fillStyle = (t / 700 | 0) % 2 ? '#ffc147' : '#ffffff'; ctx.fill();
   }
-  ell(0, 68, 12, 10); ctx.fillStyle = lin(0, 58, 0, 78, '#ffffff', '#cfc6f7'); ctx.fill(); ctx.stroke();
-  ell(0, 69, 4, 4); ctx.fillStyle = (t / 400 | 0) % 2 ? '#ffc147' : '#ffffff'; ctx.fill();   // tail light
+  ell(0, 106, 10, 7); ctx.fillStyle = lin(0, 100, 0, 113, '#ffffff', '#b6a9ef'); ctx.fill();   // tail cone
+  ell(0, 107, 3.5, 3.5); ctx.fillStyle = (t / 400 | 0) % 2 ? '#ffc147' : '#ffffff'; ctx.fill();
   ctx.restore();
 }
 function chuteDraw(x, y, s, t, open, alpha, L) {
@@ -443,9 +712,14 @@ function chuteDraw(x, y, s, t, open, alpha, L) {
     ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(255,255,255,.85)';
     for (const px of [-138, -70, 70, 138]) { ctx.beginPath(); ctx.moveTo(px, -150); ctx.lineTo(px < 0 ? -62 : 62, -10); ctx.stroke(); }
     const dome = () => { ctx.beginPath(); ctx.moveTo(-150, -150); ctx.bezierCurveTo(-150, -272, 150, -272, 150, -150); for (let i = 5; i >= 0; i--) { const xa = -150 + i * 50; ctx.quadraticCurveTo(xa + 25, -136, xa, -150); } ctx.closePath(); };
-    dome(); ctx.fillStyle = '#ffffff'; ctx.fill();
-    ctx.save(); dome(); ctx.clip(); ctx.fillStyle = lin(-150, -260, 150, -140, '#4b36fc', '#8447fb');
+    const cg = ctx.createRadialGradient(-55, -250, 10, 0, -190, 200); cg.addColorStop(0, '#ffffff'); cg.addColorStop(0.6, '#f2eeff'); cg.addColorStop(1, '#c6baf5');
+    dome(); ctx.fillStyle = cg; ctx.fill();
+    ctx.save(); dome(); ctx.clip(); ctx.fillStyle = lin(-150, -260, 150, -140, '#6a52ff', '#5a2fe0');
     for (let i = 0; i < 6; i += 2) { ctx.beginPath(); ctx.moveTo(0, -290); ctx.lineTo(-150 + i * 50, -130); ctx.lineTo(-100 + i * 50, -130); ctx.closePath(); ctx.fill(); }
+    const sh = ctx.createRadialGradient(-55, -250, 30, 0, -190, 190); sh.addColorStop(0, 'rgba(255,255,255,.35)'); sh.addColorStop(0.5, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(40,20,120,.3)');
+    ctx.fillStyle = sh; ctx.fillRect(-160, -290, 320, 170);   // the canopy as a lit dome
+    const lip = ctx.createLinearGradient(0, -172, 0, -134); lip.addColorStop(0, 'rgba(40,20,120,0)'); lip.addColorStop(1, 'rgba(40,20,120,.32)');
+    ctx.fillStyle = lip; ctx.fillRect(-160, -172, 320, 40);   // its lower edge curls into shadow
     ctx.restore();
     ctx.restore();
   }
@@ -461,6 +735,7 @@ function bomb(x, y, r, rot, t) {
   ctx.beginPath(); ctx.roundRect(-r * 0.32, -r * 1.2, r * 0.64, r * 0.36, r * 0.08); ctx.fillStyle = '#3a3f58'; ctx.fill();
   const g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r); g.addColorStop(0, '#3a4366'); g.addColorStop(1, NAVY);
   ell(0, 0, r, r); ctx.fillStyle = g; ctx.fill();
+  if (world.rim) { ell(0, 0, r, r); ctx.lineWidth = Math.max(1, r * 0.08); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.stroke(); }
   ell(-r * 0.38, -r * 0.38, r * 0.28, r * 0.17, -0.7); ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.fill();
   if ((t / 70 | 0) % 2 === 0 || reduced) { star(r * 0.3, -r * 1.9, r * 0.45, 5, 0.45); ctx.fillStyle = '#ffc147'; ctx.fill(); }
   ctx.restore();
@@ -468,23 +743,25 @@ function bomb(x, y, r, rot, t) {
 function drawBoom(b, now) {
   const a = (now - b.t0) / b.dur;
   if (a < 0 || a >= 1) return;
-  const grow = easeOut(Math.min(1, a * 2.6)), fade = a < 0.6 ? 1 : 1 - (a - 0.6) / 0.4;
-  ctx.save(); ctx.translate(b.x, b.y); ctx.globalAlpha = fade;
-  for (let i = 0; i < 7; i++) {   // smoke
-    const an = b.rot + i * 0.9, d = b.r * (0.35 + 0.6 * a);
-    ell(Math.cos(an) * d, Math.sin(an) * d * 0.7 - a * b.r * 0.4, b.r * (0.22 + 0.22 * a), b.r * (0.2 + 0.2 * a)); ctx.fillStyle = 'rgba(86,78,118,.7)'; ctx.fill();
+  const R = Math.min(b.r, Math.min(W, H) * (b.front ? 0.42 : 0.24)), grow = easeOut(Math.min(1, a * 3)), fade = a < 0.55 ? 1 : 1 - (a - 0.55) / 0.45;
+  ctx.save(); ctx.translate(b.x, b.y);
+  if (a < 0.5) { const q = a / 0.5; ell(0, 0, R * (0.5 + q), R * (0.5 + q) * 0.88); ctx.lineWidth = R * 0.07 * (1 - q); ctx.strokeStyle = `rgba(255,238,210,${0.75 * (1 - q)})`; ctx.stroke(); }   // shockwave
+  for (let i = 0; i < 7; i++) {   // smoke, lit from above
+    const an = b.rot + i * 0.9, d = R * (0.22 + 0.5 * a), px = Math.cos(an) * d, py = Math.sin(an) * d * 0.6 - a * R * 0.45, pr = R * (0.2 + 0.24 * a);
+    const sg = ctx.createRadialGradient(px - pr * 0.3, py - pr * 0.4, pr * 0.1, px, py, pr); sg.addColorStop(0, '#9b93ba'); sg.addColorStop(1, 'rgba(62,56,92,.9)');
+    ctx.globalAlpha = 0.8 * fade * clamp(a * 4, 0, 1); ell(px, py, pr, pr * 0.92); ctx.fillStyle = sg; ctx.fill();
   }
-  if (a < 0.7) {
-    const R = b.r * (0.35 + 0.65 * grow);
-    ctx.rotate(b.rot);
-    star(0, 0, R, 12, 0.56); ctx.fillStyle = '#ed2b4b'; ctx.fill();
-    star(0, 0, R * 0.78, 12, 0.52); ctx.fillStyle = '#fa7b5b'; ctx.fill();
-    star(0, 0, R * 0.56, 12, 0.5); ctx.fillStyle = '#ffc147'; ctx.fill();
-    ell(0, 0, R * 0.24, R * 0.24); ctx.fillStyle = '#fff6e0'; ctx.fill();
-    ctx.rotate(-b.rot);
+  if (a < 0.6) {   // fireball
+    const k = 1 - a / 0.6;
+    for (let i = 0; i < 5; i++) {
+      const an = b.rot * 2 + i * 1.26, d = R * 0.2 * grow, px = Math.cos(an) * d, py = Math.sin(an) * d * 0.8, fr = R * (0.3 + 0.24 * grow) * (0.7 + 0.3 * k);
+      const fg = ctx.createRadialGradient(px, py, 0, px, py, fr); fg.addColorStop(0, '#fffbe6'); fg.addColorStop(0.3, '#ffd45a'); fg.addColorStop(0.65, '#ff7a3d'); fg.addColorStop(1, 'rgba(237,43,75,0)');
+      ctx.globalAlpha = Math.sqrt(k); ell(px, py, fr, fr); ctx.fillStyle = fg; ctx.fill();
+    }
   }
+  if (a < 0.18) { const fl = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.8); fl.addColorStop(0, 'rgba(255,255,255,.95)'); fl.addColorStop(1, 'rgba(255,255,255,0)'); ctx.globalAlpha = 1 - a / 0.18; ell(0, 0, R * 0.8, R * 0.8); ctx.fillStyle = fl; ctx.fill(); }
   ctx.restore();
-  if (b.text && a < 0.75) brandText(b.text, b.x, b.y - b.r * (0.15 + 0.2 * a), b.r * 0.4 * (0.7 + 0.3 * grow), '#ffffff', -0.1);
+  if (b.text && a < 0.75) { const sz = R * 0.36 * (0.7 + 0.3 * grow), hw = sz * 0.34 * b.text.length + 8; brandText(b.text, clamp(b.x, hw, W - hw), b.y - R * (0.15 + 0.2 * a), sz, '#ffffff', -0.1); }   // the words stay on screen even when the blast is at the edge
 }
 function drawGate(k, now, front) {
   const r = round, choosing = r && r.status === 'choose';
@@ -509,7 +786,12 @@ function drawGate(k, now, front) {
     ell(g.x, g.y + lw * 0.35, g.r, g.r); ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(10,19,34,.16)'; ctx.stroke();
     if (st !== 'boom') { const gf = ctx.createRadialGradient(g.x, g.y - g.r * 0.3, 0, g.x, g.y, g.r); gf.addColorStop(0, 'rgba(255,255,255,.22)'); gf.addColorStop(1, 'rgba(255,255,255,.04)'); ell(g.x, g.y, g.r - lw / 2, g.r - lw / 2); ctx.fillStyle = gf; ctx.fill(); }   // glass
     ell(g.x, g.y, g.r, g.r);
-    ctx.lineWidth = lw; ctx.strokeStyle = st === 'boom' ? '#2a2540' : st === 'safe' ? lin(g.x - g.r, 0, g.x + g.r, 0, '#33d66d', '#00ebc0') : st === 'picked' || hov ? lin(g.x - g.r, 0, g.x + g.r, 0, '#4b36fc', '#8447fb') : '#ffffff'; ctx.stroke();
+    ctx.lineWidth = lw; ctx.strokeStyle = st === 'boom' ? '#2a2540' : st === 'safe' ? lin(g.x - g.r, 0, g.x + g.r, 0, '#33d66d', '#00ebc0') : st === 'picked' || hov ? lin(g.x - g.r, 0, g.x + g.r, 0, '#4b36fc', '#8447fb') : lin(0, g.y - g.r, 0, g.y + g.r, '#ffffff', '#d9cffc'); ctx.stroke();
+    if (st !== 'boom') {   // the ring's volume: a lit upper-left edge and a shaded lower-right edge
+      ctx.beginPath(); ctx.arc(g.x, g.y, g.r + lw * 0.22, Math.PI * 0.95, Math.PI * 1.7); ctx.lineWidth = lw * 0.28; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(g.x, g.y, g.r + lw * 0.22, Math.PI * 0.05, Math.PI * 0.75); ctx.lineWidth = lw * 0.3; ctx.strokeStyle = st === 'idle' && !hov ? 'rgba(83,42,255,.28)' : 'rgba(10,19,34,.25)'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(g.x, g.y, g.r - lw * 0.5, Math.PI * 1.1, Math.PI * 1.9); ctx.lineWidth = lw * 0.18; ctx.strokeStyle = 'rgba(30,20,90,.18)'; ctx.stroke();
+    }
     if (st === 'idle' || st === 'picked') {
       ctx.setLineDash([g.r * 0.18, g.r * 0.32]); ctx.lineDashOffset = reduced ? 0 : -now / (st === 'picked' ? 8 : hov ? 15 : 40);
       ctx.lineWidth = lw * 0.32; ctx.strokeStyle = st === 'picked' || hov ? '#ffffff' : '#8447fb'; ctx.stroke(); ctx.setLineDash([]);
@@ -532,7 +814,8 @@ function update(now, dt) {
   view.speed += ((flying ? 2.6 : 1) - view.speed) * Math.min(1, dt * 0.005);
   const ds = view.speed * dt * 0.0035 * (reduced ? 0.5 : 1);
   view.scroll += ds;
-  for (const c of clouds) { c.z -= ds; if (c.z < 1) { c.z = 46 + Math.random() * 14; c.x = view.camX + (Math.random() - 0.5) * 34; c.alt = -2.6 + Math.random() * 4.2; } }
+  for (const c of clouds) { c.z -= ds; if (c.z < 1) { c.z = 46 + Math.random() * 14; c.x = view.camX + (Math.random() - 0.5) * 34; c.alt = world.clouds.alt(); } }
+  for (const p of spires) { p.z -= ds; if (p.z < 1) spawnSpire(p, true); }
   if (flying) {
     const p = clamp((now - r.t0) / FLY_MS, 0, 1), pp = r.hit ? Math.min(p, IMPACT) : p;
     view.gz = lerp(Z_WAIT, ZP * 0.45, ease(pp)); view.camX = gateX(view.pick) * ease(clamp(pp / 0.8, 0, 1));
@@ -571,34 +854,17 @@ function update(now, dt) {
   shake *= Math.pow(0.9, dt / 16);
 }
 
-function drawGround() {
-  const D = 3.2, CW = 3.4, base = Math.floor(view.scroll / D);
-  const FIELD = ['#e6defd', '#ddd3fb', '#efe9ff', '#d4c9f8', '#e9e2fe', '#e0d7fc', '#f3eeff', '#d9cffa'];
-  ctx.fillStyle = '#e4dcfd'; ctx.fillRect(0, HY, W, H - HY);
-  for (let k = 28; k >= 0; k--) {
-    const row = base + k, z0 = Math.max(0.6, row * D - view.scroll), z1 = row * D + D - view.scroll;
-    if (z1 <= 0.6) continue;
-    const y0 = Math.min(H + 2, altY(G_H, z0)), y1 = altY(G_H, z1);
-    if (y1 > H) continue;
-    const half = (W / 2) * z0 / F + CW, c0 = Math.floor((view.camX - view.fieldX - half) / CW), c1 = Math.ceil((view.camX - view.fieldX + half) / CW);
-    for (let c = c0; c <= c1; c++) {
-      const xa = c * CW + view.fieldX, xb = xa + CW;
-      ctx.fillStyle = FIELD[((row * 7 + c * 13) % FIELD.length + FIELD.length) % FIELD.length];
-      ctx.beginPath(); ctx.moveTo(projX(xa, z0), y0); ctx.lineTo(projX(xb, z0), y0); ctx.lineTo(projX(xb, z1), y1); ctx.lineTo(projX(xa, z1), y1); ctx.closePath(); ctx.fill();
-    }
-  }
-  const g = ctx.createLinearGradient(0, HY, 0, HY + H * 0.24);
-  g.addColorStop(0, 'rgba(246,240,255,.95)'); g.addColorStop(1, 'rgba(246,240,255,0)');
-  ctx.fillStyle = g; ctx.fillRect(0, HY - 1, W, H * 0.24);
-  const v = ctx.createLinearGradient(0, H * 0.6, 0, H);   // violet shade so the white plane stands out
-  v.addColorStop(0, 'rgba(75,54,252,0)'); v.addColorStop(1, 'rgba(75,54,252,.28)');
+function drawGround(now) {
+  world.ground(now);
+  const v = ctx.createLinearGradient(0, H * 0.6, 0, H);   // shade at the bottom so the white plane stands out
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, world.shade);
   ctx.fillStyle = v; ctx.fillRect(0, H * 0.6, W, H * 0.4);
 }
 function drawCloud(c, near) {
   if (c.z < 1) return;
   const w = c.s * 2.6 * F / c.z, h = w * 170 / 300, x = projX(c.x, c.z), y = altY(c.alt, c.z);
   if (x + w / 2 < 0 || x - w / 2 > W || y - h > H || y + h < 0) return;
-  ctx.globalAlpha = clamp((c.z - 1) / 2.5, 0, 1) * clamp((60 - c.z) / 14, 0, 1) * (near === true ? 0.4 : 0.9);
+  ctx.globalAlpha = clamp((c.z - 1) / 2.5, 0, 1) * clamp((60 - c.z) / 14, 0, 1) * world.clouds.alpha * (near === true ? 0.45 : 1);
   ctx.drawImage(cloudImg, x - w / 2, y - h / 2, w, h); ctx.globalAlpha = 1;
 }
 function drawPlane(now) {
@@ -622,7 +888,7 @@ function draw(now) {
   ctx.save();
   if (shake > 0.5) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
   ctx.drawImage(sky, 0, 0, W, HY + 2);
-  drawGround();
+  drawGround(now);
   const far = clouds.filter(c => c.z >= view.gz).sort((a, b) => b.z - a.z), near = clouds.filter(c => c.z < view.gz).sort((a, b) => b.z - a.z);
   far.forEach(c => drawCloud(c));
   for (const b of drops) if (!b.real) {   // distant bombs
@@ -686,9 +952,11 @@ function draw(now) {
       const R = lerp(R0, R1, easeOut(k));
       ctx.fillStyle = NAVY; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(cx, cy, R, 0, Math.PI * 2, true); ctx.fill();
       ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
-      const g = ctx.createRadialGradient(cx, cy - R * 0.2, R * 0.1, cx, cy, R); g.addColorStop(0, '#f4eeff'); g.addColorStop(0.7, '#d9c9ff'); g.addColorStop(1, '#b89cff');
+      const g = ctx.createRadialGradient(cx, cy - R * 0.1, R * 0.05, cx, cy, R); g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, '#e7dcff'); g.addColorStop(0.75, '#a688ff'); g.addColorStop(1, '#6a4cf5');
       ctx.fillStyle = g; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);   // solid backdrop: nothing from the scene shows behind the robot
-      const pop = clamp((now - iris.t0 - 300) / 400, 0, 1), img = sootyRobot(iris.brain);
+      ctx.fillStyle = 'rgba(255,255,255,.16)';
+      for (let i = 0; i < 14; i++) { const a0 = (reduced ? 0 : now / 2600) + i * Math.PI / 7; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a0 + Math.PI / 16); ctx.closePath(); ctx.fill(); }   // cartoon rays
+      const pop = clamp((now - iris.t0 - 120) / 380, 0, 1), img = sootyRobot(iris.brain);
       if (pop > 0 && img) {
         const sz = R1 * 1.75 * easeBack(pop);
         ctx.translate(cx, cy); ctx.rotate(reduced ? 0 : Math.sin(now / 300) * 0.05);
@@ -729,9 +997,9 @@ function updateUI(now) {
     big = fx(cur); sub = r.n ? `Jump now: ${money(Math.min(r.stake * cur, cfg.maxWin))} · next ${fx(next)}` : `A safe path pays ${fx(next)}`;
   } else if (r.status === 'flying') { label = `Path ${r.pick + 1} · bombs away…`; big = fx(multAt(r.d, r.n, r.rtp)); sub = `Safe path pays ${fx(multAt(r.d, r.n + 1, r.rtp))}`; }
   else if (r.status === 'crashed') { label = 'Ka-boom!'; big = 'Crashed'; bigCls = 'mult bust'; sub = `Bomb on path ${r.pick + 1} · −${money(r.stake)}`; subCls = 'sub bad'; }
-  else { label = `Jumped after ${r.n} path${r.n === 1 ? '' : 's'}!`; big = fx(multAt(r.d, r.n, r.rtp)); bigCls = 'mult win'; sub = `You won ${money(r.payout)}`; subCls = 'sub ok'; }
+  else { const m = multAt(r.d, r.n, r.rtp); label = m >= 100 ? 'Huge win!' : m >= 10 ? 'Big win!' : `Jumped after ${r.n} path${r.n === 1 ? '' : 's'}!`; big = fx(m); bigCls = m >= 10 ? 'mult win gold' : 'mult win'; sub = `You won ${money(r.payout)}`; subCls = 'sub ok'; }
   if (r && r.popAt && now - r.popAt < 400 && r.status === 'choose') bigCls += ' pop';
-  put('label', 'text', label); put('mult', 'text', big); put('mult', 'class', bigCls);
+  put('label', 'text', label); put('label', 'class', /win!$/.test(label) ? 'label gold' : 'label'); put('mult', 'text', big); put('mult', 'class', bigCls);
   put('sub', 'hidden', !sub); put('sub', 'text', sub); put('sub', 'class', subCls);
   if (r && inFlight()) {
     put('jump', 'disabled', !(r.status === 'choose' && r.n >= 1));
@@ -853,6 +1121,14 @@ document.addEventListener('keydown', e => {
 });
 
 /* ---------- boot ---------- */
+{
+  const q = new URLSearchParams(location.search), sw = $('#worlds');
+  setWorld(q.get('world'));
+  if (q.has('worlds') || q.has('world')) {
+    sw.hidden = false;
+    sw.addEventListener('click', e => { const b = e.target.closest('button[data-w]'); if (!b) return; setWorld(b.dataset.w); q.set('world', worldKey); history.replaceState(null, '', '?' + q.toString()); });
+  }
+}
 S.client = randHex(8);
 rotateSeed();
 setStake(S.stake); renderLevels(); renderPaths(); renderBalance(); renderControls(); renderPilot(); renderSound();
