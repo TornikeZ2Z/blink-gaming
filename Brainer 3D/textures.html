@@ -1,0 +1,14 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>textures</title></head>
+<body><script type="module">
+// The LED textures the Blender kit puts on the visor and the chest, drawn by the same code as the games and the site.
+import { draw, drawNumber } from '../shared/led-face.js';
+const make = (w, h, round, fn) => {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'), k = w / 360;
+  g.translate(w / 2, h / 2); g.scale(k, k); g.beginPath(); g.roundRect(-180, -100, 360, 200, round); g.clip(); fn(g, k);
+  return c.toDataURL('image/png');
+};
+window.face = (ex, power = 1) => make(1080, 600, 73, (g, k) => draw(g, ex, 1000, { k, power }));
+window.number = n => make(720, 400, 40, (g, k) => drawNumber(g, n, { k }));
+document.title = 'ready';
+</script></body></html>
