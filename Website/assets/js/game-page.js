@@ -91,6 +91,13 @@ const done = () => loader.classList.add('done');
 $('iframe', box).addEventListener('load', () => { done(); jumpToHash(); });   // the frame can steal the first jump to #specs or #how
 setTimeout(done, 8000);
 
+// The games' own full-screen button: framed here, they ask the page to hide its header and game bar as well, which on
+// iPhone (no element full screen) is the only way to give the game the whole screen.
+addEventListener('message', e => {
+  if (e.origin !== location.origin || e.source !== $('iframe', box).contentWindow || !e.data || e.data.type !== 'brainer:focus') return;
+  document.body.classList.toggle('game-focus', !!e.data.on);
+});
+
 const fs = $('#fs');
 if (!box.requestFullscreen) fs.hidden = true;
 fs.addEventListener('click', () => (document.fullscreenElement ? document.exitFullscreen() : box.requestFullscreen()).catch(() => toast('Full screen is blocked in this browser.')));

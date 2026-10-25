@@ -48,7 +48,7 @@ window.BLINK = {
       about: [
         'A single-player crash game played in steps. At every step the player picks one of five paths while bombs fall on some of them. Every safe path raises the multiplier, and the next one is always shown before the pick.',
         'Bail out with the parachute at any step to lock in the multiplier. Take a bomb and the flight is over. Flights are instant: no betting windows and no waiting for other players.',
-        'The Brainer and its plane are 3D. Each flight starts parked on the road and takes off; after a jump the Brainer floats down on its parachute and lands back on the road.'
+        'The Brainer and its plane are 3D. Each flight starts parked on the airfield’s runway and takes off over the meadow; after a jump the Brainer floats down on its parachute.'
       ],
       how: [
         'Pick a difficulty and a bet in US dollars, then press Play.',
@@ -96,15 +96,15 @@ window.BLINK = {
       art: 'assets/games/fogrush.webp',
       // Published, the game sits at /fogrush/ next to the site; in the repo it is the sibling folder.
       src: location.pathname.includes('/Website/') ? '../Game%20%232%20-%20FogRush/index.html' : 'fogrush/index.html',
-      tagline: 'Walk your Brainer across sky islands hidden in the clouds. Find chests, dodge bombs and cash out any time.',
+      tagline: 'Walk your Brainer across a foggy valley next to the airfield. Find chests, dodge bombs and cash out any time.',
       about: [
-        'A single-player instant game on a 25 × 25 map of grassy sky islands, all hidden under clouds. The Brainer starts in the middle and walks one tile at a time in any direction.',
-        'Every new tile clears its clouds. Most are plain and nudge the multiplier up, some hold a chest that multiplies it by 1.3 to 25, and 8% hide a bomb that ends the round. Tiles already cleared are safe to walk back across, so the player picks the route as well as the moment to stop.',
+        'A single-player instant game on a 25 × 25 map of grass plots in a valley hidden under fog, next to the airfield Plane Crash flies from. The Brainer starts in the middle and walks one plot at a time in any direction.',
+        'Every new tile clears its fog. Most are plain and nudge the multiplier up, some hold a chest that multiplies it by 1.3 to 25, and 8% hide a bomb that ends the round. Tiles already cleared are safe to walk back across, so the player picks the route as well as the moment to stop.',
         'The 3D Brainer is the same one as in Plane Crash: its brain level, look and brain cells carry over between the two games.'
       ],
       how: [
         'Choose a bet in US dollars and, if you like, an auto cash-out from 1.50× to 100×. Then press Play.',
-        'Walk with the arrow keys, WASD or the on-screen pad, or tap a tile next to the Brainer. Each new tile shows what was under its clouds.',
+        'Walk with the arrow keys, WASD or the on-screen pad, or tap a tile next to the Brainer. Each new tile shows what was under its fog.',
         'Cash out whenever you like after your first new tile (C on a keyboard). A bomb on a new tile ends the round and the bet is lost.'
       ],
       // Mirrors cfg in Game #2 - FogRush/game.js: each new tile is a bomb with chance `bomb` (%); a safe one is plain or a
@@ -128,7 +128,7 @@ window.BLINK = {
         ['Type', 'Mines-style instant game, single player'],
         ['RTP', '98% for every player, at every brain level, whatever the route or the cash-out'],
         ['Brain levels', 'Shared with Plane Crash: the same 100 levels and the same 10 brain cells for every finished round. They never change odds or payouts'],
-        ['Map', '25 × 25 tiles under clouds; the start tile in the middle is always safe'],
+        ['Map', '25 × 25 grass plots under fog; the start tile in the middle is always safe'],
         ['Bomb chance', '8% on every new tile; cleared tiles are safe to cross'],
         ['Chests', 'On 5% of safe tiles: ×1.3, ×2, ×4, ×10 or ×25'],
         ['Auto cash-out', 'Off, or at 1.50× to 100×'],
