@@ -135,7 +135,7 @@ sun.shadow.mapSize.set(phone ? 1024 : 2048, phone ? 1024 : 2048); Object.assign(
 scene.add(sun, sun.target);
 const cam = new THREE.PerspectiveCamera(40, 1, 0.1, 400);
 
-const T = 2.1, TOP = 0.11, BS = 1.0;   // tile size, the grass top's height, the Brainer's scale
+const T = 2.1, TOP = 0.11, BS = 1.15;   // tile size, the grass top's height, the Brainer's scale
 const wx = x => (x - C) * T, wz = y => (y - C) * T;
 const rand01 = (x, y, k) => { let h = (x * 374761393 + y * 668265263 + k * 362437) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const tileH = (x, y) => (rand01(x, y, 1) - 0.5) * 0.12;   // islands sit at slightly different heights
@@ -210,7 +210,35 @@ for (let b = 0; b < 16; b++) {
 // the player's Brainer, in a holder that walks and hops; the Brainer itself handles its pose and face
 const holder = new THREE.Group(); scene.add(holder);
 const me = new Brainer(myLevel()); me.root.scale.setScalar(BS); me.root.position.y = 1.12 * BS; holder.add(me.root);
-me.shadow.visible = false; me.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+me.shadow.visible = false;
+// FogRush's Brainer is an explorer: a violet backpack with a pocket, a compass and its level patch, and a rolled map on top.
+{
+  const pack = new THREE.Group(); pack.position.set(0, -0.18, -0.9); me.body.add(pack);
+  const violet = new THREE.MeshPhysicalMaterial({ color: 0x5a3ffc, roughness: 0.45, clearcoat: 0.6, sheen: 1, sheenColor: new THREE.Color(0xb79bff) });
+  const lilac = new THREE.MeshPhysicalMaterial({ color: 0x8f6bff, roughness: 0.5, sheen: 1, sheenColor: new THREE.Color(0xffffff) });
+  const gold = new THREE.MeshPhysicalMaterial({ color: 0xffc147, metalness: 0.7, roughness: 0.25 });
+  const bag = new THREE.Mesh(new RoundedBoxGeometry(0.98, 0.9, 0.42, 3, 0.16), violet); pack.add(bag);
+  const flap = new THREE.Mesh(new RoundedBoxGeometry(1.0, 0.3, 0.46, 3, 0.12), lilac); flap.position.set(0, 0.34, -0.02); pack.add(flap);
+  const pocket = new THREE.Mesh(new RoundedBoxGeometry(0.62, 0.4, 0.16, 3, 0.07), lilac); pocket.position.set(0, -0.17, -0.25); pack.add(pocket);
+  for (const sx of [-0.2, 0.2]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.05), gold); b.position.set(sx, 0.22, -0.25); pack.add(b); }
+  const compass = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.04, 28), gold); compass.rotation.x = Math.PI / 2; compass.position.set(0, -0.15, -0.34); pack.add(compass);
+  const face = new THREE.Mesh(new THREE.CircleGeometry(0.085, 28), new THREE.MeshBasicMaterial({ color: 0xffffff })); face.position.set(0, -0.15, -0.362); face.rotation.y = Math.PI; pack.add(face);
+  const needle = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.13, 4), new THREE.MeshBasicMaterial({ color: 0xe3264a })); needle.position.set(0, -0.12, -0.37); pack.add(needle);
+  const patch = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.21), new THREE.MeshBasicMaterial({ map: me.badgeTex, transparent: true, toneMapped: false })); patch.position.set(0, 0.34, -0.255); patch.rotation.y = Math.PI; pack.add(patch);   // its brain level, on the flap
+  const map = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.95, 20), new THREE.MeshStandardMaterial({ color: 0xf0dfb0, roughness: 0.8 })); map.rotation.z = Math.PI / 2; map.position.set(0, 0.6, 0.02); pack.add(map);
+  for (const sx of [-0.3, 0.3]) { const tie = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.025, 8, 20), new THREE.MeshStandardMaterial({ color: 0xe3264a })); tie.rotation.y = Math.PI / 2; tie.position.set(sx, 0.6, 0.02); pack.add(tie); }
+}
+me.root.traverse(o => { if (o.isMesh) { o.castShadow = true; if (o.material && !o.material.transparent && 'envMapIntensity' in o.material) o.material.envMapIntensity = 1.35; } });
+// in daylight the brain sits on a light lavender glass floor glowing in its level's colour, not the dark chamber of the night views
+const lightFloor = () => {
+  const g = me.floorCanvas.getContext('2d'), glow = '#' + me.domeLight.color.getHexString(), fr = g.createRadialGradient(64, 64, 2, 64, 64, 64);
+  fr.addColorStop(0, '#ffffff'); fr.addColorStop(0.55, '#e6defd'); fr.addColorStop(1, '#b3a3f2'); g.fillStyle = fr; g.fillRect(0, 0, 128, 128);
+  const gl = g.createRadialGradient(64, 64, 2, 64, 64, 46); gl.addColorStop(0, glow + 'aa'); gl.addColorStop(1, glow + '00'); g.fillStyle = gl; g.fillRect(0, 0, 128, 128);
+  me.floor.material.map.needsUpdate = true;
+};
+{ const setLv = me.setLevel.bind(me); me.setLevel = L => { const was = me.L; setLv(L); if (me.L !== was) lightFloor(); }; lightFloor(); }
+// a soft fill light that travels with the Brainer, so it stays bright white whatever the sun does
+const fill = new THREE.PointLight(0xfff8ff, 7, 7.5, 1.4); fill.position.set(1.3, 2.6, 2.8); holder.add(fill);
 const walker = { x: C, y: C, face: 0.15, faceTo: 0.15, hop: null, idleAt: 0, fly: null };
 function placeWalker() { holder.position.set(wx(walker.x), TOP + tileH(walker.x, walker.y), wz(walker.y)); }
 
@@ -258,7 +286,7 @@ function stepParticles(dt) {
 // chests: wood with metal trim in the tier's colour; royal and mythic ones get a coloured body and a gem
 function chest(x, y, tier, now) {
   const c = cfg.chests[tier - 1], g = new THREE.Group(), h = TOP + tileH(x, y);
-  g.position.set(wx(x) - 0.62, h, wz(y) + 0.5); g.rotation.y = 0.35; roundBits.add(g);   // front left of the Brainer, where the camera sees it
+  g.position.set(wx(x) - 0.9, h, wz(y) + 0.72); g.rotation.y = 0.35; g.userData.k = 0.85; roundBits.add(g);   // front left of the Brainer, where the camera sees it
   const wood = new THREE.MeshStandardMaterial({ color: c.body, roughness: tier >= 4 ? 0.35 : 0.7, metalness: tier >= 4 ? 0.2 : 0 }), trim = new THREE.MeshPhysicalMaterial({ color: c.trim, metalness: 0.75, roughness: 0.25 });
   const box = new THREE.Mesh(new RoundedBoxGeometry(1.0, 0.56, 0.7, 2, 0.06), wood); box.position.y = 0.3; box.castShadow = true; g.add(box);
   for (const sx of [-0.36, 0.36]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.58, 0.72), trim); b.position.set(sx, 0.3, 0); g.add(b); }
@@ -271,7 +299,7 @@ function chest(x, y, tier, now) {
   const glow = new THREE.PointLight(tier >= 4 ? 0xffe07a : 0xffd56b, 0, 6, 2); glow.position.y = 1.0; g.add(glow);
   // it pops up out of the clearing cloud, then the lid flips open, coins fly and the factor floats up
   g.scale.setScalar(0.01);
-  tween(420, p => g.scale.setScalar(Math.max(0.01, easeBack(p))));
+  tween(420, p => g.scale.setScalar(Math.max(0.01, easeBack(p) * 0.85)));
   setTimeout(() => {
     tween(500, p => { hinge.rotation.x = -1.9 * easeBack(p); glow.intensity = (tier >= 4 ? 14 : 7) * Math.sin(Math.min(1, p) * Math.PI / 2); });
     spray(g.position.clone().add(new THREE.Vector3(0, 0.7, 0)), 6 + tier * 5, 1.4 + tier * 0.25, 4 + tier * 0.5);
@@ -288,7 +316,7 @@ function chest(x, y, tier, now) {
 // bombs: a cartoon bomb pops out of the cloud with its fuse fizzing, then blows; the Brainer is thrown and lands sooty
 const fireTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 2, 64, 64, 64); gr.addColorStop(0, '#fffbe6'); gr.addColorStop(0.3, '#ffd45a'); gr.addColorStop(0.65, '#ff7a3d'); gr.addColorStop(1, 'rgba(237,43,75,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
 function bombAt(x, y) {
-  const h = TOP + tileH(x, y), pos = new THREE.Vector3(wx(x) - 0.55, h, wz(y) + 0.5), g = new THREE.Group(); g.position.copy(pos); roundBits.add(g);
+  const h = TOP + tileH(x, y), pos = new THREE.Vector3(wx(x) - 0.85, h, wz(y) + 0.72), g = new THREE.Group(); g.position.copy(pos); roundBits.add(g);
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 24), new THREE.MeshPhysicalMaterial({ color: 0x1a1640, roughness: 0.25, clearcoat: 1 })); body.position.y = 0.45; body.castShadow = true; g.add(body);
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.14, 16), new THREE.MeshStandardMaterial({ color: 0x3a3f58 })); cap.position.y = 0.9; g.add(cap);
   const fuse = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.03, 8, 16, Math.PI * 0.8), new THREE.MeshStandardMaterial({ color: 0xc9a06a })); fuse.position.set(0.14, 0.98, 0); fuse.rotation.z = Math.PI * 0.1; g.add(fuse);
@@ -495,10 +523,16 @@ function update(now, dt) {
     if (p >= 1) { walker.fly = null; holder.rotation.z = 0; holder.scale.set(1.15, 0.8, 1.15); tween(300, q => holder.scale.set(lerp(1.15, 1, q), lerp(0.8, 1, easeBack(q)), lerp(1.15, 1, q))); }
   }
   if (walker.bump && now - walker.bump < 300) holder.rotation.x = Math.sin((now - walker.bump) / 300 * Math.PI * 3) * 0.12 * (1 - (now - walker.bump) / 300); else holder.rotation.x = 0;
-  if (!h && now - walker.idleAt > 900 && exploring()) walker.faceTo = 0.15;   // turns back to the camera while you decide
+  if (!h && !walker.fly && now - walker.idleAt > 450) walker.faceTo = 0.15;   // turns back to face you whenever it stops
   let df = walker.faceTo - walker.face; df = Math.atan2(Math.sin(df), Math.cos(df)); walker.face += df * Math.min(1, dt * 0.012); holder.rotation.y = walker.face;
   const m = moodNow(now);
   me.update(now, m.ex, { since: m.t0, lookX: Math.sin(now / 1700) * 0.4, soot: round && round.status === 'bust', reduced });
+  if (h) {   // walking: it leans into the hop and swings its arms
+    const p = clamp((now - h.t0) / cfg.stepMs, 0, 1), sw = Math.sin(p * Math.PI * 2);
+    me.body.rotation.x += 0.22 * Math.sin(p * Math.PI);
+    me.hands.forEach((hd, i) => { hd.position.z += (i ? 1 : -1) * sw * 0.35; hd.position.y += 0.18 * Math.sin(p * Math.PI); });
+    me.feet.forEach((f, i) => { f.position.y += Math.max(0, (i ? 1 : -1) * sw) * 0.12; });
+  }
   // chevrons on the tiles you can step to
   const show = exploring() && !walker.hop;
   for (const c of chevs) { const tx = walker.x + c.userData.dx, ty = walker.y + c.userData.dy, ok = show && tx >= 0 && ty >= 0 && tx < N && ty < N; c.visible = ok; if (ok) { c.position.set(wx(tx), TOP + tileH(tx, ty) + 1.15 + Math.sin(now / 300 + c.userData.dx * 2) * 0.08, wz(ty)); c.material.opacity = hoverDir === c.userData.d ? 1 : 0.7; c.scale.setScalar(hoverDir === c.userData.d ? 1.25 : 1); } }
@@ -506,9 +540,9 @@ function update(now, dt) {
   for (const [i, b] of banks.entries()) b.position.x += Math.sin(now / 9000 + i) * 0.004;
   // camera: follows the Brainer, a little behind so the explored trail shows
   const narrow = W / H < 0.95;
-  camGoal.set(holder.position.x - 0.8, 0.6, holder.position.z + 0.6);
+  camGoal.set(holder.position.x - 0.4, 1.1, holder.position.z + 0.5);
   camAt.lerp(camGoal, camAt.lengthSq() ? Math.min(1, dt * 0.004) : 1);
-  cam.position.copy(camAt).add(V.set(narrow ? 0.9 : 2.2, narrow ? 10.5 : 9.6, narrow ? 12.5 : 12.6));
+  cam.position.copy(camAt).add(V.set(narrow ? 0.6 : 2.0, narrow ? 5.6 : 6.3, narrow ? 8.4 : 10.4));   // low enough to see the Brainer's face, high enough to see the way ahead
   if (shake > 0.01) { cam.position.x += (Math.random() - 0.5) * shake; cam.position.y += (Math.random() - 0.5) * shake; shake *= Math.pow(0.9, dt / 16); }
   cam.lookAt(camAt);
   sun.position.set(camAt.x - 9, 18, camAt.z + 9); sun.target.position.copy(camAt);
