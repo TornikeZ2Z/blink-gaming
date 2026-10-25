@@ -40,7 +40,15 @@ The step counts and first multipliers follow Chicken Road; the tops were brought
 
 Everything is drawn in code on a canvas, with no image files except the Brainer portraits. The plane and the Brainer are shaded as solids lit from the upper left. The default world is Lavender fields: patchwork farmland with a river, a road, trees and clouds casting shadows. Two other worlds can be compared with `?world=clouds` (a sea of clouds at sunset) and `?world=city` (Brainer city at dusk); adding `?worlds` shows a switcher on the stage.
 
-The Brainer's face is drawn live on its visor, so it reacts to the flight. `assets/brainer-N-blank.png` is the brand art with the painted face removed; at rest each level shows the face from its art (a wink, happy arcs, a grin, heart eyes, glasses). It has 14 expressions:
+The Brainer is a real 3D model, rendered live with three.js (self-hosted in `assets/vendor/`, MIT licence). It is built in `brainer3d.js` from primitives:
+- A pearl body.
+- A curved screen showing the face.
+- A glass dome holding a brain of neurons that grows with the brain level.
+- A ribbed collar, and floating hands and feet.
+
+It takes a pose for each expression. One renderer draws the Brainer from behind in the cockpit, and from the front for the portrait, the parachute, the crash spotlight and the level-up card. Without WebGL, the 2D art below stands in.
+
+The face (`face.js`, shared by both) is drawn live, so it reacts to the flight. `assets/brainer-N-blank.png` is the brand art with the painted face removed; at rest each level shows the face from its art (a wink, happy arcs, a grin, heart eyes, glasses). It has 14 expressions:
 - While playing: focused with eyes on the path you hover, a wink at take-off, and a gulp with sweat while bombs fall.
 - After a step: "phew" on a safe path.
 - When you jump: happy, star-eyed when excited, amazed on a big win, and ecstatic.

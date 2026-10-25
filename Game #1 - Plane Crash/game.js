@@ -249,162 +249,52 @@ function sootyRobot(L) {
 // (3–4), a grin (5–6), heart eyes (7–8), glasses (9–10). Coordinates are in the 500 px art, centred on the visor.
 const BLANK = Array.from({ length: 10 }, (_, i) => { const im = new Image(); im.src = `assets/brainer-${i + 1}-blank.png`; return im; });
 const VISOR = [[252, 278], [253, 278], [251, 282], [255, 284], [252, 282], [253, 282], [244, 282], [246, 286, -0.06], [252, 282], [256, 281]];
-const EXPR = {
-  focus: { eyes: 'dot', mouth: 'small', brows: 'focus', look: true },
-  wink: { eyes: ['dot', 'arc'], mouth: 'grin', fx: ['sparkles'] },
-  gulp: { eyes: 'wide', mouth: 'wavy', brows: 'up', fx: ['sweat'], lookUp: true },
-  phew: { eyes: 'arc', mouth: 'big', fx: ['sweat', 'blush'] },
-  happy: { eyes: 'arc', mouth: 'grin', fx: ['blush'] },
-  excited: { eyes: 'star', mouth: 'big', fx: ['sparkles', 'blush'] },
-  amazed: { eyes: 'wide', mouth: 'O', brows: 'up', fx: ['sparkles', 'excl'], pupil: 13 },
-  ecstatic: { eyes: 'star', mouth: 'big', fx: ['sparkles', 'blush', 'hearts'] },
-  shock: { eyes: 'wide', mouth: 'O', brows: 'up', pupil: 6, tilt: true },
-  sad: { eyes: 'teary', mouth: 'frown', brows: 'sad', fx: ['tears'] },
-  dizzy: { eyes: 'spiral', mouth: 'wavy', tilt: true },
-  love: { eyes: 'heart', mouth: 'big', fx: ['blush', 'sparkles'] },
-  sleepy: { eyes: 'half', mouth: 'o', fx: ['zz'] }
-};
-const restFace = L => L <= 2 ? { eyes: ['ring', 'arc'], mouth: 'smile' } : L <= 4 ? { eyes: 'arc', mouth: 'smile' } : L <= 6 ? { eyes: 'arc', mouth: 'grin' } : L <= 8 ? { eyes: 'heartline', mouth: 'smile' } : { eyes: 'dot', mouth: 'small', look: true };
-const OPEN_EYES = ['ring', 'dot', 'wide', 'teary'];
-function starOn(g, x, y, r, n, inner) { g.beginPath(); for (let i = 0; i < n * 2; i++) { const a = i * Math.PI / n - Math.PI / 2, rr = i % 2 ? r * inner : r; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.closePath(); }
-function heartPath(g, r) { g.beginPath(); g.moveTo(0, r * 0.9); g.bezierCurveTo(-r * 1.5, -r * 0.1, -r * 0.7, -r * 1.25, 0, -r * 0.45); g.bezierCurveTo(r * 0.7, -r * 1.25, r * 1.5, -r * 0.1, 0, r * 0.9); g.closePath(); }
-function faceEye(g, kind, sd, t, o) {
-  const lx = o.lookX || 0, ly = o.lookY || 0;
-  g.save(); g.translate(sd * 76, -14);
-  switch (kind) {
-    case 'ring': g.beginPath(); g.arc(0, 0, 19, 0, 7); g.stroke(); break;
-    case 'dot': g.beginPath(); g.arc(lx * 7, ly * 6, 15, 0, 7); g.fill(); break;
-    case 'wide': {
-      g.lineWidth = 10; g.beginPath(); g.arc(0, 4, 24, 0, 7); g.stroke();
-      const pr = o.pupil || 10; g.beginPath(); g.arc(lx * (19 - pr), 4 + ly * (17 - pr), pr, 0, 7); g.fill();
-      if (pr > 9) { g.save(); g.shadowBlur = 0; g.fillStyle = o.visorCol; g.beginPath(); g.arc(lx * (19 - pr) - pr * 0.35, 4 + ly * (17 - pr) - pr * 0.35, pr * 0.3, 0, 7); g.fill(); g.restore(); }   // a glint
-      break;
-    }
-    case 'arc': g.beginPath(); g.arc(0, 10, 21, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); break;
-    case 'blink': g.beginPath(); g.moveTo(-19, 2); g.quadraticCurveTo(0, 9, 19, 2); g.stroke(); break;
-    case 'half': g.beginPath(); g.arc(0, 4, 14, 0, Math.PI); g.fill(); g.beginPath(); g.moveTo(-20, 4); g.lineTo(20, 4); g.stroke(); break;
-    case 'teary': {
-      g.beginPath(); g.arc(0, 6, 15, 0, 7); g.fill();
-      g.save(); g.shadowBlur = 0; g.fillStyle = o.visorCol; g.beginPath(); g.arc(-5, 1, 5, 0, 7); g.fill(); g.restore();
-      g.lineWidth = 7; g.beginPath(); g.arc(0, 6, 23, Math.PI * 0.2, Math.PI * 0.8); g.stroke();   // brimming lower lid
-      break;
-    }
-    case 'star': { g.rotate(Math.sin(t / 300 + sd) * 0.25); const s = 1 + Math.sin(t / 160) * 0.08; starOn(g, 0, 0, 26 * s, 5, 0.45); g.fill(); break; }
-    case 'heart': { const s = 1 + Math.sin(t / 180) * 0.1; heartPath(g, 20 * s); g.fill(); break; }
-    case 'heartline': heartPath(g, 19); g.lineWidth = 11; g.stroke(); break;
-    case 'spiral': {
-      g.rotate(t / 160 * sd); g.lineWidth = 8; g.beginPath();
-      for (let a = 0; a < Math.PI * 5; a += 0.2) { const r = 2 + a * 1.55; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
-      g.stroke(); break;
-    }
-  }
-  g.restore();
-}
-function faceMouth(g, kind, t) {
-  g.save(); g.translate(0, 38);
-  switch (kind) {
-    case 'smile': g.beginPath(); g.arc(0, -28, 38, Math.PI * 0.18, Math.PI * 0.82); g.stroke(); break;
-    case 'small': g.beginPath(); g.arc(0, -12, 17, Math.PI * 0.18, Math.PI * 0.82); g.stroke(); break;
-    case 'grin': g.beginPath(); g.moveTo(-38, -10); g.lineTo(38, -10); g.arc(0, -10, 38, 0, Math.PI); g.closePath(); g.stroke(); break;
-    case 'big': {
-      const open = 1 + Math.sin(t / 140) * 0.06;
-      g.beginPath(); g.moveTo(-44, -16); g.lineTo(44, -16); g.ellipse(0, -16, 44, 34 * open, 0, 0, Math.PI); g.closePath();
-      g.save(); g.shadowBlur = 0; g.fillStyle = 'rgba(14,8,60,.55)'; g.fill(); g.clip();
-      g.fillStyle = '#ff7aa8'; g.beginPath(); g.ellipse(0, 16 * open, 24, 14, 0, 0, Math.PI * 2); g.fill(); g.restore();   // tongue
-      g.stroke(); break;
-    }
-    case 'O': { const s = 1 + Math.sin(t / 200) * 0.06; g.beginPath(); g.ellipse(0, -2, 18 * s, 25 * s, 0, 0, Math.PI * 2); g.save(); g.shadowBlur = 0; g.fillStyle = 'rgba(14,8,60,.55)'; g.fill(); g.restore(); g.stroke(); break; }
-    case 'o': g.lineWidth = 9; g.beginPath(); g.arc(0, -6, 9 + Math.sin(t / 500) * 1.5, 0, 7); g.stroke(); break;
-    case 'flat': g.beginPath(); g.moveTo(-22, -6); g.lineTo(22, -6); g.stroke(); break;
-    case 'wavy': {
-      g.beginPath(); const ph = t / 90;
-      for (let x = -36; x <= 36; x += 3) g.lineTo(x, -6 + Math.sin(x / 7 + ph) * 5);
-      g.stroke(); break;
-    }
-    case 'frown': g.beginPath(); g.arc(0, 18, 30, Math.PI * 1.2, Math.PI * 1.8); g.stroke(); break;
-  }
-  g.restore();
-}
-function faceBrows(g, kind, t) {
-  g.save(); g.lineWidth = 9;
-  for (const sd of [-1, 1]) {
-    g.beginPath();
-    if (kind === 'up') { const lift = Math.sin(t / 200) * 2; g.arc(sd * 76, -36 + lift, 20, Math.PI * 1.22, Math.PI * 1.78); }
-    else if (kind === 'sad') { g.moveTo(sd * 52, -58); g.lineTo(sd * 100, -46); }
-    else if (kind === 'focus') { g.moveTo(sd * 54, -46); g.lineTo(sd * 98, -52); }
-    g.stroke();
-  }
-  g.restore();
-}
-function faceFx(g, fx, t, k) {   // touches around the face, in visor coordinates; k scales the glow
-  if (fx.includes('blush')) { g.save(); g.shadowBlur = 0; g.fillStyle = 'rgba(255,120,175,.55)'; for (const sd of [-1, 1]) { g.beginPath(); g.ellipse(sd * 112, 22, 22, 11, 0, 0, Math.PI * 2); g.fill(); } g.restore(); }
-  if (fx.includes('sweat')) {
-    const q = (t % 1400) / 1400;
-    g.save(); g.shadowBlur = 0; g.globalAlpha = 1 - q * 0.6; g.fillStyle = '#a9ecff'; g.translate(118, -44 + q * 26);
-    g.beginPath(); g.moveTo(0, -14); g.quadraticCurveTo(11, 4, 0, 9); g.quadraticCurveTo(-11, 4, 0, -14); g.fill(); g.restore();
-  }
-  if (fx.includes('tears')) {
-    g.save(); g.shadowBlur = 0; g.fillStyle = '#a9ecff';
-    for (const sd of [-1, 1]) for (let i = 0; i < 2; i++) {
-      const q = ((t / 900) + i * 0.5 + (sd > 0 ? 0.25 : 0)) % 1; g.globalAlpha = 1 - q;
-      g.save(); g.translate(sd * 92, 14 + q * 46); g.beginPath(); g.moveTo(0, -9); g.quadraticCurveTo(8, 3, 0, 7); g.quadraticCurveTo(-8, 3, 0, -9); g.fill(); g.restore();
-    }
-    g.restore();
-  }
-}
-function faceAround(g, fx, t) {   // sparkles, hearts, exclamation marks and zZ around the head, in art coordinates
-  g.save(); g.shadowBlur = 0;
-  if (fx.includes('sparkles')) for (let i = 0; i < 6; i++) {
-    const a = i * 1.05 + t / 1800, r = 205 + Math.sin(t / 300 + i) * 12, tw = 0.5 + 0.5 * Math.sin(t / 160 + i * 2);
-    g.globalAlpha = 0.4 + 0.6 * tw; starOn(g, 250 + Math.cos(a) * r, 230 + Math.sin(a) * r * 0.85, 14 + 10 * tw, 4, 0.35); g.fillStyle = i % 2 ? '#ffd56b' : '#ffffff'; g.fill();
-  }
-  if (fx.includes('hearts')) for (let i = 0; i < 3; i++) {
-    const q = ((t / 1400) + i / 3) % 1; g.globalAlpha = 1 - q;
-    g.save(); g.translate(120 + i * 130, 120 - q * 90); heartPath(g, 16); g.fillStyle = '#ff6fa8'; g.fill(); g.restore();
-  }
-  if (fx.includes('excl')) {
-    g.globalAlpha = 1; g.font = '800 70px FiraGO, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#ffd56b';
-    const j = Math.sin(t / 90) * 4; g.fillText('!', 420 + j, 110); g.fillText('!', 80 - j, 110);
-  }
-  if (fx.includes('zz')) {
-    g.font = '800 46px FiraGO, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#ffffff';
-    for (let i = 0; i < 3; i++) { const q = ((t / 1600) + i / 3) % 1; g.globalAlpha = Math.sin(q * Math.PI); g.fillText('z', 400 + q * 50 + i * 6, 120 - q * 90); }
-  }
-  g.restore();
-}
+const { drawScreenFace, faceAround, EXPR, restFace } = window.BrainerFace;
 // Draws the Brainer centred at (x, y), `size` px tall, with expression `ex`. o.img swaps the art (e.g. the sooty one),
 // o.lookX / o.lookY (-1..1) steer the eyes, o.since is when this expression started, for the pop-in.
-function drawBrainer(g, x, y, size, L, ex, t, o = {}) {
+function drawBrainer(g, x, y, size, L, ex, t, o = {}) {   // the 2D stand-in, used until the 3D Brainer is ready or without WebGL
   const im = o.img || BLANK[L - 1];
   if (!(im instanceof HTMLCanvasElement) && (!im.complete || !im.naturalWidth)) return;   // o.img may be a prepared canvas
-  const spec = ex === 'rest' ? restFace(L) : EXPR[ex] || restFace(L), s = size / 500;
+  const s = size / 500;
   g.save(); g.translate(x, y); g.scale(s, s); g.translate(-250, -250);
   g.drawImage(im, 0, 0, 500, 500);
-  const [vx, vy, vr = 0] = VISOR[L - 1], k = Math.abs(g.getTransform().a);
-  const pop = o.since == null ? 1 : easeBack(clamp((t - o.since) / 220, 0, 1));
-  g.save(); g.translate(vx, vy); g.rotate(vr); g.scale(0.8 + 0.2 * pop, 0.8 + 0.2 * pop);
-  g.save(); g.beginPath(); g.roundRect(-140, -64, 280, 128, 30); g.clip();
-  g.strokeStyle = g.fillStyle = '#ffffff'; g.lineWidth = 13; g.lineCap = g.lineJoin = 'round';
-  g.shadowColor = 'rgba(255,255,255,.75)'; g.shadowBlur = 18 * k;
-  const visorCol = L >= 9 ? '#7c4bf6' : L >= 3 ? '#3a26f2' : '#3d4cf2';
-  const blink = OPEN_EYES.includes(Array.isArray(spec.eyes) ? spec.eyes[0] : spec.eyes) && !reduced && (t + L * 997) % 3800 < 130;
-  const eo = { lookX: spec.look ? o.lookX || 0 : o.lookX * 0.4 || 0, lookY: spec.lookUp ? -0.9 : spec.look ? o.lookY || 0 : 0, pupil: spec.pupil, visorCol };
-  [-1, 1].forEach((sd, i) => { const e = Array.isArray(spec.eyes) ? spec.eyes[i] : spec.eyes; faceEye(g, blink && OPEN_EYES.includes(e) ? 'blink' : e, sd, t, eo); });
-  if (spec.brows) faceBrows(g, spec.brows, t);
-  faceMouth(g, spec.mouth, t);
-  faceFx(g, spec.fx || [], t, k);
-  g.restore();
-  if (L >= 9) {   // the glasses of the top levels; they slip when the Brainer gets a fright
-    g.save(); if (spec.tilt) { g.rotate(0.14); g.translate(0, 8); }
-    g.strokeStyle = '#ffffff'; g.lineWidth = 11; g.shadowColor = 'rgba(255,255,255,.75)'; g.shadowBlur = 14 * k;
-    for (const sd of [-1, 1]) { g.beginPath(); g.roundRect(sd * 76 - 48, -46, 96, 66, 24); g.stroke(); }
-    g.beginPath(); g.moveTo(-28, -22); g.quadraticCurveTo(0, -36, 28, -22); g.stroke();
-    g.restore();
-  }
-  g.restore();
-  faceAround(g, spec.fx || [], t);
+  const [vx, vy, vr = 0] = VISOR[L - 1];
+  g.save(); g.translate(vx, vy); g.rotate(vr); drawScreenFace(g, L, ex, t, o); g.restore();
+  faceAround(g, fxOf(ex), t);
   g.restore();
 }
+const fxOf = ex => (EXPR[ex] && EXPR[ex].fx) || [];
+
+/* The 3D Brainer (brainer3d.js, loaded as a module, sets window.Brainer3D). One renderer draws two views each
+   frame: region A, the Brainer from behind in the cockpit, and region B, the Brainer from the front for the portrait,
+   the parachute and the crash spotlight. Without WebGL the 2D art above stands in. */
+let b3 = null;
+function init3D() {
+  if (b3 !== null || !window.Brainer3D) return b3;
+  try {
+    const { Brainer, BrainerStage } = window.Brainer3D;
+    b3 = { stage: new BrainerStage(), seat: new Brainer(myLevel()), front: new Brainer(myLevel()), A: 0, B: 0, ok: false };
+  } catch (e) { b3 = false; }
+  return b3;
+}
+function render3D(now) {
+  const k = init3D();
+  if (!k) return;
+  const A = Math.round(clamp(230 * PS * dpr, 128, 720)), B = Math.round(clamp(Math.min(W, H) * 0.56 * dpr, 160, 900));
+  if (A !== k.A || B !== k.B) { k.A = A; k.B = B; k.stage.setSize(A + B, Math.max(A, B)); }
+  const m = moodNow(now), side = round && round.status === 'choose' && view.hover >= 0 ? Math.sign(view.hover - 2) : 0;
+  k.seat.setLevel(plane.brain); k.seat.update(now, m.ex, { seat: true, side, lookX: lookNow(now), noFace: true, reduced });
+  k.stage.draw(k.seat, 0, 0, A, A, 'back');
+  const dazed = !!iris, L = dazed ? iris.brain : chute ? chute.brain : myLevel();
+  k.front.setLevel(L); k.front.update(now, dazed ? 'dizzy' : m.ex, { since: m.t0, lookX: lookNow(now), soot: dazed, glow: clamp(1 - (now - (view.glowT || -1e9)) / 700, 0, 1), reduced });
+  k.stage.draw(k.front, A, 0, B, B, 'hero');
+  k.ok = true;
+}
+function blit3D(g, region, x, y, size) {   // copies region A or B of the 3D canvas, centred at (x, y), size px square
+  const [sx, sw] = region === 'A' ? [0, b3.A] : [b3.A, b3.B];
+  g.drawImage(b3.stage.canvas, sx, 0, sw, sw, x - size / 2, y - size / 2, size, size);
+}
+const has3D = () => b3 && b3.ok;
 
 // What the Brainer feels right now: a reaction set by an event for a moment, or else what the flight implies.
 const mood = { ex: 'rest', t0: 0, set: '', until: 0 };
@@ -433,9 +323,17 @@ function drawPilot(now) {   // the live portrait in the HUD
   if (pcv.width !== cw || pcv.height !== ch) { pcv.width = cw; pcv.height = ch; }
   pcx.setTransform(d, 0, 0, d, 0, 0); pcx.clearRect(0, 0, w, h);
   const m = moodNow(now);
-  drawBrainer(pcx, w / 2, h / 2 + (reduced ? 0 : Math.sin(now / 600) * 1.2), w, myLevel(), m.ex, now, { since: m.t0, lookX: lookNow(now) });
+  if (has3D()) { blit3D(pcx, 'B', w / 2, h / 2, w * 1.12); pcx.save(); pcx.translate(0, 0); pcx.scale(w / 500, h / 500); faceAround(pcx, fxOf(m.ex), now); pcx.restore(); }
+  else drawBrainer(pcx, w / 2, h / 2 + (reduced ? 0 : Math.sin(now / 600) * 1.2), w, myLevel(), m.ex, now, { since: m.t0, lookX: lookNow(now) });
 }
-function brainerURL(L, ex) { const c = document.createElement('canvas'); c.width = c.height = 200; drawBrainer(c.getContext('2d'), 100, 100, 200, L, ex, performance.now()); return c.toDataURL(); }
+function brainerURL(L, ex) {
+  const c = document.createElement('canvas'); c.width = c.height = 200; const g = c.getContext('2d'), now = performance.now();
+  if (has3D()) {   // a fresh render of the front view, copied straight away
+    b3.front.setLevel(L); for (let i = 0; i < 30; i++) b3.front.update(now + i * 16, ex, { reduced });
+    b3.stage.draw(b3.front, b3.A, 0, b3.B, b3.B, 'hero'); blit3D(g, 'B', 100, 100, 210);
+  } else drawBrainer(g, 100, 100, 200, L, ex, now);
+  return c.toDataURL();
+}
 
 const ZP = 2.2, Z_WAIT = 9, Z_FAR = 40, G_H = 5;   // depths: plane, waiting gates, new gates; ground drop
 let W = 0, H = 0, dpr = 1, F = 500, HY = 200, PX = 0, PY = 0, PS = 0.8, SPREAD = 2, RING = 1, last = 0;
@@ -877,10 +775,10 @@ function planeBack(x, y, s, rot, t, pilot, soot, L) {
   ctx.fillStyle = 'rgba(200,225,255,.35)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2.5; ctx.stroke();
   // cockpit: a dark opening, the pilot inside, then the padded near lip
   ell(0, 2, 56, 18); ctx.fillStyle = lin(0, -16, 0, 20, '#120d33', '#2a2163'); ctx.fill();
-  if (pilot) robotBack(t, L);
+  if (pilot) { if (has3D()) blit3D(ctx, 'A', 0, -30, 206); else robotBack(t, L); }
   ctx.beginPath(); ctx.ellipse(0, 2, 56, 18, 0, 0, Math.PI); ctx.lineWidth = 10; ctx.strokeStyle = lin(0, 2, 0, 24, '#ffffff', '#c3b6f5'); ctx.stroke();
   ctx.beginPath(); ctx.ellipse(0, 2, 56, 18, 0, Math.PI * 0.15, Math.PI * 0.85); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.stroke();
-  if (pilot) robotHands(t);
+  if (pilot && !has3D()) robotHands(t);
   // twin tail, nearest the camera: the tailplane, then a fin at each tip
   for (const sd of [-1, 1]) {
     ctx.beginPath(); ctx.moveTo(sd * 12, 84); ctx.lineTo(sd * 92, 72); ctx.quadraticCurveTo(sd * 102, 72, sd * 100, 80); ctx.lineTo(sd * 92, 86); ctx.lineTo(sd * 12, 98); ctx.closePath();
@@ -914,7 +812,9 @@ function chuteDraw(x, y, s, t, open, alpha, L) {
     ctx.restore();
     ctx.restore();
   }
-  const m = moodNow(t); drawBrainer(ctx, 0, 40, 220, L, m.ex, t, { since: m.t0, lookX: Math.sin(t / 1200) * 0.5 });
+  const m = moodNow(t);
+  if (has3D()) { blit3D(ctx, 'B', 0, 40, 250); ctx.save(); ctx.translate(-125, -85); ctx.scale(0.5, 0.5); faceAround(ctx, fxOf(m.ex), t); ctx.restore(); }
+  else drawBrainer(ctx, 0, 40, 220, L, m.ex, t, { since: m.t0, lookX: Math.sin(t / 1200) * 0.5 });
   ctx.restore();
 }
 
@@ -1155,7 +1055,7 @@ function draw(now) {
           ctx.globalAlpha = 0.5 * (1 - q); ell(-R1 * 0.3 + i * R1 * 0.3, -R1 * 0.75 - q * R1 * 0.4, R1 * (0.08 + q * 0.12), R1 * (0.07 + q * 0.1)); ctx.fillStyle = '#6b6585'; ctx.fill();
         }
         ctx.globalAlpha = 1;
-        drawBrainer(ctx, 0, 0, sz, iris.brain, 'dizzy', now, { img });
+        if (has3D()) blit3D(ctx, 'B', 0, 0, sz * 1.15); else drawBrainer(ctx, 0, 0, sz, iris.brain, 'dizzy', now, { img });
         for (let i = 0; i < 4; i++) {   // stars circling the dome
           const an = now / 380 + i * Math.PI / 2;
           star(Math.cos(an) * R1 * 0.55, -R1 * 0.58 + Math.sin(an) * R1 * 0.12, R1 * 0.08, 5, 0.45); ctx.fillStyle = '#ffc147'; ctx.fill();
@@ -1170,7 +1070,7 @@ function draw(now) {
 
 function loop(now) {
   const dt = Math.min(50, now - (last || now)); last = now;
-  if (W && H) { advance(now); update(now, dt); draw(now); updateUI(now); drawPilot(now); }
+  if (W && H) { advance(now); update(now, dt); render3D(now); draw(now); updateUI(now); drawPilot(now); }
   requestAnimationFrame(loop);
 }
 

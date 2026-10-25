@@ -109,6 +109,9 @@
   <p class="foot">Demo with play money · Keys: 1–5 pick a path · Space jumps or plays</p>
 </main>
 <div class="toast" id="toast" role="status"></div>
+<script type="importmap">{"imports":{"three":"./assets/vendor/three.module.min.js"}}</script>
+<script src="face.js"></script>
 <script src="game.js"></script>
+<script type="module">import { Brainer, BrainerStage } from './brainer3d.js'; window.Brainer3D = { Brainer, BrainerStage };</script>
 </body>
 </html>
