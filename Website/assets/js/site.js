@@ -6,8 +6,8 @@ const { SITE, GAMES, BRAIN } = window.BLINK;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-// Multipliers as the game writes them: two decimals below 1,000×, whole numbers above.
-const fx = m => (m < 1000 ? m.toFixed(2) : m.toLocaleString('en-US', { maximumFractionDigits: 0 })) + '×';
+// Multipliers to the cent, as the game's ladder rounds them (52,067.40×, never rounded up).
+const fx = m => m.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '×';
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage blocked: the page still works, it just forgets */ } }
@@ -50,8 +50,8 @@ function gameCard(g) {
   const soon = g.status === 'soon', href = `game.html?g=${encodeURIComponent(g.id)}`;
   const art = g.art ? `<img src="${g.art}" alt="" loading="lazy" decoding="async">` : '<span class="ph">?</span>';
   const more = soon ? '' : `
-      <div class="chips"><span class="chip">RTP <b>${g.rtp}%${g.rtpTop ? `–${g.rtpTop}%` : ''}</b></span><span class="chip">${g.levels.length} difficulties</span><span class="chip">Provably fair</span></div>
-      ${g.levels.every(l => l.tops) ? `<div class="diffs" aria-label="Last-step multiplier at brain level 5">${g.levels.map(l => `<div><span>${esc(l.name)}</span><b>${fx(l.tops[1])}</b><small>${l.steps} steps</small></div>`).join('')}</div><p class="diffs-note">Last-step multiplier at brain level 5.</p>` : ''}
+      <div class="chips"><span class="chip">RTP <b>${g.rtp}%</b></span><span class="chip">${g.levels.length} difficulties</span><span class="chip">Provably fair</span></div>
+      ${g.levels.every(l => l.top) ? `<div class="diffs" aria-label="Top-step multiplier per difficulty">${g.levels.map(l => `<div><span>${esc(l.name)}</span><b>${fx(l.top)}</b><small>${l.bombs} ${l.bombs === 1 ? 'bomb' : 'bombs'} · ${l.steps} paths</small></div>`).join('')}</div><p class="diffs-note">Top-step multiplier.${g.maxWin ? ` A flight pays at most $${g.maxWin.toLocaleString('en-US')}.` : ''}</p>` : ''}
       <div class="ctas"><a class="btn btn-ink" href="${href}">${ICON.play}Play the demo</a><a class="btn" href="${href}#specs">Specs</a></div>`;
   return `<article class="game${soon ? ' is-soon' : ''}">
     ${soon ? `<span class="art" style="--art:${g.color}">${art}</span>` : `<a class="art" href="${href}" style="--art:${g.color}" tabindex="-1" aria-hidden="true">${art}</a>`}
@@ -67,18 +67,20 @@ $$('[data-games]').forEach(el => { el.innerHTML = GAMES.map(gameCard).join(''); 
 const lead = GAMES.find(x => x.status !== 'soon');
 $$('[data-hero-stats]').forEach(el => {
   if (!lead) { el.remove(); return; }
-  const stats = [[`${lead.rtp}–${lead.rtpTop || lead.rtp}%`, 'RTP by brain level'], [String(lead.levels.length), 'Difficulties'], [String(BRAIN.cells.length), 'Brain levels'], ['Every flight', 'Provably fair']];
+  const stats = [[`${lead.rtp}%`, 'RTP for every player'], [String(lead.levels.length), 'Difficulties'], [String(BRAIN.levels), 'Brain levels'], ['Every flight', 'Provably fair']];
   el.innerHTML = stats.map(([v, l]) => `<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('');
 });
 
-/* ---------- brain-cell ladder: [data-ladder] gets the ten robots with RTP and cells, [data-tiers] the five colour tiers ---------- */
-const tierOf = n => BRAIN.tiers[Math.floor((n - 1) / 2)];
-// The demo keeps the visitor's brain cells under this key on the same site, so their own Brainer can be marked.
-const myCells = store.get('brainer.cells'), mine = myCells == null ? 0 : BRAIN.cells.reduce((L, t, i) => (+myCells >= t ? i + 1 : L), 1);
+/* ---------- brain-level ladder: [data-ladder] gets the ten stages (one robot look per ten levels), [data-tiers] the five colour tiers ---------- */
+const per = BRAIN.levels / BRAIN.stages, tierOf = n => BRAIN.tiers[Math.floor((n - 1) / 2)];
+// The demo keeps the visitor's brain level (1-100) under this key on the same site, so their own stage can be marked.
+const myLevel = parseInt(store.get('brainer.level'), 10), mine = myLevel >= 1 ? Math.min(BRAIN.stages, Math.ceil(myLevel / per)) : 0;
 $$('[data-ladder]').forEach(el => {
-  el.innerHTML = Array.from({ length: 10 }, (_, i) => i + 1).map(n =>
-    `<div class="lv${n === mine ? ' me' : ''}" style="--tier:${tierOf(n).css}">${n === mine ? '<span class="you">Your Brainer</span>' : ''}<img src="${BRAIN.robot(n)}" alt="Brainer robot, brain level ${n}" loading="lazy" decoding="async">`
-    + `<b>Brain level ${n}</b><span class="boost"><i>RTP </i>${BRAIN.rtp[n - 1]}%</span><span class="cells">${BRAIN.cells[n - 1].toLocaleString('en-US')} cells</span></div>`).join('');
+  el.innerHTML = Array.from({ length: BRAIN.stages }, (_, i) => i + 1).map(n => {
+    const lo = (n - 1) * per + 1, hi = n * per, unlock = BRAIN.unlocks.find(u => u.at >= lo && u.at <= hi);
+    return `<div class="lv${n === mine ? ' me' : ''}" style="--tier:${tierOf(n).css}">${n === mine ? '<span class="you">Your Brainer</span>' : ''}<img src="${BRAIN.robot(n)}" alt="The Brainer's look for brain levels ${lo} to ${hi}" loading="lazy" decoding="async">`
+      + `<b>Levels ${lo}–${hi}</b><span class="cells">Look ${n} of ${BRAIN.stages}</span>${unlock ? `<span class="unlock">${esc(unlock.name)} at ${unlock.at}</span>` : ''}</div>`;
+  }).join('');
 });
 $$('[data-tiers]').forEach(el => {
   el.innerHTML = BRAIN.tiers.map(t => `<span class="tier" style="--tier:${t.css}"><i></i>${esc(t.label)}</span>`).join('');

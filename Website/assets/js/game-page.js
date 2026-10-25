@@ -4,8 +4,8 @@
 'use strict';
 const { $, esc, ICON, toast, jumpToHash, SITE, GAMES } = window.Blink;
 const main = $('#main');
-// Same style as the game: two decimals below 1,000×, whole numbers above.
-const fx = m => (m < 1000 ? m.toFixed(2) : m.toLocaleString('en-US', { maximumFractionDigits: 0 })) + '×';
+// Multipliers to the cent, as the game's ladder rounds them (52,067.40×, never rounded up).
+const fx = m => m.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '×';
 const g = GAMES.find(x => x.id === new URLSearchParams(location.search).get('g'));
 
 if (!g) {
@@ -49,8 +49,8 @@ main.innerHTML = `<div class="wrap">${crumbs}
         <p>Harder difficulties have fewer steps and a bigger chance of a bomb at each one, so the multipliers climb faster. The chance of a bomb also rises with every step you fly. Wins are capped at the max win per flight.</p>
         ${g.levelsNote ? `<p class="note">${ICON.info}<span>${esc(g.levelsNote)} <a href="index.html#brain">How brain levels work</a></span></p>` : ''}
         <div class="tbl"><table>
-          <thead><tr><th>Difficulty</th><th>Steps</th><th>First step</th><th>Last step at brain level 1</th><th>at brain level 5</th><th>at brain level 10</th></tr></thead>
-          <tbody>${g.levels.map(l => `<tr><td>${esc(l.name)}</td><td class="num">${l.steps}</td><td class="num">${fx(l.first)}</td>${l.tops.map(t => `<td class="num">${fx(t)}</td>`).join('')}</tr>`).join('')}</tbody>
+          <thead><tr><th>Difficulty</th><th>Bombs in 25 tiles</th><th>Paths</th><th>First step</th><th>Top step</th></tr></thead>
+          <tbody>${g.levels.map(l => `<tr><td>${esc(l.name)}</td><td class="num">${l.bombs}</td><td class="num">${l.steps}</td><td class="num">${fx(l.first)}</td><td class="num">${fx(l.top)}</td></tr>`).join('')}</tbody>
         </table></div>
       </section>
       <section id="fairness"><h2>Provably fair</h2>

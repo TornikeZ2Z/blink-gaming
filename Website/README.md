@@ -18,7 +18,7 @@ Then open http://localhost:5174/Website/. In Claude Code the `website` entry in 
 |---|---|
 | `index.html` | Home: core message, the six selling points, Brain cells (the ten robot levels, with the visitor's own Brainer marked once they have played), games, the three steps to go live, fairness sample, call to request a demo |
 | `games.html` | Every game from the catalogue |
-| `game.html?g=<id>` | One game: playable demo with full screen, how to play, difficulties (last-step multipliers at brain levels 1, 5 and 10), fairness and specs |
+| `game.html?g=<id>` | One game: playable demo with full screen, how to play, difficulties (bombs, paths, first and top multipliers), fairness and specs |
 | `operators.html` | Skins, promo tools, player-facing qualities, compliance status, integration routes |
 | `fairness.html` | How provably fair works, with a working SHA-256 checker |
 | `contact.html` | Demo request form (not connected yet; says so and keeps what was typed) |
@@ -44,10 +44,10 @@ python -m fontTools.subset FiraGO-Medium.woff2 --unicodes="U+0000-00FF,U+0100-01
 
 ## Not real yet
 
-- Game specs mirror `cfg` and `LEVELS` in `Game #1 - Plane Crash/game.js` (RTP 96.5% to 98.75% by brain level, four difficulties with tops 25×, 400×, 2,500× and 10,000× at 98%, bets $0.10 to $200, max win $10,000) and are marked provisional until certification. If the game math changes, update `BRAIN` and the Plane Crash entry in `data.js` with it.
-- Brain levels: each path flown earns stake × that step's bomb chance × 10 cells; levels at 0, 50, 150, 300, 550, 900, 1,400, 2,100, 3,000 and 4,200 cells; the level sets the RTP (96.5% at 1, 98% at 5, 98.75% at 10), locked at take-off. Shown as a demo feature until the test lab and a lawyer sign it off. Wording rules from Marketing: "Brain level N" only, never "smarter", no public level rankings, and nothing that nudges people to play more.
+- Game specs mirror `cfg` and `LEVELS` in `Game #1 - Plane Crash/game.js` (Chicken Road's ladder: 25 tiles hide 1, 3, 5 or 10 bombs; RTP 98% for every player; tops 24.50×, 2,254.00×, 52,067.40× and 3,203,384.80×; bets $0.10 to $200; max win $10,000 per flight, which caps every payout) and are marked provisional until certification. If the game math changes, update `BRAIN` and the Plane Crash entry in `data.js` with it.
+- Brain levels (Tornike's decision, 2026-10-25): 100 levels in ten stages, one brand robot per stage; every finished flight earns the same 10 brain cells at any bet or difficulty (about 80 flights to level 10, 20,000 to level 100); worlds unlock at 20 (Cloud sea) and 40 (City at dusk). They never change odds or payouts. The demo stores progress in `localStorage` `brainer.xp` and `brainer.level`; the home ladder marks the visitor's stage from `brainer.level`. Wording rules from Marketing: "Brain level N" only, never "smarter", no public level rankings, and nothing that nudges people to play more.
 - The player's own Brainer is the hero of every game, including the Plane Crash pilot. `assets/games/plane-crash.svg` is placeholder key art copied from the game's scene; swap in the game team's key art when it exists.
-- Brain cells live in `localStorage` key `brainer.cells` on the site's origin, so the website and every game served from it share one level.
+- Brain cells and the brain level live in `localStorage` keys `brainer.xp` and `brainer.level` on the site's origin, so the website and every game served from it share one level.
 - The fairness page states the game's scheme exactly (SHA-256 commit; HMAC-SHA256 of "client seed:nonce:step:path", first 52 bits, bomb when the roll is at or above the step's survival chance). If the game changes it, the page changes with it.
 - Promo tools are marked "on the roadmap"; player protection settings, Georgian and the lab certificate are marked in progress. Skins exist as a service, not a self-serve tool.
 - The contact form checks its fields but sends nothing until a form backend is chosen.

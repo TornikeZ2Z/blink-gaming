@@ -10,19 +10,22 @@ window.BLINK = {
     legal: 'Licensing in progress. The demos use play money only.'
   },
 
-  // The ten Brainer robots, one per brain level, coloured in pairs by the brand book's level gradients.
-  // cells and rtp mirror cfg.brain in Game #1 - Plane Crash/game.js: brain cells needed for each level (each path flown
-  // earns stake × that step's bomb chance × 10) and the RTP locked in at take-off. Demo feature pending lab and legal review.
+  // Mirrors cfg.brain in Game #1 - Plane Crash/game.js: 100 brain levels in ten stages of ten, each stage one of the ten
+  // brand robots. Every finished flight earns the same 10 brain cells at any bet or difficulty, and brain levels never
+  // change the odds or payouts: they change the Brainer's look and unlock worlds. Progress lives in localStorage
+  // brainer.xp (cells) and brainer.level (1-100). Tiers colour the stages in pairs with the brand book's level gradients.
   BRAIN: {
     robot: n => `assets/brainer/robots/${n}.png`,
-    cells: [0, 50, 150, 300, 550, 900, 1400, 2100, 3000, 4200],
-    rtp: [96.5, 96.9, 97.3, 97.65, 98.0, 98.15, 98.3, 98.45, 98.6, 98.75],
+    levels: 100,
+    stages: 10,
+    perFlight: 10,
+    unlocks: [{ at: 20, name: 'Cloud sea' }, { at: 40, name: 'City at dusk' }],
     tiers: [
-      { label: 'Brain levels 1–2', css: 'var(--l2)' },
-      { label: 'Brain levels 3–4', css: 'var(--l3)' },
-      { label: 'Brain levels 5–6', css: 'var(--l4)' },
-      { label: 'Brain levels 7–8', css: 'var(--l5)' },
-      { label: 'Brain levels 9–10', css: 'var(--g1)' }
+      { label: 'Levels 1–20', css: 'var(--l2)' },
+      { label: 'Levels 21–40', css: 'var(--l3)' },
+      { label: 'Levels 41–60', css: 'var(--l4)' },
+      { label: 'Levels 61–80', css: 'var(--l5)' },
+      { label: 'Levels 81–100', css: 'var(--g1)' }
     ]
   },
 
@@ -41,40 +44,41 @@ window.BLINK = {
       tagline: 'Pick one of five paths while bombs fall ahead. Bail out with the parachute to cash out.',
       about: [
         'A single-player crash game played in steps. At every step the player picks one of five paths while bombs fall on some of them. Every safe path raises the multiplier, and the next one is always shown before the pick.',
-        'Bail out with the parachute at any step to lock in the multiplier. Take a bomb and the flight is over. Flights are instant: no betting windows and no waiting for other players.'
+        'Bail out with the parachute at any step to lock in the multiplier. Take a bomb and the flight is over. Flights are instant: no betting windows and no waiting for other players.',
+        'The Brainer and its plane are 3D. Each flight starts parked on the road and takes off; after a jump the Brainer floats down on its parachute and lands back on the road.'
       ],
       how: [
         'Pick a difficulty and a bet in US dollars, then press Play.',
         'At each step choose one of five paths. Bombs fall on some of them; the multiplier a safe path pays is shown on the ladder.',
         'Jump with the parachute whenever you like to cash out at the current multiplier. A bomb on your path ends the flight.'
       ],
-      // Mirrors cfg and LEVELS in Game #1 - Plane Crash/game.js; final once the game is certified.
+      // Mirrors cfg and LEVELS in Game #1 - Plane Crash/game.js (Chicken Road's ladder: 25 tiles hide 1, 3, 5 or 10 bombs,
+      // multiplier = RTP ÷ chance of surviving, rounded down to the cent); final once the game is certified.
       provisional: true,
-      rtp: 96.5,
-      rtpTop: 98.75,
-      // first: the first step at brain level 5; tops: the last step at brain levels 1, 5 and 10.
+      rtp: 98,
+      maxWin: 10000,
       levels: [
-        { name: 'Easy', steps: 24, first: 1.04, tops: [24.61, 25, 25.19] },
-        { name: 'Medium', steps: 22, first: 1.11, tops: [393.87, 400, 403.06] },
-        { name: 'Hard', steps: 20, first: 1.22, tops: [2461.73, 2500, 2519.13] },
-        { name: 'Hardcore', steps: 15, first: 1.6, tops: [9846.93, 10000, 10076.53] }
+        { name: 'Easy', bombs: 1, steps: 24, first: 1.02, top: 24.5 },
+        { name: 'Medium', bombs: 3, steps: 22, first: 1.11, top: 2254 },
+        { name: 'Hard', bombs: 5, steps: 20, first: 1.22, top: 52067.4 },
+        { name: 'Hardcore', bombs: 10, steps: 15, first: 1.63, top: 3203384.8 }
       ],
       specs: [
         ['Type', 'Crash, single player'],
-        ['RTP', '96.5% at brain level 1, 98% at brain level 5, 98.75% at brain level 10'],
-        ['Brain levels', 'Ten, earned from the risk played; the RTP is fixed at take-off (demo feature)'],
-        ['Difficulties', 'Easy, Medium, Hard, Hardcore'],
-        ['Steps per flight', '24, 22, 20, 15'],
+        ['RTP', '98% for every player, at every brain level'],
+        ['Brain levels', '100 in ten looks; the same 10 brain cells for every finished flight. They never change odds or payouts'],
+        ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 bombs in 25 tiles'],
+        ['Paths per flight', '24, 22, 20, 15'],
         ['Bet range', '$0.10 to $200'],
-        ['Max win', '$10,000 per flight'],
+        ['Max win', '$10,000 per flight, which caps every payout'],
         ['Currency', 'US dollars in the demo, local currencies per market'],
         ['Fairness', 'Provably fair, every flight can be checked in the game'],
         ['Devices', 'Mobile and desktop (HTML5)'],
         ['Languages', 'English now, Georgian in progress'],
         ['Certification', 'Not yet tested by a lab']
       ],
-      demoNote: 'Demo build with play money in US dollars; the game’s final name is still being chosen. Brain levels are a demo feature pending test-lab and legal review before any real-money use.',
-      levelsNote: 'The odds are the same for every player. The brain level only sets the RTP, so the same step pays a little less at brain level 1 and a little more at brain level 10.'
+      demoNote: 'Demo build with play money in US dollars; the game’s final name is still being chosen. Brain levels change the Brainer’s look and unlock worlds; they never change the odds or payouts.',
+      levelsNote: 'The odds and payouts are the same for every player at every brain level. Whatever the multiplier, a single flight pays at most the $10,000 max win.'
     }
   ]
 };
