@@ -1,6 +1,6 @@
 # Handoff: Brainer Games, 3D character, world and demos
 
-Last updated 2026-10-25, late evening. This is for the next Claude session, and for Tornike on a second account. It covers the game/3D work, which belongs to the "BG - Game Developer" session. The website (`Website/`) belongs to the "BG - Website Developer" session: commit only your own paths and never run `git add -A`.
+Last updated 2026-10-26, after a full live test on Tornike's second account. This is for the next Claude session. It covers the game/3D work, which belongs to the "BG - Game Developer" session. The website (`Website/`) belongs to the "BG - Website Developer" session: commit only your own paths and never run `git add -A`.
 
 Live site: https://brainer.datastudio.ge. It deploys from `TornikeZ2Z/blink-gaming`, branch `main`, through GitHub Pages (`.github/workflows/pages.yml`).
 
@@ -39,7 +39,28 @@ Live site: https://brainer.datastudio.ge. It deploys from `TornikeZ2Z/blink-gami
   - `focus.js` and `focus.css`: full screen.
 - The games: `Game #1 - Plane Crash/` and `Game #2 - FogRush/`.
 
-## Done in this last stretch (pushed with this file)
+## Full live test and fixes, 2026-10-26 (d8b6167)
+
+1. **What was tested.** Everything on https://brainer.datastudio.ge, at desktop (1440×900) and phone (390×844, touch), each from a fresh first visit:
+   - All 10 website pages, including both game pages: no errors, no failed requests, no broken images, no sideways overflow.
+     - The 18+ check opens on the first visit, the phone menu opens and the 3D hero takes stage and face picks.
+     - The fairness checker matches (the SHA-256 was recomputed independently), and the contact form blocks an empty submit and sends nothing.
+   - FogRush, 12 rounds, and Plane Crash, 16 flights: wins, bombs, crashes and parachute jumps, with the balance right after every round.
+     - The fairness, How to play and Brainer picker sheets open, and full screen works.
+   - A level-up into a new stage: starting 5 brain cells short of level 11, one FogRush round shows "Brain level 11 – New look: stage 2 of 10". The website's ladder then marks the player's Brainer at Toddler.
+   - Full screen from inside the website's game page: the game takes the whole window on desktop and phone.
+2. **Fixed and pushed:**
+   - **FogRush keys on a Georgian keyboard.** WASD and C did nothing, because the layout sends "დ" for D. They now match `e.code` (`KeyW`, `KeyD`, `KeyC`…).
+   - **The haze across the hangar and tower in Plane Crash.** The horizon haze was drawn over them, so it cut a hard line across both.
+     - `groundFields()` now collects them in `tall` and draws them after `haze()`.
+     - `standing()` tints each one evenly by the haze at its feet, through a reused offscreen canvas. Clear all of that canvas each time: smoothing samples past the drawn area.
+   - **The top bar cut off the wallet at 430 px (iPhone Pro Max)** in both games: the Reset button was clipped or gone. Both games now:
+     - use the compact bar up to 480 px;
+     - hide the logo under 375 px, and How to play only at 330 px or less (FogRush used to hide it on every phone up to 420 px);
+     - in FogRush, hide the wordmark up to 560 px.
+   - Every width from 320 to 1024 px was measured, with a $10,000 balance.
+
+## Done on 2026-10-25
 
 1. **Blank hero on Tornike's phone, fixed.**
    - Cause: phones keep only about 8–16 WebGL contexts, shared by every tab of the site, and drop the oldest. A dropped canvas shows white with a broken-image icon. After graphics crashes Chrome can also block WebGL for the site, which made FogRush show "needs 3D graphics" with an empty bet field.
@@ -54,7 +75,7 @@ Live site: https://brainer.datastudio.ge. It deploys from `TornikeZ2Z/blink-gami
    - Both games have a new button in the top bar, next to sound. It uses the real Fullscreen API where allowed.
    - It always switches to a compact layout: no page padding, slim controls, and the bet keeps −/+ but loses its chips and labels.
    - Inside the website's game page it sends `postMessage({type:'brainer:focus', on})` to the parent.
-3. **Top-bar overlaps fixed** at every width from 320 to 1440 px. Between 761 and 1299 px the multiplier moves under the bar and the Brainer card and level-up move to the bottom left.
+3. **Top-bar overlaps fixed** from 320 to 1440 px. This missed 430 px, which was fixed on 2026-10-26. Between 761 and 1299 px the multiplier moves under the bar and the Brainer card and level-up move to the bottom left.
 4. **Full check.**
    - All 9 website pages on phone and desktop: no errors, no failed requests, no broken images, no sideways overflow.
    - Both games played for 5 rounds each on phone and desktop with no page errors. The picker images load, and the fairness and tutorial sheets open.
@@ -83,16 +104,20 @@ Live site: https://brainer.datastudio.ge. It deploys from `TornikeZ2Z/blink-gami
 
   - The cameras need another pass: the plane shot crowds in the tower, and fog hides the explorer. Move the plane camera away from the tower, and render the fog card on a cleared tile.
   - The alternative is in-game shots: the `#stage` element with the HUD hidden.
-- **Not verified yet:**
-  - A level-up during play. The test rounds didn't cross a level.
-  - The Plane Crash crash path in the latest test (the run mostly jumped).
-  - Real iPhone Safari.
+- **Small things from the 2026-10-26 test, not fixed yet:**
+  - On phones, Plane Crash's level-up banner briefly covers the bottom of the "Crashed" card. `resetToStart()` shows the level-up while the crash card is still up.
+  - FogRush's loading screen (`shared/intro.js`, theme `fog`) still shows the purple sky and cloud islands, not the foggy valley.
+- **Not verified yet:** real iPhone Safari. The level-up and the Plane Crash crash path were verified on 2026-10-26.
 - **Untracked, not ours:** `Marketing kit/`, `NewIdeas-backup/`, `blink-domains-available.csv`. Leave them.
 
 ## Testing set-up used
 
 - The scratchpad served a copy of the site at `http://localhost:5181`, laid out like production: games at `/plane-crash/` and `/fogrush/`, shared at `/shared/`.
 - Tests used puppeteer-core with Chrome and the flags `--use-angle=d3d11 --enable-gpu`.
+- Two checks to repeat for any change to a game's input or top bar:
+  - Send a Georgian-layout key through CDP: `Input.dispatchKeyEvent` with key "დ" and code "KeyD".
+  - Measure the bar at every width from 320 to 1024 px, with `#balance` set to "$10,000.00".
+- The Browser pane in the desktop app slows animation to about 1 frame per second while it is hidden. Play the games there only while it is showing, or use headless Chrome as above.
 - To reproduce locally, serve the repo root and open the folders directly:
 
   ```
