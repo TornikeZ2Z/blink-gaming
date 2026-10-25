@@ -66,6 +66,14 @@ Live site: https://brainer.datastudio.ge. It deploys from `TornikeZ2Z/blink-gami
   - Listen for the `brainer:focus` message on `game.html` and hide the site header and game bar while it is on (it matters on iPhone, which has no element full screen).
   - The **game cards** on the home and games pages (`Website/assets/games/plane-crash.svg`, `fogrush.webp`) still show the **old** Brainer with the brain dome. They need new art, 4:5 at about 800×1000.
   - The FogRush copy in `Website/assets/js/data.js` (tagline, description, specs) still says "sky islands hidden in the clouds". It should say a foggy valley next to the airfield.
+- **The website session finished 1, 2 and 4 above (723ab97, live).** It is waiting for the card art, to this spec:
+  - Save to `Brainer 3D/renders/cards/plane-crash.png` and `fogrush.png`.
+  - 4:5 at 800×1000, opaque, full bleed. The card only rounds the corners, at about 20 px.
+  - No text or logo.
+  - The cards show at about 270–480 css px wide, so keep the Brainer large in frame.
+  - Plane Crash: the new Brainer in its plane over the meadow, with the airfield readable but not crowding.
+  - FogRush: the Brainer on a cleared plot with fog around it, plus a chest or a few revealed plots.
+  - Then message the website session. It converts them to WebP and swaps them in; the operators page's skin tiles reuse the Plane Crash card.
 - **New card art.**
   - First try: `world.py` views `card_plane` and `card_fog`. Command:
 
