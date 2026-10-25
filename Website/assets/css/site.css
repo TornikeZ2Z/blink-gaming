@@ -139,7 +139,7 @@ dialog::backdrop{background:rgba(10,19,34,.5);backdrop-filter:blur(3px)}
 .ladder{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:clamp(8px,.9vw,18px)}
 .lv{display:flex;flex-direction:column;align-items:center;gap:6px;padding:clamp(12px,1vw,20px) 6px clamp(14px,1.1vw,22px);border-radius:clamp(16px,1.2vw,24px);background:#fff;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
 .lv::after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:var(--tier)}
-.lv img{width:100%;max-width:160px;transition:transform .2s}
+.lv img{width:100%;max-width:160px;aspect-ratio:1;border-radius:clamp(10px,.9vw,16px);background:radial-gradient(120% 90% at 50% 35%,var(--tint) 0,var(--tint-2) 80%);transition:transform .2s}   /* the white Brainer needs a backdrop to stand on */
 .lv:hover img{transform:translateY(-4px) scale(1.04)}
 .lv b{font-size:clamp(12px,.82vw,15px);text-align:center;line-height:1.25}
 .lv .boost{font-family:var(--mono);font-size:clamp(12px,.8vw,14.5px);font-weight:500;color:var(--main)}

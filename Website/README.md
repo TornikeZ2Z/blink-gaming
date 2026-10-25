@@ -26,11 +26,11 @@ Then open http://localhost:5174/Website/. In Claude Code the `website` entry in 
 
 The home hero's 3D Brainer is the game team's component `shared/brainer-showcase.js` (model `shared/models/brainer.glb`, three.js from `shared/vendor/`), mounted by `assets/js/hero-3d.js`: its screen switches on, it grows through the ten stages (Baby to Master), and visitors pick stages and faces, switch it off and on and turn it. An inline script in `index.html` points the `three` import map and the component at `shared/` when published or `../shared/` in the repo. Without WebGL the robot still in the markup shows instead. `window.brainer3d` exposes `setStage`, `setFace` and `setPower` for other parts of the page.
 
-Header, footer, menu drawer and the 18+ check are drawn by `assets/js/site.js` on every page. Any element with `data-games` fills itself with game cards, `data-ladder` with the ten robots and `data-tiers` with the five level colours.
+Header, footer, menu drawer and the 18+ check are drawn by `assets/js/site.js` on every page. Any element with `data-games` fills itself with game cards, `data-ladder` with the ten Brainer stages and `data-tiers` with the five level colours.
 
 ## Brand assets
 
-`assets/fonts/firago/` holds FiraGO Regular, Bold and ExtraBold (see Typeface below). `assets/brainer/` holds files downloaded from Tornike's Brainer Drive on 2026-10-25 with his OK: `robots/1.png` to `robots/10.png` (500x500, transparent, one per player level) and `logo/` (`logo-white.png` is the B on the gradient tile used in the header and footer, `logo-blue.png` the gradient B on white, `logo-mono.png` a small B + "Brainer" lockup, `favicon.png`).
+`assets/fonts/firago/` holds FiraGO Regular, Bold and ExtraBold (see Typeface below). `assets/brainer/logo/` holds files downloaded from Tornike's Brainer Drive on 2026-10-25 with his OK (`logo-white.png` is the B on the gradient tile, `logo-blue.png` the gradient B on white, `logo-mono.png` a small B + "Brainer" lockup, `favicon.png`). `assets/brainer/robots/1.webp` to `10.webp` are the ten stage stills, Baby to Master, one per ten brain levels: the game team's renders of the 3D Brainer (`Brainer 3D/renders/stages/`, 500x500, transparent), with the contact shadow faded out at the left, right and bottom edges and saved as WebP, about 35 KB each. They replaced the brand book's flat robots on 2026-10-25.
 
 ## Common changes
 

@@ -89,8 +89,9 @@ const myLevel = parseInt(store.get('brainer.level'), 10), mine = myLevel >= 1 ? 
 $$('[data-ladder]').forEach(el => {
   el.innerHTML = Array.from({ length: BRAIN.stages }, (_, i) => i + 1).map(n => {
     const lo = (n - 1) * per + 1, hi = n * per, unlock = BRAIN.unlocks.find(u => u.at >= lo && u.at <= hi);
-    return `<div class="lv${n === mine ? ' me' : ''}" style="--tier:${tierOf(n).css}">${n === mine ? '<span class="you">Your Brainer</span>' : ''}<img src="${BRAIN.robot(n)}" alt="The Brainer's look for brain levels ${lo} to ${hi}" loading="lazy" decoding="async">`
-      + `<b>Levels ${lo}–${hi}</b><span class="cells">Look ${n} of ${BRAIN.stages}</span>${unlock ? `<span class="unlock">${esc(unlock.name)} at ${unlock.at}</span>` : ''}</div>`;
+    const name = BRAIN.names[n - 1];
+    return `<div class="lv${n === mine ? ' me' : ''}" style="--tier:${tierOf(n).css}">${n === mine ? '<span class="you">Your Brainer</span>' : ''}<img src="${BRAIN.robot(n)}" alt="The Brainer at stage ${n}, ${esc(name)}, for brain levels ${lo} to ${hi}" loading="lazy" decoding="async">`
+      + `<b>${esc(name)}</b><span class="cells">Levels ${lo}–${hi}</span>${unlock ? `<span class="unlock">${esc(unlock.name)} at ${unlock.at}</span>` : ''}</div>`;
   }).join('');
 });
 $$('[data-tiers]').forEach(el => {

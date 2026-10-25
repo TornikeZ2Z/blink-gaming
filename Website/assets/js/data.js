@@ -10,13 +10,14 @@ window.BLINK = {
     legal: 'Licensing in progress. The demos use play money only.'
   },
 
-  // Mirrors cfg.brain in both games' game.js: 100 brain levels in ten stages of ten, each stage one of the ten brand
-  // robots. Every finished round (a Plane Crash flight or a FogRush round) earns the same 10 brain cells at any bet or
+  // Mirrors cfg.brain in both games' game.js: 100 brain levels in ten stages of ten, each stage one look of the 3D
+  // Brainer (stills from the game team's Brainer 3D/renders/stages, named as in shared/brainer-showcase.js). Every finished round (a Plane Crash flight or a FogRush round) earns the same 10 brain cells at any bet or
   // difficulty, and brain levels never change the odds or payouts: they change the Brainer's look and, in Plane Crash,
   // unlock worlds. Progress lives in localStorage brainer.xp (cells) and brainer.level (1-100), shared by every game on
   // the site. Tiers colour the stages in pairs with the brand book's level gradients.
   BRAIN: {
-    robot: n => `assets/brainer/robots/${n}.png`,
+    robot: n => `assets/brainer/robots/${n}.webp`,
+    names: ['Baby', 'Toddler', 'Kid', 'School kid', 'Teen', 'Student', 'Young pro', 'Pro', 'Expert', 'Master'],
     levels: 100,
     stages: 10,
     perFlight: 10,
