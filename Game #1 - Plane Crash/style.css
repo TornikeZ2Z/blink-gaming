@@ -216,3 +216,10 @@ button{cursor:pointer}
 .worlds-pick button[aria-pressed=true] span{color:#fff}
 .worlds-pick button:disabled{opacity:.5;cursor:default}
 .levelup.big{border-color:#ffc147;box-shadow:0 0 0 2px rgba(255,193,71,.5),0 14px 40px rgba(10,19,34,.5)}
+
+/* tablets and small laptops: the top bar fills the width, so the multiplier sits under it and the Brainer's card
+   moves to the bottom left */
+@media (min-width:761px) and (max-width:1299px){ .readout{top:60px} .levelup{top:auto;bottom:52px} }
+@media (min-width:761px) and (max-width:1099px){ .pilot{top:auto;bottom:46px} }
+@media (max-width:360px){ #help{display:none} }   /* the smallest phones: room for full screen and the wallet */
+@media (max-width:340px){ .brand{display:none} }

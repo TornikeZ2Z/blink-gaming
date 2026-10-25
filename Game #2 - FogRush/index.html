@@ -10,12 +10,13 @@
 <link rel="icon" href="assets/favicon.png">
 <link rel="preload" href="assets/fonts/FiraGO-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="../shared/focus.css">
 <link rel="stylesheet" href="../shared/intro.css">
 </head>
 <body>
 <main class="app">
   <section class="stage" id="stage" aria-label="The foggy valley">
-    <div class="nogl" id="nogl" hidden><b>FogRush needs 3D graphics (WebGL)</b><span>Turn on hardware acceleration in your browser, or try another browser.</span></div>
+    <div class="nogl" id="nogl" hidden><b>FogRush needs 3D graphics</b><span>Your browser isn't giving this page 3D right now. This can happen with many tabs open: close a few, or restart the browser, then try again.</span><button type="button" class="big play" id="noglRetry"><span class="l1">Try again</span></button></div>
     <header class="hud">
       <div class="brand"><img src="assets/logo-white.png" alt="Brainer Games" class="logo"><span class="t1">FogRush</span></div>
       <div class="hud-right">
@@ -117,6 +118,7 @@
 <script type="importmap">{"imports":{"three":"../shared/vendor/three.module.min.js"}}</script>
 <script src="../shared/face.js"></script>
 <script src="../shared/intro.js"></script>
+<script src="../shared/focus.js"></script>
 <script type="module" src="game.js"></script>
 </body>
 </html>

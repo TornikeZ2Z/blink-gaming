@@ -291,7 +291,7 @@ function render3D(now) {
     k.chute.update(now, { open: st.open, fold: st.fold, reduced });
     k.stage.draw(k.chute, wA + B, 0, C, C, 'chute');
   }
-  k.ok = k.seat.ready && k.front.ready;   // the model streams in; until then the 2D art stands in
+  k.ok = k.seat.ready && k.front.ready && k.stage.alive;   // the model streams in, and a dropped context comes back; meanwhile the 2D art stands in
 }
 function blit3D(g, region, x, y, size) {   // copies region B (front view) or C (parachute), centred at (x, y), size px square
   const [sx, sw] = region === 'C' ? [b3.wA + b3.B, b3.C] : [b3.wA, b3.B];
@@ -1387,6 +1387,7 @@ function introActor(g, w, h, now, ex) {
 }
 $('.brand .t1').innerHTML = window.BrainerIntro ? window.BrainerIntro.wordmark('plane') : 'Plane Crash';
 (window.BrainerIntro ? window.BrainerIntro.start({ title: 'Plane Crash', mark: 'plane', theme: 'plane', what: 'your plane', actor: introActor, progress: loadProgress }) : Promise.resolve()).then(() => {
+  if (introA) introA.stage.dispose(); introA = false;   // the intro's own WebGL context goes: phones allow only so many
   if (store.get('blink.age-ok', '') !== '1') openSheet('#agegate');
   else if (store.get('brainer.pc.tutorial', '') !== 'seen') openSheet('#tutorial');
 });

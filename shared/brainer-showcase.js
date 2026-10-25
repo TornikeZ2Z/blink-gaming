@@ -1,12 +1,13 @@
 /* The Brainer showcase: the 3D character for the website. It switches its screen on, then grows through its ten
    stages, each with its own pose, LED face, colour and accessory; visitors can pick a stage, try faces, switch it off
    and on, and turn it round.
-   mountShowcase(el, { ui, autoplay, step }) returns { setStage, setFace, setPower, destroy }; step is the autoplay's
-   ms per stage. The page maps 'three' to the vendored three.js with an import map, as the games do; import-map addresses
+   mountShowcase(el, { ui, autoplay, step, still }) returns { setStage, setFace, setPower, destroy }; step is the
+   autoplay's ms per stage; still(stage 0..9) gives a picture's URL, shown instead if the browser stops allowing WebGL. The page maps 'three' to the vendored three.js with an import map, as the games do; import-map addresses
    must start with ./, ../ or /, e.g. {"imports":{"three":"./shared/vendor/three.module.min.js"}} from the site's root. */
 import * as THREE from 'three';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { loadBrainer, BrainerRig, STAGES } from './brainer-model.js';
+import { guardRenderer } from './gl-guard.js';
 
 export { STAGES };
 export const FACES = [['happy', 'Happy'], ['wink', 'Wink'], ['excited', 'Excited'], ['love', 'Love'], ['amazed', 'Wow'], ['think', 'Thinking'], ['shock', 'Shock'], ['sad', 'Sad'], ['dizzy', 'Dizzy'], ['sleepy', 'Sleepy']];
@@ -16,6 +17,8 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const CSS = `
 .bsc{position:relative;width:100%;height:100%;min-height:360px;touch-action:pan-y;user-select:none}
 .bsc canvas{display:block;width:100%;height:100%;cursor:grab}.bsc canvas:active{cursor:grabbing}
+.bsc .bsc-still{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:min(78%,420px);height:auto}
+.bsc.bsc-nogl .bsc-faces,.bsc.bsc-nogl .bsc-power{display:none}
 .bsc-ui{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 12px 14px;pointer-events:none}
 .bsc-cap{font:700 15px/1.3 inherit;color:#fff;text-align:center;text-shadow:0 2px 12px rgba(20,10,80,.45)}
 .bsc-cap small{display:block;font-weight:500;opacity:.8;font-size:13px}
@@ -35,15 +38,27 @@ export async function mountShowcase(el, opts = {}) {
   el.classList.add('bsc');
 
   // ---------- renderer, light and stage ----------
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.NeutralToneMapping; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  el.appendChild(renderer.domElement);
-  const scene = new THREE.Scene(), pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.75;
+  const small = Math.min(innerWidth, innerHeight) < 700;   // phones: a lighter load on the GPU
+  const scene = new THREE.Scene(); scene.environmentIntensity = 0.75;
+  let pmrem = null;
+  const make = () => {
+    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    r.setPixelRatio(Math.min(devicePixelRatio, small ? 1.75 : 2)); r.outputColorSpace = THREE.SRGBColorSpace;
+    r.toneMapping = THREE.NeutralToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+    if (pmrem) pmrem.dispose(); pmrem = new THREE.PMREMGenerator(r); scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    return r;
+  };
+  let still = null, rig = null;   // the picture shown if WebGL is gone for good; the character
+  const showStill = () => {
+    if (!o.still) return;
+    if (!still) { still = document.createElement('img'); still.className = 'bsc-still'; still.alt = ''; gl.renderer.domElement.replaceWith(still); }
+    still.src = o.still(rig ? rig.stage : 0);
+  };
+  const gl = guardRenderer(make, (next, old) => { old.domElement.replaceWith(next.domElement); fit(); }, () => { el.classList.add('bsc-nogl'); showStill(); });   // a dropped context is rebuilt in place
+  el.prepend(gl.renderer.domElement);
   const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 100);
   const key = new THREE.DirectionalLight(0xfff6ee, 2.2); key.position.set(-3, 6, 5); key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 6; Object.assign(key.shadow.camera, { left: -2.5, right: 2.5, top: 3.5, bottom: -1, near: 1, far: 20 });
+  key.shadow.mapSize.set(small ? 1024 : 2048, small ? 1024 : 2048); key.shadow.radius = 6; Object.assign(key.shadow.camera, { left: -2.5, right: 2.5, top: 3.5, bottom: -1, near: 1, far: 20 });
   scene.add(key, new THREE.HemisphereLight(0xe8e4ff, 0x6a5cff, 0.6));
   const rim = new THREE.DirectionalLight(0xa58bff, 1.4); rim.position.set(3, 3, -4); scene.add(rim);
   const floor = new THREE.Mesh(new THREE.CircleGeometry(3, 64), new THREE.ShadowMaterial({ opacity: 0.22 }));
@@ -52,7 +67,7 @@ export async function mountShowcase(el, opts = {}) {
   const auraMat = new THREE.MeshBasicMaterial({ color: 0xb9a6ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   [0.62, 0.42].forEach((r, k) => { const m = new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 12, 96), auraMat); m.rotation.x = Math.PI / 2; m.position.y = 0.03 + 0.05 * k; aura.add(m); });
 
-  const rig = new BrainerRig(await loadBrainer());
+  rig = new BrainerRig(await loadBrainer());
   const turn = new THREE.Group(); turn.add(rig.root); scene.add(turn);
   rig.power = 0; rig.powerTo = 1;
 
@@ -83,24 +98,24 @@ export async function mountShowcase(el, opts = {}) {
   const stopAuto = () => { if (st.auto) { st.auto = false; refreshUI(); } };
 
   // ---------- the API ----------
-  function setStage(s) { rig.setStage(s); rig.setPose(STAGES[rig.stage].pose); rig.setFace(STAGES[rig.stage].face); st.faceHold = 0; refreshUI(); }
+  function setStage(s) { rig.setStage(s); rig.setPose(STAGES[rig.stage].pose); rig.setFace(STAGES[rig.stage].face); st.faceHold = 0; if (still) showStill(); refreshUI(); }
   function setFace(ex, hold = 0) { rig.setFace(ex); st.faceHold = hold ? performance.now() + hold : 0; }
   function setPower(on) { rig.powerTo = on ? 1 : 0; }
 
   // ---------- input: drag to turn, the head follows the pointer ----------
-  const cv = renderer.domElement;
-  cv.addEventListener('pointerdown', e => { st.drag = { x: e.clientX, yaw: st.yaw }; cv.setPointerCapture(e.pointerId); });
-  cv.addEventListener('pointermove', e => {
-    const r = cv.getBoundingClientRect(); st.look = [((e.clientX - r.left) / r.width) * 2 - 1, ((e.clientY - r.top) / r.height) * 2 - 1]; st.idleAt = performance.now();
+  // on the box, not the canvas, so they survive a rebuilt renderer; the buttons keep their own clicks
+  el.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; st.drag = { x: e.clientX, yaw: st.yaw }; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', e => {
+    const r = el.getBoundingClientRect(); st.look = [((e.clientX - r.left) / r.width) * 2 - 1, ((e.clientY - r.top) / r.height) * 2 - 1]; st.idleAt = performance.now();
     if (st.drag) st.yaw = st.drag.yaw + (e.clientX - st.drag.x) / r.width * 4;
   });
   const endDrag = () => { st.drag = null; st.idleAt = performance.now(); };
-  cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
-  cv.addEventListener('pointerleave', () => { st.look = [0, 0]; });
+  el.addEventListener('pointerup', endDrag); el.addEventListener('pointercancel', endDrag);
+  el.addEventListener('pointerleave', () => { st.look = [0, 0]; });
 
   const fit = () => {   // frame the Brainer in the space above the buttons, the master (cap and all) included, in any shape
     const w = el.clientWidth, h = Math.max(el.clientHeight, 1), uiH = ui ? ui.offsetHeight + 8 : 0, hEff = Math.max(h - uiH, h * 0.5);
-    renderer.setSize(w, h, false); camera.aspect = w / h;
+    gl.renderer.setSize(w, h, false); camera.aspect = w / h;
     let dist = 8.2 * h / hEff; if (w / hEff < 0.95) dist *= 0.95 / (w / hEff);
     camera.position.set(0, 1.7, dist); camera.lookAt(0, 1.3, 0);
     camera.setViewOffset(w, h, 0, uiH / 2, w, h); camera.updateProjectionMatrix();
@@ -127,12 +142,12 @@ export async function mountShowcase(el, opts = {}) {
     aura.rotation.y = now / 2400; aura.scale.setScalar(rig.nodes.Brainer.scale.x);
     if (!st.drag && now - st.idleAt > 2500) st.yaw *= Math.exp(-dt * 1.5);   // drift back to the front
     turn.rotation.y = st.yaw + (reduced ? 0 : Math.sin(now / 3000) * 0.12);
-    renderer.render(scene, camera);
+    if (gl.check()) gl.renderer.render(scene, camera);
   };
   raf = requestAnimationFrame(frame);
   refreshUI();
   return {
     setStage: s => { stopAuto(); setStage(s); }, setFace: (ex, hold) => setFace(ex, hold), setPower,
-    destroy() { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); renderer.dispose(); pmrem.dispose(); el.replaceChildren(); el.classList.remove('bsc'); }
+    destroy() { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); gl.stop(); gl.renderer.dispose(); pmrem.dispose(); el.replaceChildren(); el.classList.remove('bsc'); }
   };
 }

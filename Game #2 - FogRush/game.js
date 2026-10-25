@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from '../shared/vendor/RoomEnvironment.js';
 import { RoundedBoxGeometry } from '../shared/vendor/RoundedBoxGeometry.js';
 import { Brainer, BrainerStage, Plane3D } from '../shared/brainer3d.js';
+import { guardRenderer } from '../shared/gl-guard.js';
 
 const $ = s => document.querySelector(s);
 const money = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -116,18 +117,23 @@ const sound = (() => {
 
 /* ---------- the 3D world ---------- */
 const stage = $('#stage');
-let renderer = null;
-try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); } catch (e) { renderer = null; }
-if (!renderer) { $('#nogl').hidden = false; throw new Error('WebGL unavailable'); }
 const phone = matchMedia('(max-width: 860px)').matches;
-renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
-renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0; renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.setClearColor(0x000000, 0);
-renderer.domElement.className = 'world';
+const scene = new THREE.Scene(); scene.environmentIntensity = 0.55;
+function makeRenderer() {
+  const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  r.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+  r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0; r.outputColorSpace = THREE.SRGBColorSpace;
+  r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
+  r.setClearColor(0x000000, 0);
+  r.domElement.className = 'world'; listen(r.domElement);
+  scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture;
+  return r;
+}
+let gl = null, renderer = null;   // if the browser drops the world's context (too many open on a phone), it is rebuilt in place
+const noGL = () => { $('#nogl').hidden = false; document.body.classList.add('no3d'); $('#noglRetry').onclick = () => location.reload(); };   // the controls go too: there is nothing to play
+try { gl = guardRenderer(makeRenderer, next => { renderer.domElement.replaceWith(next.domElement); renderer = next; layout(); }, noGL); renderer = gl.renderer; } catch (e) { renderer = null; }
+if (!renderer) { noGL(); throw new Error('WebGL unavailable'); }
 stage.prepend(renderer.domElement);
-const scene = new THREE.Scene();
-scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.55;
 scene.fog = new THREE.FogExp2(0xd6dbff, 0.011);
 scene.add(new THREE.HemisphereLight(0xf4f2ff, 0x6a8f4a, 0.95));
 const sun = new THREE.DirectionalLight(0xfff2e2, 2.2); sun.castShadow = true;
@@ -590,7 +596,7 @@ function loop(now) {
   const dt = Math.min(50, now - (last || now)); last = now;
   if (W && H) {
     update(now, dt);
-    renderer.render(scene, cam);
+    if (gl.check()) renderer.render(scene, cam);
     drawPilot(now, mood);
     if (!flashEl) { flashEl = document.createElement('div'); flashEl.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:2'; stage.appendChild(flashEl); }
     const fa = now - flashAt < 260 ? 0.7 * (1 - (now - flashAt) / 260) : 0; flashEl.style.background = fa ? `rgba(${flashCol},${fa})` : 'transparent';
@@ -628,9 +634,11 @@ function dirAt(e) {
   const tx = Math.round(hit.x / T + C), ty = Math.round(hit.z / T + C);
   return Object.keys(DIRS).find(d => walker.x + DIRS[d][0] === tx && walker.y + DIRS[d][1] === ty) || '';
 }
-renderer.domElement.addEventListener('pointermove', e => { hoverDir = exploring() ? dirAt(e) : ''; renderer.domElement.style.cursor = hoverDir ? 'pointer' : ''; });
-renderer.domElement.addEventListener('pointerleave', () => { hoverDir = ''; });
-renderer.domElement.addEventListener('click', e => { lastInput = performance.now(); if (exploring()) { const d = dirAt(e); if (d) move(d); } else if (round) nextRound(); });
+function listen(cv) {   // the world canvas's input; a rebuilt canvas gets it again
+  cv.addEventListener('pointermove', e => { hoverDir = exploring() ? dirAt(e) : ''; cv.style.cursor = hoverDir ? 'pointer' : ''; });
+  cv.addEventListener('pointerleave', () => { hoverDir = ''; });
+  cv.addEventListener('click', e => { lastInput = performance.now(); if (exploring()) { const d = dirAt(e); if (d) move(d); } else if (round) nextRound(); });
+}
 
 /* ---------- panels ---------- */
 const clampStake = v => Math.min(cfg.maxBet, Math.max(cfg.minBet, Math.round((Number.isFinite(v) ? v : cfg.minBet) * 100) / 100));
@@ -787,6 +795,7 @@ function introActor(g, w, h, now, ex) {
 }
 document.querySelector('.brand .t1').innerHTML = window.BrainerIntro ? window.BrainerIntro.wordmark('fog') : 'FogRush';
 (window.BrainerIntro ? window.BrainerIntro.start({ title: 'FogRush', mark: 'fog', theme: 'fog', what: 'the valley', actor: introActor, progress: loadProgress }) : Promise.resolve()).then(() => {
+  if (introA) introA.stage.dispose(); introA = false;   // the intro's own WebGL context goes: phones allow only so many
   if (store.get('blink.age-ok', '') !== '1') openSheet('#agegate');
   else if (store.get('brainer.fr.tutorial', '') !== 'seen') openSheet('#tutorial');
 });

@@ -2,7 +2,8 @@
 # FogRush is played on the ground, in the foggy valley beside the airfield.
 # usage: blender -b --python world.py -- <outdir> <theme> <view> [res]
 #   themes: meadow (green countryside), tech (lavender land with glowing circuit roads), islands (floating islands)
-#   views: establish (the whole world), plane (behind the plane in flight), fog (over the FogRush valley)
+#   views: establish (the whole world), plane (behind the plane in flight), fog (over the FogRush valley),
+#          card_plane, card_fog (4:5 pictures for the website's game cards, the Brainer facing the camera)
 import bpy, bmesh, math, os, random, runpy, sys
 from mathutils import Vector, noise
 
@@ -260,6 +261,9 @@ cam_presets = {
     'plane': (tuple(PL - PD * 20 + Vector((0, 0, 7))), tuple(PL + PD * 70 + Vector((0, 0, -14))), 35, (RES, RES * 9 // 16)),
     'fog': ((FOG[0] - 2, FOG[1] - 14, 13), (FOG[0], FOG[1] + 3, 0), 32, (RES, RES * 9 // 16)),
 }
+SIDE = Vector((PD.y, -PD.x, 0))   # to the plane's right
+cam_presets['card_plane'] = (tuple(PL + PD * 8.5 + SIDE * 3.6 + Vector((0, 0, 2.2))), tuple(PL + PD * 0.6 + Vector((0, 0, -0.9))), 32, (RES * 4 // 5, RES))
+cam_presets['card_fog'] = ((bx + 2.4, by - 6.2, 3.2), (bx, by + 0.6, 0.95), 40, (RES * 4 // 5, RES))
 if THEME == 'islands': cam_presets['establish'] = ((-150, -125, 16), (25, 35, -10), 30, (RES, RES * 9 // 16))   # from beside, to see them float
 cl, ct, lens, res = cam_presets[VIEW]
 bpy.ops.object.camera_add(location=cl); cam = bpy.context.active_object; scene.camera = cam; look(cam, ct); cam.data.lens = lens; cam.data.clip_end = 2000

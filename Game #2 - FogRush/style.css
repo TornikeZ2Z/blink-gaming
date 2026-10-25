@@ -194,6 +194,10 @@ button{cursor:pointer}
 .stage canvas.world{position:absolute;inset:0;width:100%;height:100%;display:block}
 .nogl{position:absolute;inset:0;display:grid;place-content:center;gap:6px;text-align:center;padding:20px;color:#fff;font-size:14px}
 .nogl b{font-size:20px}
+.nogl{z-index:20;background:linear-gradient(180deg,#5b4af6 0%,#8f88ff 60%,#cdd0ff 100%);max-width:none;gap:12px}
+.nogl span{max-width:420px;margin:0 auto;line-height:1.45}
+.nogl .big{min-height:56px;width:min(260px,80vw);margin:6px auto 0}
+.no3d .controls,.no3d .hud .round,.no3d .pilot,.no3d .readout,.no3d .ladder{display:none}   /* without 3D there is nothing to play */
 .brand .t1 .wm{font-size:28px;text-shadow:none;margin:2px 0 0 2px}
 .readout{width:auto;min-width:min(300px,86%);max-width:92%;padding:8px 20px 10px;border-radius:24px;background:rgba(14,10,48,.5);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.16);box-shadow:0 10px 30px rgba(14,10,48,.25)}   /* a glass card: the sky here is white clouds, not Plane Crash's violet */
 .readout .mult{color:#fff}
@@ -258,3 +262,9 @@ button{cursor:pointer}
 }
 @media (max-width:420px){ #help{display:none} .brand .t1 .wm{font-size:19px} }
 @media (prefers-reduced-motion:reduce){ .curtain.roll i{animation-duration:.01s!important} }
+
+/* tablets and small laptops: the top bar fills the width, so the multiplier sits under it and the Brainer's card
+   moves to the bottom left */
+@media (min-width:761px) and (max-width:1299px){ .readout{top:60px} .levelup{top:auto;bottom:52px} }
+@media (min-width:761px) and (max-width:1099px){ .pilot{top:auto;bottom:46px} }
+@media (max-width:400px){ .brand .t1{display:none} }   /* small phones: the logo alone, so the top bar fits */

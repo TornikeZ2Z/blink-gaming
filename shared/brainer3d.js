@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 import { loadBrainer, BrainerRig, STAGES } from './brainer-model.js';
+import { guardRenderer } from './gl-guard.js';
 
 let model = null;
 export const brainerReady = loadBrainer().then(m => (model = m));
@@ -231,19 +232,18 @@ export class Chute3D {
   }
 }
 
-// One WebGL renderer for every view of the Brainer; views are drawn into regions of its canvas and copied out.
+// One WebGL renderer for every view of the Brainer; views are drawn into regions of its canvas and copied out. If the
+// browser drops its context (too many open on a phone), it is rebuilt on the next draw; dispose() lets it go for good.
 export class BrainerStage {
   constructor() {
-    this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
-    this.renderer.setPixelRatio(1);
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 0.95;
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.setClearColor(0x000000, 0);
-    this.renderer.setScissorTest(true);
-    this.canvas = this.renderer.domElement;
-    this.scene = new THREE.Scene();
-    const pm = new THREE.PMREMGenerator(this.renderer);
-    this.scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; this.scene.environmentIntensity = 0.5;
+    this.scene = new THREE.Scene(); this.scene.environmentIntensity = 0.5;
+    this.gl = guardRenderer(() => {
+      const r = new THREE.WebGLRenderer({ alpha: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
+      r.setPixelRatio(1); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.95;
+      r.outputColorSpace = THREE.SRGBColorSpace; r.setClearColor(0x000000, 0); r.setScissorTest(true);
+      this.scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture;
+      return r;
+    }, next => { const [w, h] = this.size; this.size = [0, 0]; if (w) this.setSize(w, h); });
     this.scene.add(new THREE.HemisphereLight(0xf6f2ff, 0x4a37c9, 0.85));
     const key = new THREE.DirectionalLight(0xfff2e6, 2.3); key.position.set(-2.8, 3.4, 3.0); this.scene.add(key);
     const rimL = new THREE.DirectionalLight(0x9a85ff, 2.4); rimL.position.set(3.0, 1.8, -2.6); this.scene.add(rimL);
@@ -252,9 +252,14 @@ export class BrainerStage {
     this.camera = new THREE.PerspectiveCamera(28, 1, 0.1, 50);
     this.size = [0, 0];
   }
+  get renderer() { return this.gl.renderer; }
+  get alive() { return !this.gl.lost; }   // false while its context is gone: the games draw their 2D stand-ins
+  get canvas() { return this.gl.renderer.domElement; }
   setSize(w, h) { if (this.size[0] !== w || this.size[1] !== h) { this.renderer.setSize(w, h, false); this.size = [w, h]; } }
+  dispose() { this.gl.stop(); this.renderer.dispose(); this.renderer.forceContextLoss(); }
   // Renders `brainer` into the region (x, y, w, h) of the canvas (y from the top), seen from `view`.
   draw(actor, x, y, w, h, view = 'front') {   // actor: a Brainer, the plane or the parachute
+    if (!this.gl.check()) return;
     for (const ch of this.scene.children) if (ch.userData.actor) ch.visible = ch === actor.root;
     if (!actor.root.parent) { actor.root.userData.actor = true; this.scene.add(actor.root); }
     actor.root.visible = true;
