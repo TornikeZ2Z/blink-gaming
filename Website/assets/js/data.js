@@ -10,10 +10,11 @@ window.BLINK = {
     legal: 'Licensing in progress. The demos use play money only.'
   },
 
-  // Mirrors cfg.brain in Game #1 - Plane Crash/game.js: 100 brain levels in ten stages of ten, each stage one of the ten
-  // brand robots. Every finished flight earns the same 10 brain cells at any bet or difficulty, and brain levels never
-  // change the odds or payouts: they change the Brainer's look and unlock worlds. Progress lives in localStorage
-  // brainer.xp (cells) and brainer.level (1-100). Tiers colour the stages in pairs with the brand book's level gradients.
+  // Mirrors cfg.brain in both games' game.js: 100 brain levels in ten stages of ten, each stage one of the ten brand
+  // robots. Every finished round (a Plane Crash flight or a FogRush round) earns the same 10 brain cells at any bet or
+  // difficulty, and brain levels never change the odds or payouts: they change the Brainer's look and, in Plane Crash,
+  // unlock worlds. Progress lives in localStorage brainer.xp (cells) and brainer.level (1-100), shared by every game on
+  // the site. Tiers colour the stages in pairs with the brand book's level gradients.
   BRAIN: {
     robot: n => `assets/brainer/robots/${n}.png`,
     levels: 100,
@@ -37,6 +38,7 @@ window.BLINK = {
       status: 'demo',
       genre: 'Crash',
       badge: 'Game #1',
+      round: 'flight',
       color: '#2E8BD8',
       art: 'assets/games/plane-crash.svg',
       // Published, the game sits at /plane-crash/ next to the site; in the repo it is the sibling folder.
@@ -77,8 +79,69 @@ window.BLINK = {
         ['Languages', 'English now, Georgian in progress'],
         ['Certification', 'Not yet tested by a lab']
       ],
+      fairness: 'Every flight is fixed before the bet: the game shows the SHA-256 hash of its server seed first and reveals the seed when the flight ends. The shield button in the game re-checks the hash and redraws every bomb of your last flight, so the player, the casino or a regulator can recompute it.',
       demoNote: 'Demo build with play money in US dollars; the game’s final name is still being chosen. Brain levels change the Brainer’s look and unlock worlds; they never change the odds or payouts.',
       levelsNote: 'The odds and payouts are the same for every player at every brain level. Whatever the multiplier, a single flight pays at most the $10,000 max win.'
+    },
+    {
+      id: 'fogrush',
+      title: 'FogRush',
+      status: 'demo',
+      genre: 'Mines',
+      badge: 'Game #2',
+      round: 'round',
+      color: '#9BE06E',
+      // Cropped from Marketing kit/renders/fogrush-chest.png (the game team's render), 560x700.
+      art: 'assets/games/fogrush.webp',
+      // Published, the game sits at /fogrush/ next to the site; in the repo it is the sibling folder.
+      src: location.pathname.includes('/Website/') ? '../Game%20%232%20-%20FogRush/index.html' : 'fogrush/index.html',
+      tagline: 'Walk your Brainer across sky islands hidden in the clouds. Find chests, dodge bombs and cash out any time.',
+      about: [
+        'A single-player instant game on a 25 × 25 map of grassy sky islands, all hidden under clouds. The Brainer starts in the middle and walks one tile at a time in any direction.',
+        'Every new tile clears its clouds. Most are plain and nudge the multiplier up, some hold a chest that multiplies it by 1.3 to 25, and 8% hide a bomb that ends the round. Tiles already cleared are safe to walk back across, so the player picks the route as well as the moment to stop.',
+        'The 3D Brainer is the same one as in Plane Crash: its brain level, look and brain cells carry over between the two games.'
+      ],
+      how: [
+        'Choose a bet in US dollars and, if you like, an auto cash-out from 1.50× to 100×. Then press Play.',
+        'Walk with the arrow keys, WASD or the on-screen pad, or tap a tile next to the Brainer. Each new tile shows what was under its clouds.',
+        'Cash out whenever you like after your first new tile (C on a keyboard). A bomb on a new tile ends the round and the bet is lost.'
+      ],
+      // Mirrors cfg in Game #2 - FogRush/game.js: each new tile is a bomb with chance `bomb` (%); a safe one is plain or a
+      // chest, `chance` being the share of safe tiles. Every safe new tile multiplies the multiplier by `step` and a chest
+      // by its `x` as well; the round starts at 0.98×, so the RTP is 98% whatever the route or the cash-out. Final once
+      // the game is certified.
+      provisional: true,
+      rtp: 98,
+      maxWin: 10000,
+      grid: 25,
+      bomb: 8,
+      step: 1.0211,
+      chests: [
+        { name: 'Small chest', x: 1.3, chance: 3 },
+        { name: 'Silver chest', x: 2, chance: 1.2 },
+        { name: 'Golden chest', x: 4, chance: 0.6 },
+        { name: 'Royal chest', x: 10, chance: 0.15 },
+        { name: 'Mythic chest', x: 25, chance: 0.05 }
+      ],
+      specs: [
+        ['Type', 'Mines-style instant game, single player'],
+        ['RTP', '98% for every player, at every brain level, whatever the route or the cash-out'],
+        ['Brain levels', 'Shared with Plane Crash: the same 100 levels and the same 10 brain cells for every finished round. They never change odds or payouts'],
+        ['Map', '25 × 25 tiles under clouds; the start tile in the middle is always safe'],
+        ['Bomb chance', '8% on every new tile; cleared tiles are safe to cross'],
+        ['Chests', 'On 5% of safe tiles: ×1.3, ×2, ×4, ×10 or ×25'],
+        ['Auto cash-out', 'Off, or at 1.50× to 100×'],
+        ['Bet range', '$0.10 to $200'],
+        ['Max win', '$10,000 per round; the game cashes out when a round reaches it'],
+        ['Currency', 'US dollars in the demo, local currencies per market'],
+        ['Fairness', 'Provably fair, every round and its whole map can be checked in the game'],
+        ['Devices', 'Mobile and desktop (HTML5 with WebGL)'],
+        ['Languages', 'English now, Georgian in progress'],
+        ['Certification', 'Not yet tested by a lab']
+      ],
+      fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first and reveals the seed when the round ends. Every tile of the map rolls from that seed, so the route cannot move a bomb. The shield button in the game re-checks the hash and draws the whole map of your last round, with your path on it.',
+      demoNote: 'Demo build with play money in US dollars. Brain levels change the Brainer’s look; they never change the odds or payouts.',
+      levelsNote: 'The odds and payouts are the same for every player at every brain level. Whatever the multiplier, a single round pays at most the $10,000 max win.'
     }
   ]
 };

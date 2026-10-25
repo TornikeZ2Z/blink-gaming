@@ -18,8 +18,8 @@
   <div class="wrap">
     <div class="page-head">
       <span class="sticker sky">Provably fair</span>
-      <h1>Every flight, fixed before the bet</h1>
-      <p class="lead">Nobody can change where the bombs fall once a flight starts, and anyone can prove it afterwards: the player, the casino or a regulator.</p>
+      <h1>Every round, fixed before the bet</h1>
+      <p class="lead">Nobody can change where the bombs are once a round starts, and anyone can prove it afterwards: the player, the casino or a regulator.</p>
     </div>
   </div>
 
@@ -27,9 +27,9 @@
     <div class="wrap">
       <div class="section-head"><div><span class="eyebrow">How it works</span><h2 id="stepsTitle">Commit, play, verify</h2></div></div>
       <ol class="steps3">
-        <li><h3>Commit</h3><p>Before the flight, the server picks a secret seed and shows its SHA-256 hash. The hash fixes the flight without giving it away.</p></li>
-        <li><h3>Play</h3><p>Every path at every step rolls from the server seed, the player&rsquo;s client seed and the flight number. Which path the player picks cannot move a bomb.</p></li>
-        <li><h3>Verify</h3><p>When the flight ends the seed is revealed. Hash it again and redraw the bombs: if both match, the flight was fixed in advance.</p></li>
+        <li><h3>Commit</h3><p>Before the round, the server picks a secret seed and shows its SHA-256 hash. The hash fixes the round without giving it away.</p></li>
+        <li><h3>Play</h3><p>Every path at every step in Plane Crash, and every tile of the FogRush map, rolls from the server seed, the player&rsquo;s client seed and the round number. Which way the player goes cannot move a bomb.</p></li>
+        <li><h3>Verify</h3><p>When the round ends the seed is revealed. Hash it again and redraw the bombs: if both match, the round was fixed in advance.</p></li>
       </ol>
     </div>
   </section>
@@ -39,15 +39,16 @@
       <div>
         <span class="eyebrow">Try it</span>
         <h2 id="tryTitle" style="font-size:clamp(30px,3.8vw,48px)">See the commit check</h2>
-        <p class="lead" style="margin-top:16px">This runs SHA-256 in your browser on a sample seed made just now. In the game, the shield button does the same for your last flight and redraws every bomb.</p>
+        <p class="lead" style="margin-top:16px">This runs SHA-256 in your browser on a sample seed made just now. In each game, the shield button does the same for your last round and redraws every bomb; FogRush draws the whole map.</p>
         <div class="formula" style="margin-top:24px" aria-label="Formulas">
           <i>commit</i> = SHA-256(server_seed)<br>
-          <i>roll</i> = HMAC-SHA256(server_seed, "client_seed:nonce:step:path"), first 52 bits ÷ 2<sup>52</sup><br>
-          <i>bomb</i> = roll ≥ survival chance of that step
+          <i>roll</i> = HMAC-SHA256(server_seed, message), first 52 bits ÷ 2<sup>52</sup><br>
+          <b>Plane Crash</b>: message = "client_seed:nonce:step:path"; <i>bomb</i> = roll ≥ survival chance of that step<br>
+          <b>FogRush</b>: message = "client_seed:nonce:column:row"; <i>bomb</i> = roll &lt; 0.08, otherwise plain or a chest by its share; the start tile is always safe
         </div>
       </div>
       <div class="verify">
-        <div class="verify-head"><h3>Sample flight</h3><span class="sticker paper mono" id="vRound"></span></div>
+        <div class="verify-head"><h3>Sample round</h3><span class="sticker paper mono" id="vRound"></span></div>
         <div class="kv"><span>Hash published before bets</span><code id="vHash">…</code></div>
         <div class="kv"><span>Seed revealed after the round</span><code id="vSeed" class="blur">…</code></div>
         <div class="ok" id="vOut" role="status" hidden></div>

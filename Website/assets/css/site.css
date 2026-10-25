@@ -164,6 +164,7 @@ dialog::backdrop{background:rgba(10,19,34,.5);backdrop-filter:blur(3px)}
 .chip b{font-family:var(--mono);font-weight:500;color:var(--ink)}
 .game .ctas{margin-top:22px}
 .diffs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(8px,.8vw,14px);margin-top:clamp(18px,1.6vw,28px);max-width:760px}
+.diffs.five{grid-template-columns:repeat(5,minmax(0,1fr));max-width:900px}
 .diffs div{display:flex;flex-direction:column;gap:2px;padding:clamp(12px,1vw,18px);border-radius:16px;background:var(--tint)}
 .diffs span{font-size:clamp(12px,.8vw,14px);font-weight:700;color:var(--muted)}
 .diffs b{font-family:var(--mono);font-size:clamp(16px,1.3vw,24px);font-weight:500;color:var(--main)}
@@ -328,6 +329,7 @@ td.num{font-family:var(--mono)}
   .game,.game.is-soon{grid-template-columns:minmax(0,1fr);gap:22px}
   .game .art{max-width:270px}
   .diffs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .diffs.five{grid-template-columns:repeat(3,minmax(0,1fr))}
   .game.is-soon .art{max-width:130px}
   .steps3{grid-template-columns:minmax(0,1fr)}
   .steps3::before{left:27px;right:auto;top:20px;bottom:20px;border-top:0;border-left:2px dashed #C9C3F2}

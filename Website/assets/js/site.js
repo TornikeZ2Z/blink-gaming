@@ -46,12 +46,22 @@ const ICON = {
 $$('[data-icon]').forEach(el => { el.outerHTML = ICON[el.dataset.icon] || ''; });
 
 /* ---------- game cards: any [data-games] list fills itself from the catalogue ---------- */
+// How often a new tile holds a chest, as "1 in N": the bomb chance first, then the chest's share of safe tiles.
+const oneIn = (g, c) => Math.round(1 / ((1 - g.bomb / 100) * c.chance / 100)).toLocaleString('en-US');
+// The strip under a game's blurb: top-step multipliers per difficulty for a ladder game, the chests for a map game.
+function oddsStrip(g) {
+  const cap = g.maxWin ? ` A ${g.round} pays at most $${g.maxWin.toLocaleString('en-US')}.` : '';
+  if (g.levels && g.levels.every(l => l.top)) return `<div class="diffs" aria-label="Top-step multiplier per difficulty">${g.levels.map(l => `<div><span>${esc(l.name)}</span><b>${fx(l.top)}</b><small>${l.bombs} ${l.bombs === 1 ? 'bomb' : 'bombs'} · ${l.steps} paths</small></div>`).join('')}</div><p class="diffs-note">Top-step multiplier.${cap}</p>`;
+  if (g.chests) return `<div class="diffs five" aria-label="Chest multipliers and how often a new tile holds one">${g.chests.map(c => `<div><span>${esc(c.name)}</span><b>×${c.x}</b><small>1 in ${oneIn(g, c)} tiles</small></div>`).join('')}</div><p class="diffs-note">How often a new tile holds each chest; ${g.bomb}% hold a bomb.${cap}</p>`;
+  return '';
+}
 function gameCard(g) {
   const soon = g.status === 'soon', href = `game.html?g=${encodeURIComponent(g.id)}`;
   const art = g.art ? `<img src="${g.art}" alt="" loading="lazy" decoding="async">` : '<span class="ph">?</span>';
+  const shape = g.levels ? `${g.levels.length} difficulties` : g.grid ? `${g.grid} × ${g.grid} map` : '';
   const more = soon ? '' : `
-      <div class="chips"><span class="chip">RTP <b>${g.rtp}%</b></span><span class="chip">${g.levels.length} difficulties</span><span class="chip">Provably fair</span></div>
-      ${g.levels.every(l => l.top) ? `<div class="diffs" aria-label="Top-step multiplier per difficulty">${g.levels.map(l => `<div><span>${esc(l.name)}</span><b>${fx(l.top)}</b><small>${l.bombs} ${l.bombs === 1 ? 'bomb' : 'bombs'} · ${l.steps} paths</small></div>`).join('')}</div><p class="diffs-note">Top-step multiplier.${g.maxWin ? ` A flight pays at most $${g.maxWin.toLocaleString('en-US')}.` : ''}</p>` : ''}
+      <div class="chips"><span class="chip">RTP <b>${g.rtp}%</b></span>${shape ? `<span class="chip">${shape}</span>` : ''}<span class="chip">Provably fair</span></div>
+      ${oddsStrip(g)}
       <div class="ctas"><a class="btn btn-ink" href="${href}">${ICON.play}Play the demo</a><a class="btn" href="${href}#specs">Specs</a></div>`;
   return `<article class="game${soon ? ' is-soon' : ''}">
     ${soon ? `<span class="art" style="--art:${g.color}">${art}</span>` : `<a class="art" href="${href}" style="--art:${g.color}" tabindex="-1" aria-hidden="true">${art}</a>`}
@@ -63,11 +73,12 @@ function gameCard(g) {
 }
 $$('[data-games]').forEach(el => { el.innerHTML = GAMES.map(gameCard).join(''); });
 
-/* ---------- hero numbers: [data-hero-stats] shows the first live game's figures, so they never drift from data.js ---------- */
-const lead = GAMES.find(x => x.status !== 'soon');
+/* ---------- hero numbers: [data-hero-stats] sums up the live games, so they never drift from data.js ---------- */
+const live = GAMES.filter(x => x.status !== 'soon');
 $$('[data-hero-stats]').forEach(el => {
-  if (!lead) { el.remove(); return; }
-  const stats = [[`${lead.rtp}%`, 'RTP for every player'], [String(lead.levels.length), 'Difficulties'], [String(BRAIN.levels), 'Brain levels'], ['Every flight', 'Provably fair']];
+  if (!live.length) { el.remove(); return; }
+  const rtps = [...new Set(live.map(x => x.rtp))].sort((a, b) => a - b), rtp = rtps.length === 1 ? `${rtps[0]}%` : `${rtps[0]}–${rtps[rtps.length - 1]}%`;
+  const stats = [[rtp, 'RTP for every player'], [String(live.length), live.length === 1 ? 'Playable demo' : 'Playable demos'], [String(BRAIN.levels), 'Brain levels'], ['Every round', 'Provably fair']];
   el.innerHTML = stats.map(([v, l]) => `<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('');
 });
 

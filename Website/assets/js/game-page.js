@@ -25,6 +25,31 @@ if (g.status === 'soon') {
   return;
 }
 
+// The odds section: difficulties for a ladder game (Plane Crash), tiles and chests for a map game (FogRush).
+const pct = v => `${+v.toFixed(3)}%`;
+function odds(g) {
+  const note = g.levelsNote ? `<p class="note">${ICON.info}<span>${esc(g.levelsNote)} <a href="index.html#brain">How brain levels work</a></span></p>` : '';
+  if (g.levels) return `<section id="levels"><h2>Difficulties</h2>
+        <p>Harder difficulties have fewer steps and a bigger chance of a bomb at each one, so the multipliers climb faster. The chance of a bomb also rises with every step you fly. Wins are capped at the max win per flight.</p>
+        ${note}
+        <div class="tbl"><table>
+          <thead><tr><th>Difficulty</th><th>Bombs in 25 tiles</th><th>Paths</th><th>First step</th><th>Top step</th></tr></thead>
+          <tbody>${g.levels.map(l => `<tr><td>${esc(l.name)}</td><td class="num">${l.bombs}</td><td class="num">${l.steps}</td><td class="num">${fx(l.first)}</td><td class="num">${fx(l.top)}</td></tr>`).join('')}</tbody>
+        </table></div>
+      </section>`;
+  if (!g.chests) return '';
+  const safe = 1 - g.bomb / 100, plain = 100 - g.chests.reduce((a, c) => a + c.chance, 0);
+  const rows = [['Bomb', g.bomb, 'Ends the round; the bet is lost'], ['Plain', safe * plain, `×${g.step}`], ...g.chests.map(c => [c.name, safe * c.chance, `×${g.step}, then ×${c.x}`])];
+  return `<section id="levels"><h2>Tiles and chests</h2>
+        <p>Every new tile is drawn on its own: ${g.bomb}% hide a bomb, the rest are plain or hold a chest. A safe new tile multiplies the multiplier by ${g.step}, and a chest multiplies it again by its own factor. The ${g.rtp}% RTP is taken once, at the start: the multiplier begins at ${(g.rtp / 100).toFixed(2)}, so a first plain tile pays ${fx(Math.floor(g.rtp * g.step) / 100)}. After that every step is fair on average, so the RTP is the same whatever route the player takes and whenever they cash out.</p>
+        ${note}
+        <div class="tbl"><table>
+          <thead><tr><th>Tile</th><th>Chance per new tile</th><th>Multiplier</th></tr></thead>
+          <tbody>${rows.map(([n, c, m]) => `<tr><td>${esc(n)}</td><td class="num">${pct(c)}</td><td class="num">${esc(m)}</td></tr>`).join('')}</tbody>
+        </table></div>
+      </section>`;
+}
+
 const specs = g.specs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
 const assets = (g.assets || []).map(a => `<a class="dl" href="${a.href}" download>${ICON.download}${esc(a.label)} <span>${esc(a.format)}</span></a>`).join('');
 
@@ -45,16 +70,9 @@ main.innerHTML = `<div class="wrap">${crumbs}
     <div class="prose">
       <section id="about"><span class="eyebrow">${esc(g.genre)}</span><h2>About the game</h2>${g.about.map(p => `<p>${esc(p)}</p>`).join('')}</section>
       <section id="how"><h2>How to play</h2><ol class="list">${g.how.map(s => `<li>${esc(s)}</li>`).join('')}</ol></section>
-      <section id="levels"><h2>Difficulties</h2>
-        <p>Harder difficulties have fewer steps and a bigger chance of a bomb at each one, so the multipliers climb faster. The chance of a bomb also rises with every step you fly. Wins are capped at the max win per flight.</p>
-        ${g.levelsNote ? `<p class="note">${ICON.info}<span>${esc(g.levelsNote)} <a href="index.html#brain">How brain levels work</a></span></p>` : ''}
-        <div class="tbl"><table>
-          <thead><tr><th>Difficulty</th><th>Bombs in 25 tiles</th><th>Paths</th><th>First step</th><th>Top step</th></tr></thead>
-          <tbody>${g.levels.map(l => `<tr><td>${esc(l.name)}</td><td class="num">${l.bombs}</td><td class="num">${l.steps}</td><td class="num">${fx(l.first)}</td><td class="num">${fx(l.top)}</td></tr>`).join('')}</tbody>
-        </table></div>
-      </section>
+      ${odds(g)}
       <section id="fairness"><h2>Provably fair</h2>
-        <p>Every flight is fixed before the bet: the game shows the SHA-256 hash of its server seed first and reveals the seed when the flight ends. The shield button in the game re-checks the hash and redraws every bomb of your last flight, so the player, the casino or a regulator can recompute it.</p>
+        <p>${esc(g.fairness)}</p>
         <div class="ctas" style="margin-top:4px"><a class="btn btn-sun" href="fairness.html">How the check works</a></div>
       </section>
     </div>

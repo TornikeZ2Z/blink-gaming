@@ -1,4 +1,4 @@
-/* Fairness page: makes a sample flight in the browser, shows its SHA-256 commit, then reveals the seed and re-hashes it to prove the match. */
+/* Fairness page: makes a sample round in the browser, shows its SHA-256 commit, then reveals the seed and re-hashes it to prove the match. */
 (() => {
 'use strict';
 const { $, ICON } = window.Blink;
@@ -21,7 +21,7 @@ $('#vReveal').addEventListener('click', async () => {
   const s = $('#vSeed'); s.textContent = round.seed; s.classList.remove('blur');
   const ok = (await sha256(round.seed)) === round.hash;
   const out = $('#vOut');
-  out.innerHTML = ok ? `${ICON.check}SHA-256 of the seed matches the published hash` : 'The hash does not match: this flight could have been changed.';
+  out.innerHTML = ok ? `${ICON.check}SHA-256 of the seed matches the published hash` : 'The hash does not match: this round could have been changed.';
   out.classList.toggle('bad', !ok);
   out.hidden = false;
   $('#vReveal').disabled = true;
