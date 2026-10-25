@@ -599,7 +599,7 @@ function renderAll() {
   else { $('#mLabel').textContent = r.status === 'cashed' ? 'CASHED OUT' : 'MULTIPLIER'; el.textContent = fx(r.tiles ? m : 1); el.className = 'big-m'; $('#pay').innerHTML = r.status === 'cashed' ? `You won <b>${money(r.payout)}</b>` : `${money(r.stake)} → <b>${money(Math.min(r.stake * (r.tiles ? m : 1), cfg.maxWin))}</b>`; }
   const cash = $('#cash');
   cash.disabled = !r || r.status !== 'explore' || r.tiles < 1;
-  $('#cashSub').textContent = !r || r.tiles < 1 ? 'after your first new tile' : r.status === 'explore' ? money(Math.min(r.stake * m, cfg.maxWin)) : r.status === 'cashed' ? 'Paid' : '—';
+  $('#cashSub').textContent = r && r.status === 'cashed' ? 'Paid' : r && r.status === 'bust' ? '—' : !r || r.tiles < 1 ? 'after your first new tile' : money(Math.min(r.stake * m, cfg.maxWin));
   $('#sTiles').textContent = r ? r.tiles : 0; $('#sChests').textContent = r ? r.chests : 0;
   pad.querySelectorAll('button').forEach(b => { b.disabled = !r || r.status !== 'explore'; });
   renderBanner(); renderPilot();
@@ -710,7 +710,7 @@ function introActor(g, w, h, now, ex) {
   g.drawImage(a.stage.canvas, 0, 0, 512, 512, 0, 0, w, h);
   return true;
 }
-document.querySelector('.brand .t1').innerHTML = (window.BrainerIntro ? window.BrainerIntro.wordmark('fog') : 'FogRush') + '<small>BRAINER GAMES</small>';
+document.querySelector('.brand .t1').innerHTML = window.BrainerIntro ? window.BrainerIntro.wordmark('fog') : 'FogRush';
 (window.BrainerIntro ? window.BrainerIntro.start({ title: 'FogRush', mark: 'fog', theme: 'fog', what: 'the islands', actor: introActor, progress: loadProgress }) : Promise.resolve()).then(() => {
   if (store.get('blink.age-ok', '') !== '1') openSheet('#agegate');
   else if (store.get('brainer.fr.tutorial', '') !== 'seen') openSheet('#tutorial');
