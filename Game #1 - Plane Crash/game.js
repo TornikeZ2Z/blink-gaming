@@ -291,7 +291,7 @@ function render3D(now) {
     k.chute.update(now, { open: st.open, fold: st.fold, reduced });
     k.stage.draw(k.chute, wA + B, 0, C, C, 'chute');
   }
-  k.ok = true;
+  k.ok = k.seat.ready && k.front.ready;   // the model streams in; until then the 2D art stands in
 }
 function blit3D(g, region, x, y, size) {   // copies region B (front view) or C (parachute), centred at (x, y), size px square
   const [sx, sw] = region === 'C' ? [b3.wA + b3.B, b3.C] : [b3.wA, b3.B];
@@ -365,8 +365,9 @@ function paintSky() {
 }
 
 /* ---------- worlds: what the flight passes over ---------- */
-// Lavender fields is the game's world. Two other directions stay reachable for comparison: ?world=clouds (a sea of
-// clouds at sunset) and ?world=city (Brainer city at dusk); ?worlds adds a switcher to the stage.
+// The meadow is the game's world: the Brainer world's countryside, the same land FogRush is played in. Two other
+// directions stay reachable for comparison: ?world=clouds (a sea of clouds at sunset) and ?world=city (Brainer city at
+// dusk); ?worlds adds a switcher to the stage.
 const hash = (a, b) => { let h = Math.imul(a | 0, 374761393) + Math.imul(b | 0, 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const mix = (a, b, t) => { const p = c => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)), x = p(a), y = p(b); return `rgb(${x.map((v, i) => Math.round(v + (y[i] - v) * t)).join(',')})`; };
 const groundY = z => altY(G_H, z);
@@ -424,12 +425,29 @@ function rerouteRoad() {
 // Where a parachute lands in each world: the road, the avenue, or the cloud tops under the camera.
 const landOn = { fields: zw => ({ u: roadAt(zw), alt: G_H }), city: () => ({ u: 0, alt: G_H }), clouds: () => ({ u: view.camX - view.fieldX, alt: G_H - 0.35 }) };
 
-/* Lavender fields: patchwork farmland in brand-tinted colours, hedges and trees, a river and a country road,
-   and clouds drifting below the plane with their shadows on the fields. */
-const FIELDS = ['#a6d873', '#8cc95f', '#c4df86', '#e6d585', '#d8bd6b', '#b292e9', '#c8acf3', '#9cd187', '#ece2a6', '#a98ae4'];
+/* The meadow: the Brainer world's patchwork farmland (the palette of the Blender world), hedges and round trees, a river
+   and a country road, clouds drifting below the plane with their shadows on the fields. The plane parks at an airfield
+   (a runway, the hangar with the B, the tower), and now and then FogRush's foggy valley passes below. */
+const FIELDS = ['#b5ec5c', '#ffd95c', '#8ee070', '#d4f07a', '#5fcb5a', '#ffc07a', '#74db5e', '#86e36b', '#c9ee6e', '#ffe08a'];
+const AIRFIELD = { hangar: new Image(), tower: new Image() };
+AIRFIELD.hangar.src = 'assets/airfield-hangar.png'; AIRFIELD.tower.src = 'assets/airfield-tower.png';
+let airfield = null;   // where the plane last parked: { zw, u } on the ground
+function standing(img, u, z, wUnits) {   // a sprite standing on the ground at (u, z), wUnits wide
+  if (!img.complete || !img.naturalWidth || z < 0.8) return;
+  const [x, y] = gpt(u, z), w = wUnits * F / z, h = w * img.naturalHeight / img.naturalWidth;
+  if (x + w / 2 < 0 || x - w / 2 > W) return;
+  ctx.drawImage(img, x - w / 2, y - h, w, h);
+}
+const VALLEY = 230, VN = 7, VP = 0.62;   // a foggy valley every VALLEY units of the flight, VN x VN plots VP apart
+function valleyAt(zw) {   // the valley whose plots cover depth zw, if any: its centre and side of the road
+  const k = Math.round((zw - (airfield ? airfield.zw : 0) - 45) / VALLEY);
+  if (k < 0) return null;
+  const zc = (airfield ? airfield.zw : 0) + 45 + k * VALLEY;
+  return Math.abs(zw - zc) <= VN * VP / 2 + 0.6 ? { zc, side: k % 2 ? -1 : 1, k } : null;
+}
 function groundFields() {
   const D = 3.2, CW = 3.2, cx = view.camX - view.fieldX;
-  ctx.fillStyle = '#b9d98c'; ctx.fillRect(0, HY, W, H - HY);
+  ctx.fillStyle = '#86dc68'; ctx.fillRect(0, HY, W, H - HY);
   const river = zw => 9 + 5 * Math.sin(zw * 0.04) + 2.2 * Math.sin(zw * 0.13 + 1), road = roadAt;
   forRows(D, 64, (row, z0, z1) => {
     if (groundY(z1) > H) return;
@@ -460,15 +478,45 @@ function groundFields() {
     const d0 = road(z0 + view.scroll), d1 = road(z1 + view.scroll);
     poly([gpt(d0 - 0.6, z0), gpt(d0 + 0.6, z0), gpt(d1 + 0.6, z1), gpt(d1 - 0.6, z1)], '#e6dfcf');
     if (near) { const za = z0 + D * 0.15, zb = z0 + D * 0.55, ra = road(za + view.scroll), rb = road(zb + view.scroll); ctx.beginPath(); ctx.moveTo(...gpt(ra, za)); ctx.lineTo(...gpt(rb, zb)); ctx.lineWidth = Math.max(1, 0.07 * F / zm); ctx.strokeStyle = '#ffffff'; ctx.stroke(); }
+    if (airfield) {   // the airfield: the road widens into a lit runway where the plane parks; the hangar and tower beside it
+      const a = airfield, w0 = z0 + view.scroll, w1 = z1 + view.scroll;
+      if (w1 > a.zw - 5 && w0 < a.zw + 40) {
+        const za = Math.max(z0, a.zw - 5 - view.scroll), zb = Math.min(z1, a.zw + 40 - view.scroll);
+        poly([gpt(d0 - 1.3, za), gpt(d0 + 1.3, za), gpt(d1 + 1.3, zb), gpt(d1 - 1.3, zb)], '#dcd8f0');
+        if (row % 2 === 0) { const [x, y] = gpt(d0, z0 + D * 0.3), [x2, y2] = gpt(d0, z0 + D * 0.8); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.lineWidth = Math.max(1, 0.12 * F / zm); ctx.strokeStyle = '#ffffff'; ctx.stroke(); }
+        for (const sd of [-1, 1]) { const [x, y] = gpt(d0 + sd * 1.42, z0), r = Math.max(1, 0.07 * F / zm); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fillStyle = '#9ef6ff'; ctx.fill(); }   // runway lights
+      }
+      for (const [img, du, dz, wu] of [[AIRFIELD.tower, 3.2, 8, 1.3], [AIRFIELD.hangar, -3.6, 3.2, 3.0]]) {
+        const zh = a.zw + dz - view.scroll; if (zh >= z0 && zh < z1) standing(img, a.u + du, zh, wu);
+      }
+    }
+    const vz = valleyAt(zm + view.scroll);
+    if (vz) {   // FogRush's valley: a dirt floor, grass plots, fog over most of them
+      const uc = road(vz.zc) + vz.side * 6.5, half = VN * VP / 2, za = Math.max(z0, vz.zc - half - 0.3 - view.scroll), zb = Math.min(z1, vz.zc + half + 0.3 - view.scroll);
+      if (zb > za) {
+        poly([gpt(uc - half - 0.3, za), gpt(uc + half + 0.3, za), gpt(uc + half + 0.3, zb), gpt(uc - half - 0.3, zb)], '#e8d6b5');
+        for (let j = 0; j < VN; j++) {
+          const pz = vz.zc - half + (j + 0.5) * VP - view.scroll; if (pz < z0 || pz >= z1) continue;
+          for (let i = 0; i < VN; i++) {
+            const pu = uc - half + (i + 0.5) * VP, q = VP * 0.42;
+            poly([gpt(pu - q, pz - q), gpt(pu + q, pz - q), gpt(pu + q, pz + q), gpt(pu - q, pz + q)], (i + j) % 2 ? '#86e36b' : '#74db5e');
+            const clear = (i === 3 && j <= 4) || (j === 4 && i >= 3 && i <= 5);   // the trail someone has cleared so far
+            if (!clear && cloudImg) { const [x, y] = gpt(pu, pz), wv = VP * 1.5 * F / pz; ctx.drawImage(cloudImg, x - wv / 2, y - wv * 0.42, wv, wv * 0.567); }
+          }
+        }
+      }
+    }
     if (row % 2 === 0) for (const u of edges) if (hash(u * 13, row) < 0.45) trees.push([u, z0]);   // trees where hedges meet
     if (zm < 40) for (const [u, z] of trees) {
       const zz = Math.max(2, z), rv = river(zz + view.scroll), rd = road(zz + view.scroll);
       if (Math.abs(u - rv) < 1.6 || Math.abs(u - rd) < 1.1) continue;
       const [x, y] = gpt(u, zz), r = 0.48 * F / zz;
       if (x < -r || x > W + r) continue;
+      if (vz && Math.abs(u - (road(vz.zc) + vz.side * 6.5)) < VN * VP / 2 + 0.8) continue;   // none in the valley
+      if (airfield && Math.abs(zz + view.scroll - airfield.zw - 5) < 9 && Math.abs(u - airfield.u) < 6) continue;   // nor on the airfield
       ell(x + r * 0.55, y + r * 0.05, r * 0.95, r * 0.32); ctx.fillStyle = 'rgba(40,60,20,.25)'; ctx.fill();
-      ell(x, y - r * 0.8, r, r * 0.95); ctx.fillStyle = '#4c8b3c'; ctx.fill();
-      ell(x - r * 0.3, y - r * 1.05, r * 0.55, r * 0.5); ctx.fillStyle = '#76b755'; ctx.fill();
+      ell(x, y - r * 0.8, r, r * 0.95); ctx.fillStyle = '#2fb850'; ctx.fill();   // round trees, as in the Blender world
+      ell(x - r * 0.3, y - r * 1.05, r * 0.55, r * 0.5); ctx.fillStyle = '#5fd26a'; ctx.fill();
     }
   });
   for (const c of clouds) {   // cloud shadows on the fields
@@ -598,7 +646,7 @@ function skyCity(g) {
 }
 
 const WORLDS = {
-  fields: { name: 'Lavender fields', sky: skyFields, ground: groundFields, shade: 'rgba(75,54,252,.2)',
+  fields: { name: 'Meadow', sky: skyFields, ground: groundFields, shade: 'rgba(75,54,252,.2)',
     clouds: { n: 14, alt: () => Math.random() < 0.6 ? 2 + Math.random() * 1.8 : -2.8 + Math.random() * 1.6, alpha: 0.95, img: () => puffCloud('#ffffff', '#efeaff', '#c9bdf2') } },
   clouds: { name: 'Cloud sea', sky: skyClouds, ground: groundClouds, shade: 'rgba(75,54,252,.18)',
     clouds: { n: 9, alt: () => -0.9 + Math.random() * 2.2, alpha: 0.85, img: () => puffCloud('#fff6f4', '#f8d9ea', '#d6b5ee') } },
@@ -682,6 +730,7 @@ function park() {
   const zp = view.scroll + ZP;
   roadPts = [[-1e9, roadBase(zp)]];   // the road runs straight on from where the plane stands
   view.camX = 0; view.fieldX = worldKey === 'fields' ? -roadAt(zp) : 0; view.speed = 0;
+  airfield = worldKey === 'fields' ? { zw: zp, u: roadAt(zp) } : null;   // the plane stands at the start of the runway
 }
 // The parachute from the jump to the landing: the Brainer's feet at (x, y), its height h on screen, how far the canopy
 // is open, and how far it has folded after touchdown.
@@ -1327,7 +1376,9 @@ function introActor(g, w, h, now, ex) {
   if (!window.Brainer3D || introA === false) return false;
   if (!introA) { try { const { Brainer, BrainerStage, Plane3D } = window.Brainer3D, pilot = new Brainer(myLevel()); introA = { stage: new BrainerStage(), pilot, plane: new Plane3D(pilot) }; pilot.root.scale.setScalar(0.58); introA.stage.setSize(512, 512); } catch (e) { introA = false; return false; } }
   const a = introA;
-  a.pilot.update(now, ex, { seat: true, lookX: Math.sin(now / 1300) * 0.3, reduced });
+  if (!a.pilot.ready) return false;
+  a.t0 = a.t0 || now;   // its screen switches on while the game loads: slowly, and never ahead of the loading
+  a.pilot.update(now, ex, { seat: true, lookX: Math.sin(now / 1300) * 0.3, power: Math.min(loadProgress(), (now - a.t0) / 2800), reduced });
   a.plane.update(now, { bank: reduced ? 0 : Math.sin(now / 900) * 0.16, pitch: reduced ? 0 : Math.sin(now / 700) * 0.04, level: myLevel(), reduced });
   a.plane.root.position.y = reduced ? 0 : Math.sin(now / 520) * 0.1;
   a.stage.draw(a.plane, 0, 0, 512, 512, 'planeHero');

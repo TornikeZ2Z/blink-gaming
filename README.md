@@ -7,7 +7,7 @@ The Brainer Games studio website and its browser games, one folder per game. Eve
 | `Website` | B2B studio site for casinos and aggregators | `/` |
 | `Game #1 - Plane Crash` | Plane Crash demo, play money only | `/plane-crash/` |
 | `Game #2 - FogRush` | FogRush demo, play money only | `/fogrush/` |
-| `shared` | The 3D Brainer, its faces, the intro and three.js, used by every game | `/shared/` |
+| `shared` | The 3D Brainer (model, rig, LED face), the website showcase, the intro and three.js, used by every game and the site | `/shared/` |
 
 On every push to `main`, `.github/workflows/pages.yml` publishes the website as the site root with the game next to it, so the site's game page embeds the demo from the same origin and both share the player's brain cells.
 
@@ -21,7 +21,7 @@ python -m http.server 5174
 
 ## FogRush
 
-The player's Brainer walks a 25 x 25 map of grassy islands hidden under clouds, starting in the middle. Every new tile clears its clouds:
+The player's Brainer walks a 25 x 25 map of grass plots in a foggy valley, starting in the middle. The valley lies in the Brainer world's meadow, next to the airfield Plane Crash takes off from (its runway, hangar, tower and a parked plane show at the valley's west edge). Every new tile clears its fog:
 - Most new tiles are plain and nudge the multiplier up by about 2%.
 - 5% hold a chest: ×1.3, ×2, ×4, ×10 or ×25, rarest last.
 - 8% hold a bomb, which ends the round.
@@ -49,17 +49,16 @@ The $10,000 max win caps every payout, so a flight jumps out automatically when 
 
 ### Look
 
-Everything is drawn in code on a canvas, with no image files except the Brainer portraits. The plane and the Brainer are shaded as solids lit from the upper left. The default world is Lavender fields: patchwork farmland with a river, a road, trees and clouds casting shadows. Two other worlds can be compared with `?world=clouds` (a sea of clouds at sunset) and `?world=city` (Brainer city at dusk); adding `?worlds` shows a switcher on the stage.
+The world is drawn in code on a canvas. The plane and the Brainer are 3D models. The default world is the Meadow, the Brainer world's countryside and the same land FogRush is played in: patchwork farmland in the Blender world's palette, round trees, a river and a road, and clouds casting shadows. The plane parks at an airfield (a lit runway, the hangar with the B and the tower, sprites rendered in Blender), and FogRush's foggy valley passes below now and then. Two other worlds can be compared with `?world=clouds` (a sea of clouds at sunset) and `?world=city` (Brainer city at dusk); adding `?worlds` shows a switcher on the stage.
 
-The Brainer is a real 3D model, rendered live with three.js (self-hosted in `assets/vendor/`, MIT licence). It is built in `brainer3d.js` from primitives:
-- A pearl body.
-- A curved screen showing the face.
-- A glass dome holding a brain of neurons that grows with the brain level.
-- A ribbed collar, and floating hands and feet.
+The Brainer is the character modelled in Blender (`Brainer 3D/`), exported as `shared/models/brainer.glb` and rendered live with three.js (self-hosted in `shared/vendor/`, MIT licence):
+- A round head with a big LED visor showing its dot-matrix face, and its stage number in LED dots on its chest.
+- Ten stages, from Baby to Master. It grows taller, takes its stage's colour, and wears its pair of stages' accessory: none, a scarf, a cap, a bow tie, a graduation cap.
+- `shared/brainer-model.js` is the rig: growth, joints, accessories, and the screens painted live. `shared/brainer3d.js` keeps the games' long-standing API on top of it, and `shared/brainer-showcase.js` is the website's 3D showcase.
 
-It takes a pose for each expression. One renderer draws the Brainer from behind in the cockpit, and from the front for the portrait, the parachute, the crash spotlight and the level-up card. Without WebGL, the 2D art below stands in.
+It takes a pose for each expression. One renderer draws the Brainer from behind in the cockpit, and from the front for the portrait, the parachute, the crash spotlight and the level-up card. Without WebGL, the old 2D art below stands in.
 
-The face (`face.js`, shared by both) is drawn live, so it reacts to the flight. `assets/brainer-N-blank.png` is the brand art with the painted face removed; at rest each level shows the face from its art (a wink, happy arcs, a grin, heart eyes, glasses). It has 14 expressions:
+The face (`shared/led-face.js`) is drawn live in LED dots, so it reacts to the flight, and it changes from one expression to the next dot by dot. At rest each stage shows its own face and pose. The 2D fallback still uses `face.js` and `assets/brainer-N-blank.png`. The expressions:
 - While playing: focused with eyes on the path you hover, a wink at take-off, and a gulp with sweat while bombs fall.
 - After a step: "phew" on a safe path.
 - When you jump: happy, star-eyed when excited, amazed on a big win, and ecstatic.
@@ -70,11 +69,11 @@ It blinks, and the glasses slip when it gets a fright.
 
 ### Brain levels
 
-Brain levels are the Brainer's growth and never change the odds. Every finished flight earns 10 brain cells, the same at any bet and difficulty, so progress never asks for bigger bets. There are 100 levels in 10 stages: every 10 levels the Brainer gets a new look from the brand book, and its brain gains neurons every few levels. Level 10 takes about 80 flights, level 100 about 20,000. Level 20 unlocks the Cloud sea world and level 40 the City at dusk. In the demo, tapping the portrait opens "Your Brainer", with a slider to set any level and the worlds.
+Brain levels are the Brainer's growth and never change the odds. Every finished flight earns 10 brain cells, the same at any bet and difficulty, so progress never asks for bigger bets. There are 100 levels in 10 stages: every 10 levels the Brainer grows into its next stage (Baby, Toddler, Kid, School kid, Teen, Student, Young pro, Pro, Expert, Master), each with its own colour, pose and face, and a new accessory every two stages. Level 10 takes about 80 flights, level 100 about 20,000. Level 20 unlocks the Cloud sea world and level 40 the City at dusk. In the demo, tapping the portrait opens "Your Brainer", with a slider to set any level and the worlds.
 
 Progress lives in the browser (`localStorage` keys `brainer.xp` and `brainer.level`), shared by every game and the website on the same origin. Flights are drawn in the browser so the math can be inspected. A production build must draw and settle them on the server, and keep brain cells on the player's account.
 
 ### Intro
 
-`shared/intro.js` is the Brainer Games intro for every game, and it is about the character. The player's 3D Brainer does the game's thing in the middle: flying its plane in Plane Crash, standing on a cloud island in FogRush. Its face follows the loading, from sleepy to focused to excited, with a wink at 100%. Under it are the game's styled wordmark and a 0–100% counter, and the studio logo sits small in the corner. It plays in full once a visit and short after that. The wordmarks (`BrainerIntro.wordmark`) also head each game's top bar.
+`shared/intro.js` is the Brainer Games intro for every game, and it is about the character. The player's 3D Brainer does the game's thing in the middle: flying its plane in Plane Crash, standing on a plot of the foggy valley in FogRush. Its LED screen starts dark and switches on as the game loads (a power dot, a line, the blue, the LEDs rippling on, its eyes opening), never ahead of the loading; then its face follows, with a wink at 100%. Under it are the game's styled wordmark and a 0–100% counter, and the studio logo sits small in the corner. It plays in full once a visit and short after that. The wordmarks (`BrainerIntro.wordmark`) also head each game's top bar.
 

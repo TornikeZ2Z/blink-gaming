@@ -5,7 +5,7 @@
 # The other directions (A gear, B finishes, C brand colours), screen styles and brain placements are kept for reference.
 # The LED textures (face_pixel_*_bg.png, face_power_*_bg.png, num_*.png) come from ../textures.mjs.
 # usage: blender -b --python brainer2.py -- <outdir> <mode> [args]
-#   modes: lineup <dir> <row 1|2> [style] | hero <dir> <stage> [style] | final <faces> [screen] | power <keys> | sage
+#   modes: lineup <dir> <row 1|2> [style] | stages | hero <dir> <stage> [style] | final <faces> [screen] | power <keys> | sage
 #          | tops <top> | screens <screen> [face] | brain_test
 import bpy, bmesh, math, sys, os, random
 from mathutils import Vector
@@ -467,6 +467,13 @@ elif MODE == 'sage':   # the sage (stage 10) in each candidate colour, side by s
         build(10, 'G', x=(i - 2) * 2.4, style='carved_dense', face='face_pixel_calm.png', sage=sg)
     studio((2600, 820), (2.2, -22, 4.4), (0, 0, 1.42), ortho=12.0)
     render(os.path.join(OUT, 'lineup_sage.png'))
+elif MODE == 'stages':   # one picture per stage, the same camera for all so the growth shows (the games' picker and pictures)
+    for s in range(1, 11):
+        for o in list(bpy.data.objects): bpy.data.objects.remove(o, do_unlink=True)
+        _, ex, ps = STAGES[s - 1]
+        build(s, 'G', style='carved_dense', face=f'face_pixel_{ex}.png', pose=ps)
+        studio((640, 640), (1.6, -8.4, 2.4), (0, 0, 1.45), lens=50)
+        render(os.path.join(OUT, f'stage_{s}.png'))
 elif MODE == 'lineup':
     dirn, row = ARGS[0], int(ARGS[1]); style = ARGS[2] if len(ARGS) > 2 else 'toon'
     stages = range(1, 6) if row == 1 else range(6, 11)

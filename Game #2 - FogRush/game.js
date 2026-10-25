@@ -1,11 +1,11 @@
-/* FogRush by Brainer Games. The player's 3D Brainer walks a 25 x 25 map of grassy islands hidden under clouds. Every
+/* FogRush by Brainer Games. The player's 3D Brainer walks a 25 x 25 map of grass plots in a valley hidden under fog. Every
    new tile clears its clouds: most are plain and nudge the multiplier up, some hold a chest (x1.3 to x25), 8% hold a
    bomb that ends the round. Tiles already cleared are safe to cross. Cash out any time. RTP 98% for any way of
    playing, provably fair, play money in US dollars. */
 import * as THREE from 'three';
 import { RoomEnvironment } from '../shared/vendor/RoomEnvironment.js';
 import { RoundedBoxGeometry } from '../shared/vendor/RoundedBoxGeometry.js';
-import { Brainer, BrainerStage } from '../shared/brainer3d.js';
+import { Brainer, BrainerStage, Plane3D } from '../shared/brainer3d.js';
 
 const $ = s => document.querySelector(s);
 const money = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -138,21 +138,17 @@ const cam = new THREE.PerspectiveCamera(40, 1, 0.1, 400);
 const T = 2.1, TOP = 0.11, BS = 1.15;   // tile size, the grass top's height, the Brainer's scale
 const wx = x => (x - C) * T, wz = y => (y - C) * T;
 const rand01 = (x, y, k) => { let h = (x * 374761393 + y * 668265263 + k * 362437) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-const tileH = (x, y) => (rand01(x, y, 1) - 0.5) * 0.12;   // islands sit at slightly different heights
+const tileH = (x, y) => (rand01(x, y, 1) - 0.5) * 0.05;   // plots sit at very slightly different heights
 
-// islands: an earth block and a grass top per tile, as instanced meshes coloured per tile
-const earth = new THREE.InstancedMesh(new RoundedBoxGeometry(T * 0.94, 1.2, T * 0.94, 2, 0.16), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }), N * N);
-const grass = new THREE.InstancedMesh(new RoundedBoxGeometry(T * 0.96, 0.32, T * 0.96, 2, 0.14), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 }), N * N);
-earth.receiveShadow = grass.receiveShadow = true; earth.castShadow = true;
+// the valley: a raised grass plot per tile, coloured per tile, on a dirt floor with paths between the plots
+const grass = new THREE.InstancedMesh(new RoundedBoxGeometry(T * 0.9, 0.32, T * 0.9, 2, 0.14), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 }), N * N);
+grass.receiveShadow = true; grass.castShadow = true;
 const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), SC = new THREE.Vector3(), COL = new THREE.Color();
-for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-  const i = idx(x, y), h = tileH(x, y);
-  earth.setMatrixAt(i, M4.compose(V.set(wx(x), -0.6 + h, wz(y)), Q.identity(), SC.set(1, 1, 1)));
-  grass.setMatrixAt(i, M4.compose(V.set(wx(x), -0.05 + h, wz(y)), Q.identity(), SC.set(1, 1, 1)));
-  earth.setColorAt(i, COL.set(rand01(x, y, 2) < 0.5 ? 0xb98a5e : 0xa97a50));
-}
-scene.add(earth, grass);
-const GRASS = { hidden: [0x7fbf55, 0x86c95a, 0x79b850], lit: [0x9be06e, 0xa4e676, 0x95da68], start: 0xb4ef84 };
+for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) grass.setMatrixAt(idx(x, y), M4.compose(V.set(wx(x), -0.05 + tileH(x, y), wz(y)), Q.identity(), SC.set(1, 1, 1)));
+const valley = new THREE.Mesh(new RoundedBoxGeometry(N * T + 3, 0.3, N * T + 3, 2, 0.6), new THREE.MeshStandardMaterial({ color: 0xe8d6b5, roughness: 0.95 }));
+valley.position.y = -0.32; valley.receiveShadow = true;
+scene.add(grass, valley);
+const GRASS = { hidden: [0x62c955, 0x6ccf5c, 0x5bbf50], lit: [0x86e36b, 0x8fe873, 0x7ddc63], start: 0xa6f08a };
 function paintGrass(x, y, lit) { grass.setColorAt(idx(x, y), COL.set(x === C && y === C ? GRASS.start : (lit ? GRASS.lit : GRASS.hidden)[Math.floor(rand01(x, y, 3) * 3)])); grass.instanceColor.needsUpdate = true; }
 
 // clouds: three puffs over every hidden tile; they thin at the edge of what's explored and blow away when a tile clears
@@ -190,26 +186,74 @@ function resetClouds() {
   moving.clear(); clouds.instanceMatrix.needsUpdate = true;
 }
 
-// far below: the patchwork fields of Plane Crash, seen through the gaps; around: big cloud banks drifting by
+// around the valley: the Brainer world's meadow, the land Plane Crash flies over: patchwork fields, woods and far hills,
+// and to the west the airfield it takes off from, with a plane parked on the runway
+const EDGE = N * T / 2 + 2.5;   // the valley's rim
 {
-  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
-  const F = ['#a6d873', '#8cc95f', '#c4df86', '#e6d585', '#b292e9', '#c8acf3', '#9cd187', '#ece2a6'];
-  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { g.fillStyle = F[(x * 7 + y * 13) % F.length]; g.fillRect(x * 32, y * 32, 32, 32); }
-  g.strokeStyle = 'rgba(74,124,50,.4)'; g.lineWidth = 2; for (let k = 0; k <= 8; k++) { g.beginPath(); g.moveTo(k * 32, 0); g.lineTo(k * 32, 256); g.moveTo(0, k * 32); g.lineTo(256, k * 32); g.stroke(); }
-  const tex = new THREE.CanvasTexture(c); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(26, 26); tex.colorSpace = THREE.SRGBColorSpace;
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(900, 900), new THREE.MeshBasicMaterial({ map: tex })); ground.rotation.x = -Math.PI / 2; ground.position.y = -38; scene.add(ground);
+  const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
+  const F = ['#b5ec5c', '#ffd95c', '#8ee070', '#d4f07a', '#5fcb5a', '#ffc07a', '#74db5e', '#86e36b'];
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+    const f = F[(x * 7 + y * 13) % F.length]; g.fillStyle = f; g.fillRect(x * 64, y * 64, 64, 64);
+    if ((x * 3 + y * 5) % 3 === 0) { g.fillStyle = 'rgba(40,90,20,.12)'; for (let k = 0; k < 64; k += 8) g.fillRect(x * 64 + k, y * 64, 4, 64); }   // crop rows
+  }
+  const tex = new THREE.CanvasTexture(c); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(3.2, 3.2); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshLambertMaterial({ map: tex })); ground.rotation.x = -Math.PI / 2; ground.position.y = -0.36; ground.receiveShadow = true; scene.add(ground);
+  // woods: round trees in little clusters, kept out of the valley and off the airfield
+  const trees = [], TREE = [0x2fb850, 0x4ccb55, 0x1fa14c];
+  for (let w = 0; w < 30 && trees.length < 340; w++) {
+    const a = rand01(w, 1, 200) * Math.PI * 2, d = EDGE + 20 + rand01(w, 2, 201) * 90, cx = Math.cos(a) * d, cz = Math.sin(a) * d;
+    for (let k = 0; k < 14; k++) {
+      const x = cx + (rand01(w, k, 202) - 0.5) * 18, z = cz + (rand01(w, k, 203) - 0.5) * 18;
+      if (Math.max(Math.abs(x), Math.abs(z)) < EDGE + 12 || (x < -EDGE - 4 && x > -EDGE - 40 && Math.abs(z) < 50)) continue;   // clear of the rim, where the camera comes close
+      trees.push([x, z, 1.1 + rand01(w, k, 204) * 0.9, TREE[k % 3]]);
+    }
+  }
+  const crown = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshLambertMaterial({ color: 0xffffff }), trees.length);
+  const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.2, 1.4, 8), new THREE.MeshLambertMaterial({ color: 0x8a5a3c }), trees.length);
+  crown.castShadow = true;
+  trees.forEach(([x, z, s, col], i) => {
+    crown.setMatrixAt(i, M4.compose(V.set(x, 1.0 + s * 0.9, z), Q.identity(), SC.set(s, s * 1.1, s))); crown.setColorAt(i, COL.set(col));
+    trunk.setMatrixAt(i, M4.compose(V.set(x, 0.35, z), Q.identity(), SC.set(1, 1, 1)));
+  });
+  scene.add(crown, trunk);
+  const hillMat = new THREE.MeshLambertMaterial({ color: 0xc3c6f7 });   // far hills, hazy lavender
+  for (let k = 0; k < 22; k++) { const a = k / 22 * Math.PI * 2, d = 170 + rand01(k, 1, 210) * 50, r = 30 + rand01(k, 2, 211) * 30, m = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12), hillMat); m.scale.set(r, r * (0.3 + rand01(k, 3, 212) * 0.2), r * 0.8); m.position.set(Math.cos(a) * d, -2, Math.sin(a) * d); scene.add(m); }
+  // the airfield, west of the valley: the runway Plane Crash takes off from, the hangar with the B, the tower and the windsock
+  const ax = -EDGE - 18, white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }), violet = new THREE.MeshStandardMaterial({ color: 0x5a3ffc, roughness: 0.35 });
+  const runway = new THREE.Mesh(new THREE.BoxGeometry(8, 0.12, 96), new THREE.MeshStandardMaterial({ color: 0xd9d6ee, roughness: 0.85 })); runway.position.set(ax, -0.3, 0); runway.receiveShadow = true; scene.add(runway);
+  const dash = new THREE.InstancedMesh(new THREE.BoxGeometry(0.36, 0.04, 3.2), white, 16), lamp = new THREE.InstancedMesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color: 0x9ef6ff }), 64);
+  for (let k = 0; k < 16; k++) dash.setMatrixAt(k, M4.compose(V.set(ax, -0.22, -45 + k * 6), Q.identity(), SC.set(1, 1, 1)));
+  for (let k = 0; k < 64; k++) lamp.setMatrixAt(k, M4.compose(V.set(ax + (k % 2 ? 4.5 : -4.5), -0.12, -46 + (k >> 1) * 3), Q.identity(), SC.set(1, 1, 1)));
+  scene.add(dash, lamp);
+  const hangar = new THREE.Group(); hangar.position.set(ax - 16, -0.3, -18); hangar.rotation.y = Math.PI / 2; scene.add(hangar);   // its door faces the runway
+  const vault = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 16, 40, 1, false, -Math.PI / 2, Math.PI), white); vault.rotation.x = Math.PI / 2; vault.castShadow = vault.receiveShadow = true; hangar.add(vault);
+  const band = new THREE.Mesh(new THREE.TorusGeometry(7.05, 0.35, 10, 48, Math.PI), violet); hangar.add(band);
+  const door = new THREE.Mesh(new THREE.CircleGeometry(6.4, 40, 0, Math.PI), new THREE.MeshStandardMaterial({ color: 0x2b2452, roughness: 0.6 })); door.position.z = 8.02; hangar.add(door);
+  const sc = document.createElement('canvas'); sc.width = sc.height = 128; const sg = sc.getContext('2d');
+  sg.fillStyle = '#5a3ffc'; sg.beginPath(); sg.roundRect(4, 4, 120, 120, 30); sg.fill(); sg.fillStyle = '#fff'; sg.font = '800 92px FiraGO, system-ui, sans-serif'; sg.textAlign = 'center'; sg.textBaseline = 'middle'; sg.fillText('B', 64, 70);
+  const signTex = new THREE.CanvasTexture(sc); signTex.colorSpace = THREE.SRGBColorSpace;
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ map: signTex })); sign.position.set(0, 4.6, 8.1); hangar.add(sign);
+  const tower = new THREE.Group(); tower.position.set(ax + 14, -0.3, 22); scene.add(tower);
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 9, 20), white); shaft.position.y = 4.5; shaft.castShadow = true; tower.add(shaft);
+  const cab = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 2, 24), new THREE.MeshStandardMaterial({ color: 0x9fe8ff, emissive: 0x4fd7ff, emissiveIntensity: 0.4, roughness: 0.1 })); cab.position.y = 10; tower.add(cab);
+  const roof = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.5, 24), violet); roof.position.y = 11.25; tower.add(roof);
+  const sock = new THREE.Mesh(new THREE.ConeGeometry(0.6, 2.6, 16, 1, true), new THREE.MeshStandardMaterial({ color: 0xff7a59, side: THREE.DoubleSide })); sock.position.set(ax + 7, 5.4, -30); sock.rotation.z = Math.PI / 2 - 0.15; scene.add(sock);
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 6, 8), white); pole.position.set(ax + 5.8, 2.7, -30); scene.add(pole);
 }
+// a plane parked at the end of the runway, ready for Plane Crash
+let parked = null;
+try { parked = new Plane3D(new Brainer(1)); parked.root.scale.setScalar(1.9); parked.root.position.set(-EDGE - 18, 1.1, -34); scene.add(parked.root); } catch (e) { parked = null; }
 const banks = [];
-for (let b = 0; b < 16; b++) {
-  const g = new THREE.Group(), a = b / 16 * Math.PI * 2, r = 34 + rand01(b, 1, 60) * 40;
-  g.position.set(Math.cos(a) * r, -7 - rand01(b, 2, 61) * 12, Math.sin(a) * r);
+for (let b = 0; b < 16; b++) {   // clouds drifting along the valley's rim
+  const g = new THREE.Group(), a = b / 16 * Math.PI * 2, r = EDGE + 14 + rand01(b, 1, 60) * 36;
+  g.position.set(Math.cos(a) * r, 6 + rand01(b, 2, 61) * 5, Math.sin(a) * r);
   for (let p = 0; p < 6; p++) { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), cloudMat); const s = 2.2 + rand01(b, p, 62) * 2.4; m.scale.set(s * 1.3, s * 0.7, s); m.position.set((p - 2.5) * 2.4, rand01(b, p, 63) * 1.4, (rand01(b, p, 64) - 0.5) * 3); g.add(m); }
   banks.push(g); scene.add(g);
 }
 
 // the player's Brainer, in a holder that walks and hops; the Brainer itself handles its pose and face
 const holder = new THREE.Group(); scene.add(holder);
-const me = new Brainer(myLevel()); me.root.scale.setScalar(BS); me.root.position.y = 1.12 * BS; holder.add(me.root);
+const me = new Brainer(myLevel()); me.root.scale.setScalar(BS); me.root.position.y = 1.18 * BS; holder.add(me.root);
 me.shadow.visible = false;
 // FogRush's Brainer is an explorer: a violet backpack with a pocket, a compass and its level patch, and a rolled map on top.
 {
@@ -393,7 +437,7 @@ function move(dir) {
   if (!r || r.status !== 'explore' || walker.hop || sheetOpen()) return;
   const [dx, dy] = DIRS[dir], nx = walker.x + dx, ny = walker.y + dy;
   walker.faceTo = Math.atan2(dx, dy);
-  if (nx < 0 || ny < 0 || nx >= N || ny >= N) { sound.bump(); walker.bump = performance.now(); toast("That's the edge of the islands."); return; }
+  if (nx < 0 || ny < 0 || nx >= N || ny >= N) { sound.bump(); walker.bump = performance.now(); toast("That's the edge of the valley."); return; }
   const fresh = !r.seen.has(idx(nx, ny));
   walker.hop = { t0: performance.now(), fx: walker.x, fy: walker.y, tx: nx, ty: ny, fresh };
   if (fresh) { setCloud(nx, ny, 0); sound.reveal(); } else sound.hop();
@@ -449,7 +493,7 @@ function settle(wait) {
   renderAll();
   clearTimeout(resetT); resetT = setTimeout(nextRound, wait);
 }
-// The cloud curtain rolls in, the islands are covered again, and the Brainer is back on the start tile.
+// The cloud curtain rolls in, the valley is covered again, and the Brainer is back on the start tile.
 let curtainT = 0;
 function nextRound() {
   if (!round || round.status === 'explore') return;
@@ -524,18 +568,14 @@ function update(now, dt) {
   if (!h && !walker.fly && now - walker.idleAt > 450) walker.faceTo = 0.15;   // turns back to face you whenever it stops
   let df = walker.faceTo - walker.face; df = Math.atan2(Math.sin(df), Math.cos(df)); walker.face += df * Math.min(1, dt * 0.012); holder.rotation.y = walker.face;
   const m = moodNow(now);
-  me.update(now, m.ex, { since: m.t0, lookX: Math.sin(now / 1700) * 0.4, soot: round && round.status === 'bust', reduced });
-  if (h) {   // walking: it leans into the hop and swings its arms
-    const p = clamp((now - h.t0) / cfg.stepMs, 0, 1), sw = Math.sin(p * Math.PI * 2);
-    me.body.rotation.x += 0.22 * Math.sin(p * Math.PI);
-    me.hands.forEach((hd, i) => { hd.position.z += (i ? 1 : -1) * sw * 0.35; hd.position.y += 0.18 * Math.sin(p * Math.PI); });
-    me.feet.forEach((f, i) => { f.position.y += Math.max(0, (i ? 1 : -1) * sw) * 0.12; });
-  }
+  const walk = h ? clamp((now - h.t0) / cfg.stepMs, 0, 1) : null;   // walking: it leans into the hop and swings its arms and legs
+  me.update(now, m.ex, { since: m.t0, lookX: Math.sin(now / 1700) * 0.4, soot: round && round.status === 'bust', walk, reduced });
   // chevrons on the tiles you can step to
   const show = exploring() && !walker.hop;
   for (const c of chevs) { const tx = walker.x + c.userData.dx, ty = walker.y + c.userData.dy, ok = show && tx >= 0 && ty >= 0 && tx < N && ty < N; c.visible = ok; if (ok) { c.position.set(wx(tx), TOP + tileH(tx, ty) + 1.15 + Math.sin(now / 300 + c.userData.dx * 2) * 0.08, wz(ty)); c.material.opacity = hoverDir === c.userData.d ? 1 : 0.7; c.scale.setScalar(hoverDir === c.userData.d ? 1.25 : 1); } }
   stepClouds(dt); stepParticles(dt);
   for (const [i, b] of banks.entries()) b.position.x += Math.sin(now / 9000 + i) * 0.004;
+  if (parked) parked.update(now, { gear: 1, idle: true, pilot: false, level: myLevel(), reduced });
   // camera: follows the Brainer, a little behind so the explored trail shows
   const narrow = W / H < 0.95;
   camGoal.set(holder.position.x - 0.4, 1.1, holder.position.z + 0.5);
@@ -716,17 +756,17 @@ const ART = Array.from({ length: 10 }, (_, i) => { const im = new Image(); im.sr
 function loadProgress() {   // fonts, the robot art and the first frames of the 3D world; a slow network never holds the player past 9 s
   if (performance.now() - bootT > 9000) return 1;
   const art = ART.filter(im => im.complete).length / ART.length, font = !document.fonts || document.fonts.status === 'loaded' ? 1 : 0;
-  return (art + font + Math.min(1, frames / 20) * 2) / 4;
+  return (art + font + Math.min(1, frames / 20) + (me.ready ? 1 : 0)) / 4;   // the 3D model counts too
 }
-// The intro's actor: the player's Brainer on a little cloud island with a closed chest, on its own renderer.
+// The intro's actor: the player's Brainer on a little plot of the valley, fog drifting round it, on its own renderer.
 let introA = null;
 function introActor(g, w, h, now, ex) {
   if (introA === false) return false;
   if (!introA) {
     try {
       const stg = new BrainerStage(), b = new Brainer(myLevel()), root = new THREE.Group(); stg.setSize(512, 512);
-      const isl = new THREE.Mesh(new RoundedBoxGeometry(2.7, 1.1, 2.7, 2, 0.2), new THREE.MeshStandardMaterial({ color: 0xb98a5e, roughness: 0.9 })); isl.position.y = -1.72; root.add(isl);
-      const top = new THREE.Mesh(new RoundedBoxGeometry(2.78, 0.32, 2.78, 2, 0.15), new THREE.MeshStandardMaterial({ color: 0x9be06e, roughness: 0.85 })); top.position.y = -1.2; root.add(top);
+      const isl = new THREE.Mesh(new RoundedBoxGeometry(3.6, 0.3, 3.6, 2, 0.3), new THREE.MeshStandardMaterial({ color: 0xe8d6b5, roughness: 0.95 })); isl.position.y = -1.42; root.add(isl);
+      const top = new THREE.Mesh(new RoundedBoxGeometry(2.6, 0.32, 2.6, 2, 0.14), new THREE.MeshStandardMaterial({ color: 0x86e36b, roughness: 0.85 })); top.position.y = -1.2; root.add(top);
       for (let k = 0; k < 7; k++) { const f = new THREE.Mesh(flowerGeo, flowerMats[k % 4]); f.position.set(Math.cos(k * 2.1) * 1.05, -1.0, Math.sin(k * 2.1) * 1.05); root.add(f); }
       const puffs = [];
       for (let k = 0; k < 7; k++) { const c = new THREE.Mesh(clouds.geometry, cloudMat); const s = 0.5 + (k % 3) * 0.18; c.scale.set(s * 1.3, s * 0.75, s); c.userData = { a: k / 7 * Math.PI * 2, r: 1.9 + (k % 2) * 0.4, y: -1.55 + (k % 3) * 0.12 }; root.add(c); puffs.push(c); }
@@ -735,7 +775,9 @@ function introActor(g, w, h, now, ex) {
     } catch (e) { introA = false; return false; }
   }
   const a = introA;
-  a.b.update(now, ex, { lookX: Math.sin(now / 1300) * 0.35, reduced });
+  if (!a.b.ready) return false;
+  a.t0 = a.t0 || now;   // its screen switches on while the game loads: slowly, and never ahead of the loading
+  a.b.update(now, ex, { lookX: Math.sin(now / 1300) * 0.35, power: Math.min(loadProgress(), (now - a.t0) / 2800), reduced });
   a.root.rotation.y = reduced ? -0.3 : -0.3 + Math.sin(now / 2200) * 0.25;
   a.root.position.y = reduced ? 0 : Math.sin(now / 900) * 0.08;
   for (const c of a.puffs) { const u = c.userData, ang = u.a + (reduced ? 0 : now / 6000); c.position.set(Math.cos(ang) * u.r, u.y, Math.sin(ang) * u.r); }
@@ -744,7 +786,7 @@ function introActor(g, w, h, now, ex) {
   return true;
 }
 document.querySelector('.brand .t1').innerHTML = window.BrainerIntro ? window.BrainerIntro.wordmark('fog') : 'FogRush';
-(window.BrainerIntro ? window.BrainerIntro.start({ title: 'FogRush', mark: 'fog', theme: 'fog', what: 'the islands', actor: introActor, progress: loadProgress }) : Promise.resolve()).then(() => {
+(window.BrainerIntro ? window.BrainerIntro.start({ title: 'FogRush', mark: 'fog', theme: 'fog', what: 'the valley', actor: introActor, progress: loadProgress }) : Promise.resolve()).then(() => {
   if (store.get('blink.age-ok', '') !== '1') openSheet('#agegate');
   else if (store.get('brainer.fr.tutorial', '') !== 'seen') openSheet('#tutorial');
 });
