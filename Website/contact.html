@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Contact · Brainer Games</title>
+<meta name="description" content="Book a demo of Brainer Games' crash games for your casino or aggregator.">
+<meta name="theme-color" content="#532aff">
+<link rel="icon" href="assets/brainer/logo/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preload" href="assets/fonts/firago/FiraGO-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body data-page="contact">
+<header id="site-header"></header>
+
+<main>
+  <div class="wrap">
+    <div class="page-head">
+      <span class="sticker">Contact</span>
+      <h1>Book a demo</h1>
+      <p class="lead">Tell us who you are and where you operate. We will set up a demo, in your colours if you like.</p>
+    </div>
+
+    <div class="contact">
+      <form class="form" id="contactForm" novalidate>
+        <label class="field">Your name<input name="name" autocomplete="name" required><span class="err" hidden></span></label>
+        <label class="field">Work email<input name="email" type="email" autocomplete="email" placeholder="name@casino.com" required><span class="err" hidden></span></label>
+        <label class="field">Company<input name="company" autocomplete="organization" required><span class="err" hidden></span></label>
+        <label class="field">You are<select name="type" required>
+          <option value="">Choose one</option>
+          <option>Aggregator</option>
+          <option>Casino platform</option>
+          <option>Casino operator</option>
+          <option>Other</option>
+        </select><span class="err" hidden></span></label>
+        <label class="field full">Markets you operate in<input name="markets" placeholder="Georgia, Brazil, Latin America"></label>
+        <label class="field full">What would you like to see?<textarea name="message" placeholder="A skinned demo for our brand, integration through our aggregator, promo tools…"></textarea></label>
+        <label class="check full"><input type="checkbox" name="consent" required> I agree that Brainer Games may contact me about this request.</label>
+        <div class="full" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <button class="btn btn-red btn-lg" type="submit">Send request</button>
+          <span class="fine">The form is not connected yet, so nothing is sent.</span>
+        </div>
+      </form>
+
+      <aside class="side">
+        <div class="box"><span class="ic"><span data-icon="mail"></span></span><h3>Email us</h3><p data-site="email"></p></div>
+        <div class="box"><span class="ic"><span data-icon="chat"></span></span><h3>A named contact</h3><p>One person handles your account from the first demo to go-live, not a ticket queue.</p></div>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<footer id="site-footer"></footer>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/contact.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Provably fair · Brainer Games</title>
+<meta name="description" content="How every Brainer Games round is fixed in advance and can be checked afterwards, with a working checker.">
+<meta name="theme-color" content="#532aff">
+<link rel="icon" href="assets/brainer/logo/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preload" href="assets/fonts/firago/FiraGO-Regular.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body data-page="fair">
+<header id="site-header"></header>
+
+<main>
+  <div class="wrap">
+    <div class="page-head">
+      <span class="sticker sky">Provably fair</span>
+      <h1>Every round, fixed before the first bet</h1>
+      <p class="lead">Nobody can change a result once a round starts, and anyone can prove it afterwards: the player, the casino or a regulator.</p>
+    </div>
+  </div>
+
+  <section class="section band" aria-labelledby="stepsTitle">
+    <div class="wrap">
+      <div class="section-head"><div><span class="eyebrow">How it works</span><h2 id="stepsTitle">Commit, play, verify</h2></div></div>
+      <ol class="steps3">
+        <li><h3>Commit</h3><p>Before the round, the server picks a secret seed and publishes its SHA-256 hash. The hash fixes the round without giving it away.</p></li>
+        <li><h3>Play</h3><p>Where the bombs fall at every step comes from the seed alone, so no choice made during the round can change it.</p></li>
+        <li><h3>Verify</h3><p>After the round the seed is revealed. Hash it again: if it matches the published hash, the round was fixed in advance.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="tryTitle">
+    <div class="wrap split" style="align-items:start">
+      <div>
+        <span class="eyebrow">Try it</span>
+        <h2 id="tryTitle" style="font-size:clamp(30px,3.8vw,48px)">Check a sample round</h2>
+        <p class="lead" style="margin-top:16px">This checker runs SHA-256 in your browser on a freshly made round. The games carry the same check for real rounds.</p>
+        <div class="formula" style="margin-top:24px" aria-label="Formulas">
+          <i>commit</i> = SHA-256(server_seed)<br>
+          <i>step n</i> = HMAC-SHA256(server_seed, round : n)
+        </div>
+      </div>
+      <div class="verify" aria-live="polite">
+        <div class="verify-head"><h3>Sample round</h3><span class="sticker paper mono" id="vRound"></span></div>
+        <div class="kv"><span>Hash published before bets</span><code id="vHash">…</code></div>
+        <div class="kv"><span>Seed revealed after the round</span><code id="vSeed" class="blur">…</code></div>
+        <div class="ok" id="vOut" hidden></div>
+        <div class="row"><button class="btn btn-red" type="button" id="vReveal">Reveal the seed and check</button><button class="btn" type="button" id="vNew">New round</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="ctaTitle">
+    <div class="wrap">
+      <div class="cta-panel">
+        <div><h2 id="ctaTitle">Your compliance team has questions?</h2><p>We will walk them through the fairness scheme and the player protection settings.</p></div>
+        <a class="btn btn-lg" href="contact.html">Talk to us</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="site-footer"></footer>
+<script src="assets/js/data.js"></script>
+<script src="assets/js/site.js"></script>
+<script src="assets/js/fairness.js"></script>
+</body>
+</html>
