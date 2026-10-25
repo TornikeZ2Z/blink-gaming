@@ -40,6 +40,15 @@ The step counts and first multipliers follow Chicken Road; the tops were brought
 
 Everything is drawn in code on a canvas, with no image files except the Brainer portraits. The plane and the Brainer are shaded as solids lit from the upper left. The default world is Lavender fields: patchwork farmland with a river, a road, trees and clouds casting shadows. Two other worlds can be compared with `?world=clouds` (a sea of clouds at sunset) and `?world=city` (Brainer city at dusk); adding `?worlds` shows a switcher on the stage.
 
+The Brainer's face is drawn live on its visor, so it reacts to the flight. `assets/brainer-N-blank.png` is the brand art with the painted face removed; at rest each level shows the face from its art (a wink, happy arcs, a grin, heart eyes, glasses). It has 14 expressions:
+- While playing: focused with eyes on the path you hover, a wink at take-off, and a gulp with sweat while bombs fall.
+- After a step: "phew" on a safe path.
+- When you jump: happy, star-eyed when excited, amazed on a big win, and ecstatic.
+- On a crash: shocked, then sad with tears, and dizzy spirals in the crash spotlight.
+- Other times: heart eyes on a level-up, and sleepy when left alone.
+
+It blinks, and the glasses slip when it gets a fright.
+
 ### Brain levels
 
 Every path flown earns brain cells: stake × that step's bomb chance × 10. Cells follow the risk taken rather than the time spent, so grinding Easy is slow (a $10 Easy path earns about 6 cells, a $10 Hardcore path about 39). Ten levels need 0, 50, 150, 300, 550, 900, 1,400, 2,100, 3,000 and 4,200 cells (`cfg.brain.cells`).

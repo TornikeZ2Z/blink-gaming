@@ -39,9 +39,9 @@ button{cursor:pointer}
 
 .pilot{position:absolute;left:14px;top:62px;z-index:3;display:flex;align-items:center;gap:10px;padding:6px 14px 6px 6px;border-radius:20px;background:rgba(10,19,34,.5);backdrop-filter:blur(8px);border:1px solid var(--line);text-align:left}
 .pilot:hover{border-color:rgba(132,71,251,.8);background:rgba(10,19,34,.65)}
-.ava{position:relative;width:62px;height:62px;flex:none;border-radius:16px;background:radial-gradient(circle at 50% 40%,#ffffff 0%,#d9d0ff 70%)}
-.ava img{position:absolute;left:-8px;top:-10px;width:78px;height:78px;object-fit:contain;transition:filter .3s}
-.pilot.sooty .ava img{filter:brightness(.45) sepia(.4) saturate(.6)}
+.ava{position:relative;width:66px;height:66px;flex:none;border-radius:16px;background:radial-gradient(circle at 50% 40%,#ffffff 0%,#d9d0ff 70%)}
+.ava canvas{position:absolute;left:-12px;top:-15px;width:90px;height:90px;transition:filter .3s}
+.pilot.sooty .ava canvas{filter:brightness(.7) sepia(.25) saturate(.8)}
 .lvnum{position:absolute;right:-6px;bottom:-6px;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:var(--grad);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--navy)}
 .bubble{position:absolute;left:58px;top:-18px;white-space:nowrap;background:#fff;color:var(--violet);font-weight:800;font-size:13px;padding:3px 10px;border-radius:12px 12px 12px 3px;box-shadow:0 4px 14px rgba(10,19,34,.3);animation:bub .25s ease-out}
 @keyframes bub{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
@@ -163,7 +163,7 @@ button{cursor:pointer}
   .pilot{top:auto;bottom:46px;left:10px;padding:4px;border-radius:18px}
   .pinfo{display:none}
   .ava{width:50px;height:50px;border-radius:14px}
-  .ava img{left:-7px;top:-9px;width:64px;height:64px}
+  .ava canvas{left:-9px;top:-12px;width:70px;height:70px}
   .readout{top:58px;width:92%}
   .setup,.flight{min-height:0}
   .setup{grid-template-columns:1fr;gap:12px}
