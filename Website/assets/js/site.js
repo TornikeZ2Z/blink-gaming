@@ -6,6 +6,8 @@ const { SITE, GAMES, BRAIN } = window.BLINK;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Multipliers as the game writes them: two decimals below 1,000×, whole numbers above.
+const fx = m => (m < 1000 ? m.toFixed(2) : m.toLocaleString('en-US', { maximumFractionDigits: 0 })) + '×';
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage blocked: the page still works, it just forgets */ } }
@@ -49,6 +51,7 @@ function gameCard(g) {
   const art = g.art ? `<img src="${g.art}" alt="" loading="lazy" decoding="async">` : '<span class="ph">?</span>';
   const more = soon ? '' : `
       <div class="chips"><span class="chip">RTP <b>${g.rtp}%${g.rtpTop ? `–${g.rtpTop}%` : ''}</b></span><span class="chip">${g.levels.length} difficulties</span><span class="chip">Provably fair</span></div>
+      ${g.levels.every(l => l.tops) ? `<div class="diffs" aria-label="Last-step multiplier at brain level 5">${g.levels.map(l => `<div><span>${esc(l.name)}</span><b>${fx(l.tops[1])}</b><small>${l.steps} steps</small></div>`).join('')}</div><p class="diffs-note">Last-step multiplier at brain level 5.</p>` : ''}
       <div class="ctas"><a class="btn btn-ink" href="${href}">${ICON.play}Play the demo</a><a class="btn" href="${href}#specs">Specs</a></div>`;
   return `<article class="game${soon ? ' is-soon' : ''}">
     ${soon ? `<span class="art" style="--art:${g.color}">${art}</span>` : `<a class="art" href="${href}" style="--art:${g.color}" tabindex="-1" aria-hidden="true">${art}</a>`}
@@ -59,6 +62,14 @@ function gameCard(g) {
     </div></article>`;
 }
 $$('[data-games]').forEach(el => { el.innerHTML = GAMES.map(gameCard).join(''); });
+
+/* ---------- hero numbers: [data-hero-stats] shows the first live game's figures, so they never drift from data.js ---------- */
+const lead = GAMES.find(x => x.status !== 'soon');
+$$('[data-hero-stats]').forEach(el => {
+  if (!lead) { el.remove(); return; }
+  const stats = [[`${lead.rtp}–${lead.rtpTop || lead.rtp}%`, 'RTP by brain level'], [String(lead.levels.length), 'Difficulties'], [String(BRAIN.cells.length), 'Brain levels'], ['Every flight', 'Provably fair']];
+  el.innerHTML = stats.map(([v, l]) => `<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('');
+});
 
 /* ---------- brain-cell ladder: [data-ladder] gets the ten robots with RTP and cells, [data-tiers] the five colour tiers ---------- */
 const tierOf = n => BRAIN.tiers[Math.floor((n - 1) / 2)];

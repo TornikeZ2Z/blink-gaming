@@ -35,11 +35,11 @@ main.innerHTML = `<div class="wrap">${crumbs}
     ${g.workingTitle ? '<span class="sticker paper">Working title</span>' : ''}
     <div class="tools"><a class="btn" href="#how">${ICON.info}<span>Rules</span></a><button class="btn" type="button" id="fs">${ICON.expand}<span>Full screen</span></button></div>
   </div>
-  ${g.demoNote ? `<p class="note">${ICON.info}<span>${esc(g.demoNote)}</span></p>` : ''}
   <div class="frame" id="frame">
     <iframe src="${g.src}" title="${esc(g.title)} demo" allow="fullscreen; autoplay"></iframe>
     <div class="loader" id="loader"><div class="loader-inner"><span class="spinner" aria-hidden="true"></span>Loading the demo…</div></div>
   </div>
+  ${g.demoNote ? `<p class="note after">${ICON.info}<span>${esc(g.demoNote)}</span></p>` : ''}
 
   <div class="detail">
     <div class="prose">
