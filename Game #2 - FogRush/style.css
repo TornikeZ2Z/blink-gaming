@@ -181,7 +181,7 @@ button{cursor:pointer}
   .levels-grid button{padding:6px 2px 8px}
   .foot{display:none}
 }
-@media (max-width:420px){   /* four HUD controls and the wallet on a small phone */
+@media (max-width:480px){   /* four HUD controls and the wallet on a phone */
   .hud{left:10px;right:10px;gap:6px} .hud-right{gap:5px} .round{width:34px;height:34px}
   .wallet{gap:4px;padding:4px 4px 4px 10px;font-size:14px} .wallet small{display:none} .wallet button{padding:4px 9px}
 }
@@ -260,11 +260,12 @@ button{cursor:pointer}
   .auto button b{font-size:13px}
   .auto button span{display:none}
 }
-@media (max-width:420px){ #help{display:none} .brand .t1 .wm{font-size:19px} }
 @media (prefers-reduced-motion:reduce){ .curtain.roll i{animation-duration:.01s!important} }
 
 /* tablets and small laptops: the top bar fills the width, so the multiplier sits under it and the Brainer's card
    moves to the bottom left */
 @media (min-width:761px) and (max-width:1299px){ .readout{top:60px} .levelup{top:auto;bottom:52px} }
 @media (min-width:761px) and (max-width:1099px){ .pilot{top:auto;bottom:46px} }
-@media (max-width:400px){ .brand .t1{display:none} }   /* small phones: the logo alone, so the top bar fits */
+@media (max-width:560px){ .brand .t1{display:none} }   /* phones: the logo alone, so the top bar fits */
+@media (max-width:374px){ .hud{justify-content:flex-end} .brand{display:none} }   /* small phones: the controls before the logo */
+@media (max-width:330px){ #help{display:none} }   /* the smallest phones: room for full screen and the wallet */

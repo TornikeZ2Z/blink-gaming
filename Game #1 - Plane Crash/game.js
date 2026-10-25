@@ -432,11 +432,21 @@ const FIELDS = ['#b5ec5c', '#ffd95c', '#8ee070', '#d4f07a', '#5fcb5a', '#ffc07a'
 const AIRFIELD = { hangar: new Image(), tower: new Image() };
 AIRFIELD.hangar.src = 'assets/airfield-hangar.png'; AIRFIELD.tower.src = 'assets/airfield-tower.png';
 let airfield = null;   // where the plane last parked: { zw, u } on the ground
-function standing(img, u, z, wUnits) {   // a sprite standing on the ground at (u, z), wUnits wide
+const tint = document.createElement('canvas'), tg = tint.getContext('2d');
+// A sprite standing on the ground at (u, z), wUnits wide. It is drawn after the horizon haze and takes the haze its
+// feet stand in evenly ([colour, depth] as passed to haze()), so the haze never cuts a hard line across it.
+function standing(img, u, z, wUnits, hz) {
   if (!img.complete || !img.naturalWidth || z < 0.8) return;
   const [x, y] = gpt(u, z), w = wUnits * F / z, h = w * img.naturalHeight / img.naturalWidth;
   if (x + w / 2 < 0 || x - w / 2 > W) return;
-  ctx.drawImage(img, x - w / 2, y - h, w, h);
+  const k = hz ? clamp(1 - (y - HY) / (H * hz[1]), 0, 1) * parseFloat(hz[0].match(/([\d.]+)\)$/)[1]) : 0;
+  if (k < 0.01) { ctx.drawImage(img, x - w / 2, y - h, w, h); return; }
+  const tw = Math.max(1, Math.ceil(w * dpr)), th = Math.max(1, Math.ceil(h * dpr));
+  if (tint.width < tw) tint.width = tw;
+  if (tint.height < th) tint.height = th;
+  tg.globalCompositeOperation = 'source-over'; tg.clearRect(0, 0, tint.width, tint.height); tg.drawImage(img, 0, 0, tw, th);   // all of it: smoothing samples past the edges
+  tg.globalCompositeOperation = 'source-atop'; tg.fillStyle = hz[0].replace(/[\d.]+\)$/, k.toFixed(3) + ')'); tg.fillRect(0, 0, tw, th);
+  ctx.drawImage(tint, 0, 0, tw, th, x - w / 2, y - h, w, h);
 }
 const VALLEY = 230, VN = 7, VP = 0.62;   // a foggy valley every VALLEY units of the flight, VN x VN plots VP apart
 function valleyAt(zw) {   // the valley whose plots cover depth zw, if any: its centre and side of the road
@@ -448,7 +458,7 @@ function valleyAt(zw) {   // the valley whose plots cover depth zw, if any: its 
 function groundFields() {
   const D = 3.2, CW = 3.2, cx = view.camX - view.fieldX;
   ctx.fillStyle = '#86dc68'; ctx.fillRect(0, HY, W, H - HY);
-  const river = zw => 9 + 5 * Math.sin(zw * 0.04) + 2.2 * Math.sin(zw * 0.13 + 1), road = roadAt;
+  const river = zw => 9 + 5 * Math.sin(zw * 0.04) + 2.2 * Math.sin(zw * 0.13 + 1), road = roadAt, HAZE = ['rgba(238,241,255,.95)', 0.22], tall = [];
   forRows(D, 64, (row, z0, z1) => {
     if (groundY(z1) > H) return;
     const g2 = row >> 1, span = 1 + Math.floor(hash(g2, 3) * 3);   // fields are two rows deep and one to three cells wide
@@ -487,7 +497,7 @@ function groundFields() {
         for (const sd of [-1, 1]) { const [x, y] = gpt(d0 + sd * 1.42, z0), r = Math.max(1, 0.07 * F / zm); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fillStyle = '#9ef6ff'; ctx.fill(); }   // runway lights
       }
       for (const [img, du, dz, wu] of [[AIRFIELD.tower, 3.2, 8, 1.3], [AIRFIELD.hangar, -3.6, 3.2, 3.0]]) {
-        const zh = a.zw + dz - view.scroll; if (zh >= z0 && zh < z1) standing(img, a.u + du, zh, wu);
+        const zh = a.zw + dz - view.scroll; if (zh >= z0 && zh < z1) tall.push([img, a.u + du, zh, wu]);   // drawn after the haze
       }
     }
     const vz = valleyAt(zm + view.scroll);
@@ -525,7 +535,8 @@ function groundFields() {
     if (x + rx < 0 || x - rx > W || y - ry > H) continue;
     ctx.globalAlpha = clamp((60 - c.z) / 14, 0, 1); ell(x, y, rx, ry); ctx.fillStyle = 'rgba(40,40,110,.12)'; ctx.fill(); ctx.globalAlpha = 1;
   }
-  haze('rgba(238,241,255,.95)', 0.22);
+  haze(...HAZE);
+  for (const t of tall) standing(...t, HAZE);   // far to near, as the rows were
 }
 function skyFields(g) {
   skyBase(g, [[0, '#5b4af6'], [0.5, '#8f88ff'], [0.85, '#cdd0ff'], [1, '#eef1ff']]);

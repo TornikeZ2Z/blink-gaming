@@ -607,7 +607,8 @@ function loop(now) {
 let frames = 0;
 
 /* ---------- input ---------- */
-const KEYS = { ArrowUp: 'N', ArrowDown: 'S', ArrowLeft: 'W', ArrowRight: 'E', w: 'N', s: 'S', a: 'W', d: 'E', W: 'N', S: 'S', A: 'W', D: 'E' };
+// by physical key, so WASD and C work on any layout (a Georgian keyboard sends "დ" for D)
+const KEYS = { ArrowUp: 'N', ArrowDown: 'S', ArrowLeft: 'W', ArrowRight: 'E', KeyW: 'N', KeyS: 'S', KeyA: 'W', KeyD: 'E' };
 const held = new Set();
 let hoverDir = '';
 setInterval(() => { if (held.size && exploring() && !walker.hop) move([...held].pop()); }, 40);   // hold a direction to keep walking
@@ -617,11 +618,11 @@ document.addEventListener('keydown', e => {
   if (sheetOpen()) return;
   const tag = document.activeElement && document.activeElement.tagName;
   if (tag === 'INPUT' || tag === 'SELECT') return;
-  if (KEYS[e.key]) { e.preventDefault(); if (!e.repeat) { held.add(KEYS[e.key]); move(KEYS[e.key]); } return; }
-  if (e.key === 'c' || e.key === 'C') { cashOut(false); return; }
+  if (KEYS[e.code]) { e.preventDefault(); if (!e.repeat) { held.add(KEYS[e.code]); move(KEYS[e.code]); } return; }
+  if (e.code === 'KeyC') { cashOut(false); return; }
   if (e.key === 'Enter' || (e.code === 'Space' && tag !== 'BUTTON')) { e.preventDefault(); if (exploring()) cashOut(false); else if (round) nextRound(); else play(); }
 });
-document.addEventListener('keyup', e => { if (KEYS[e.key]) held.delete(KEYS[e.key]); });
+document.addEventListener('keyup', e => { if (KEYS[e.code]) held.delete(KEYS[e.code]); });
 addEventListener('blur', () => held.clear());
 const pad = $('#pad');
 pad.addEventListener('pointerdown', e => { const b = e.target.closest('button[data-d]'); if (!b) return; e.preventDefault(); b.setPointerCapture(e.pointerId); b.classList.add('on'); held.add(b.dataset.d); move(b.dataset.d); });

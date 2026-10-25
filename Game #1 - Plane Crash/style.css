@@ -180,7 +180,7 @@ button{cursor:pointer}
   .levels-grid button{padding:6px 2px 8px}
   .foot{display:none}
 }
-@media (max-width:420px){   /* four HUD controls and the wallet on a small phone */
+@media (max-width:480px){   /* four HUD controls and the wallet on a phone */
   .hud{left:10px;right:10px;gap:6px} .hud-right{gap:5px} .round{width:34px;height:34px}
   .wallet{gap:4px;padding:4px 4px 4px 10px;font-size:14px} .wallet small{display:none} .wallet button{padding:4px 9px}
 }
@@ -221,5 +221,5 @@ button{cursor:pointer}
    moves to the bottom left */
 @media (min-width:761px) and (max-width:1299px){ .readout{top:60px} .levelup{top:auto;bottom:52px} }
 @media (min-width:761px) and (max-width:1099px){ .pilot{top:auto;bottom:46px} }
-@media (max-width:360px){ #help{display:none} }   /* the smallest phones: room for full screen and the wallet */
-@media (max-width:340px){ .brand{display:none} }
+@media (max-width:374px){ .hud{justify-content:flex-end} .brand{display:none} }   /* small phones: the controls before the logo */
+@media (max-width:330px){ #help{display:none} }   /* the smallest phones: room for full screen and the wallet */
