@@ -27,6 +27,7 @@ button{cursor:pointer}
 .brand{display:flex;align-items:center;gap:10px}
 .logo{width:38px;height:38px;border-radius:11px;box-shadow:0 4px 14px rgba(10,19,34,.35)}
 .brand .t1{font-weight:800;font-size:20px;letter-spacing:-.01em;text-shadow:0 2px 10px rgba(10,19,34,.35)}
+.brand .t1 .wm{font-size:27px;text-shadow:none;margin:6px 0 0 4px}
 .hud-right{display:flex;align-items:center;gap:8px}
 .round{width:38px;height:38px;flex:none;border:1px solid var(--line);border-radius:50%;background:rgba(10,19,34,.55);backdrop-filter:blur(8px);display:grid;place-items:center;color:#fff;font-size:15px;font-weight:700}
 .round:hover{background:rgba(75,54,252,.6)}
@@ -215,44 +216,3 @@ button{cursor:pointer}
 .worlds-pick button[aria-pressed=true] span{color:#fff}
 .worlds-pick button:disabled{opacity:.5;cursor:default}
 .levelup.big{border-color:#ffc147;box-shadow:0 0 0 2px rgba(255,193,71,.5),0 14px 40px rgba(10,19,34,.5)}
-
-/* the Brainer intro: logo motion and loading, before the game */
-.intro{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#2f2185 0%,#161038 55%,#0a0820 100%);color:#fff;overflow:hidden;clip-path:circle(150% at 50% 42%);transition:clip-path .62s cubic-bezier(.65,0,.35,1),opacity .62s}
-.intro.out{clip-path:circle(0% at 50% 42%)}
-.intro-net{position:absolute;inset:0;width:100%;height:100%}
-.intro-center{position:relative;display:grid;justify-items:center;gap:12px;transform:translateY(-3vh) scale(var(--introScale,1))}
-@media (min-width:900px){.intro{--introScale:1.35}}
-.intro-tile{position:relative;width:clamp(84px,15vmin,128px);aspect-ratio:1;border-radius:28%;overflow:hidden;box-shadow:0 18px 50px rgba(75,54,252,.55);opacity:0;transform:scale(0) rotate(-14deg)}
-.intro-tile img{display:block;width:100%;height:100%}
-.intro.p-tile .intro-tile{animation:introTile .7s cubic-bezier(.3,1.6,.5,1) forwards;}
-@keyframes introTile{0%{opacity:0;transform:scale(0) rotate(-14deg)}60%{opacity:1;transform:scale(1.14) rotate(4deg)}100%{opacity:1;transform:none}}
-.intro-shine{position:absolute;inset:-20%;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.8) 50%,transparent 60%);transform:translateX(-120%)}
-.intro.p-tile .intro-shine{animation:introShine .75s ease-in-out forwards;animation-delay:.45s}
-@keyframes introShine{to{transform:translateX(120%)}}
-.intro-word{display:flex;align-items:baseline;font:800 clamp(26px,5.6vmin,46px)/1 FiraGO,system-ui,sans-serif;letter-spacing:.07em}
-.intro-word b{display:inline-block;opacity:0;transform:translateY(70%)}
-.intro.p-word .intro-word b{animation:introUp .45s cubic-bezier(.3,1.5,.5,1) forwards;animation-delay:calc(var(--i) * 45ms)}
-.intro-word span{margin-left:12px;font-size:.46em;letter-spacing:.32em;color:#c9b8ff;opacity:0}
-.intro.p-word .intro-word span{animation:introFade .5s forwards;animation-delay:.38s}
-@keyframes introUp{to{opacity:1;transform:none}}
-@keyframes introFade{to{opacity:1}}
-.intro-game{position:relative;display:grid;place-items:center;width:min(420px,82vw);height:74px;margin-top:2px}
-.intro-motif{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.intro-trail{fill:none;stroke:#ffc147;stroke-width:3;stroke-linecap:round;clip-path:inset(0 100% 0 0)}
-.intro-plane{opacity:0}
-.intro-plane path{fill:#ffffff}
-.intro-game strong{position:relative;font:800 clamp(21px,4.2vmin,32px)/1 FiraGO,system-ui,sans-serif;opacity:0;transform:scale(.6);text-shadow:0 3px 0 rgba(75,54,252,.85)}
-.intro.p-game .intro-game strong{animation:introPop .5s cubic-bezier(.3,1.6,.5,1) forwards;animation-delay:.4s}
-@keyframes introPop{to{opacity:1;transform:none}}
-.intro-load{display:grid;justify-items:center;gap:8px;margin-top:8px;opacity:0}
-.intro.p-game .intro-load{animation:introFade .4s forwards}
-.intro-cells{display:flex;gap:7px}
-.intro-cells i{width:11px;height:11px;border-radius:50%;background:rgba(201,184,255,.22);transition:background .25s,box-shadow .25s,transform .25s}
-.intro-cells i.on{background:#8f6bff;box-shadow:0 0 10px #8447fb;transform:scale(1.15)}
-.intro-cells i.on:nth-child(3n){background:#33d66d;box-shadow:0 0 10px #33d66d}
-.intro-cells i.on:nth-child(4n){background:#ffc147;box-shadow:0 0 10px #ffc147}
-.intro-load small{font:700 12px FiraGO,system-ui,sans-serif;letter-spacing:.04em;color:#c9b8ff}
-.intro-skip{position:absolute;right:16px;bottom:16px;padding:8px 14px;border:1px solid rgba(255,255,255,.25);border-radius:999px;background:rgba(255,255,255,.08);color:#fff;font:700 13px FiraGO,system-ui,sans-serif}
-.intro.still *{animation-duration:.01s!important;animation-delay:0s!important}
-.intro.still{transition:opacity .2s;clip-path:none}
-.intro.still.out{opacity:0}

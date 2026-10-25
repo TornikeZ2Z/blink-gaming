@@ -1,0 +1,59 @@
+/* The Brainer Games intro (shared/intro.js) and the game wordmarks, shared by every game. */
+.intro{position:fixed;inset:0;z-index:50;display:grid;place-items:center;overflow:hidden;color:#fff;font-family:FiraGO,system-ui,sans-serif;clip-path:circle(150% at 50% 44%);transition:clip-path .7s cubic-bezier(.65,0,.35,1)}
+.intro.t-plane{background:radial-gradient(ellipse at 50% 40%,#7d6bff 0%,#4b36fc 45%,#241a7a 100%)}
+.intro.t-fog{background:linear-gradient(180deg,#5b4af6 0%,#8f88ff 45%,#cdd0ff 100%)}
+.intro.out{clip-path:circle(0% at 50% 44%)}
+.intro.still{transition:opacity .2s;clip-path:none}
+.intro.still.out{opacity:0}
+.intro-sky{position:absolute;inset:0;pointer-events:none}
+.intro-sky i{position:absolute;width:34vmax;aspect-ratio:2.2/1;border-radius:50%;background:radial-gradient(ellipse at 50% 60%,rgba(255,255,255,.55),rgba(255,255,255,0) 70%);animation:introDrift 18s linear infinite}
+.intro.t-fog .intro-sky i{background:radial-gradient(ellipse at 50% 60%,#fff 0%,rgba(255,255,255,.9) 40%,rgba(255,255,255,0) 70%)}
+.intro-sky i:nth-child(1){left:-10%;top:8%}.intro-sky i:nth-child(2){left:62%;top:4%;animation-duration:24s}.intro-sky i:nth-child(3){left:-20%;top:62%;animation-duration:21s}
+.intro-sky i:nth-child(4){left:70%;top:70%;animation-duration:26s}.intro-sky i:nth-child(5){left:30%;top:88%;animation-duration:30s}.intro-sky i:nth-child(6){left:84%;top:36%;animation-duration:19s}
+@keyframes introDrift{from{transform:translateX(-6vw)}50%{transform:translateX(6vw)}to{transform:translateX(-6vw)}}
+.intro-mark{position:absolute;left:18px;top:16px;display:flex;align-items:center;gap:9px;opacity:0;animation:introFade .5s .1s forwards}
+.intro-mark img{width:30px;height:30px;border-radius:9px;box-shadow:0 4px 12px rgba(20,10,80,.35)}
+.intro-mark span{display:flex;flex-direction:column;font-weight:800;font-size:13px;line-height:1;letter-spacing:.08em}
+.intro-mark small{font-size:9px;letter-spacing:.3em;opacity:.8;margin-top:3px}
+.intro-center{position:relative;display:grid;justify-items:center;gap:4px;margin-top:-2vh}
+.intro-actor{width:min(56vmin,500px);aspect-ratio:1;opacity:0;transform:scale(.6) translateY(20px)}
+.intro.run .intro-actor{animation:introActor .7s cubic-bezier(.3,1.5,.5,1) forwards}
+@keyframes introActor{to{opacity:1;transform:none}}
+.intro-title{font-size:clamp(46px,9.5vmin,96px);margin-top:-6vmin;opacity:0;transform:scale(.6)}
+.intro.run .intro-title{animation:introPop .6s .35s cubic-bezier(.3,1.6,.5,1) forwards}
+.intro.short .intro-title,.intro.short .intro-actor{animation-delay:0s}
+@keyframes introPop{to{opacity:1;transform:none}}
+@keyframes introFade{to{opacity:1}}
+.intro-pct{display:flex;align-items:baseline;gap:2px;margin-top:10px;font-weight:800;font-variant-numeric:tabular-nums;text-shadow:0 3px 0 rgba(43,29,158,.7),0 8px 24px rgba(20,10,80,.4)}
+.intro-pct b{font-size:clamp(34px,6vmin,56px);line-height:1;min-width:2.1em;text-align:right}
+.intro-pct span{font-size:clamp(20px,3.4vmin,30px)}
+.intro-cells{display:flex;gap:7px;margin-top:6px}
+.intro-cells i{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.28);transition:background .25s,box-shadow .25s,transform .25s}
+.intro-cells i.on{background:#fff;box-shadow:0 0 10px #c9b8ff;transform:scale(1.15)}
+.intro-cells i.on:nth-child(3n){background:#33d66d;box-shadow:0 0 10px #33d66d}
+.intro-cells i.on:nth-child(4n){background:#ffc147;box-shadow:0 0 10px #ffc147}
+.intro-note{margin-top:6px;font-weight:700;font-size:13px;letter-spacing:.03em;opacity:.9}
+.intro-skip{position:absolute;right:16px;bottom:16px;padding:8px 14px;border:1px solid rgba(255,255,255,.35);border-radius:999px;background:rgba(255,255,255,.12);color:#fff;font:700 13px FiraGO,system-ui,sans-serif}
+.intro.still *{animation-duration:.01s!important;animation-delay:0s!important}
+
+/* the game wordmarks: chunky lettering on a thick outline with a little depth, a gradient face and the game's motif */
+.wm{position:relative;display:inline-flex;align-items:flex-end;font-family:FiraGO,system-ui,sans-serif;font-weight:800;line-height:.9;letter-spacing:-.02em;white-space:nowrap;isolation:isolate}
+.wm-w{position:relative;display:block;isolation:isolate}
+.wm-w::before{content:attr(data-t);position:absolute;left:0;top:0;z-index:-1}
+.wm-w b{display:block;font-weight:800}
+.wm-plane{flex-direction:column;align-items:flex-start;transform:rotate(-4deg) skewX(-7deg)}
+.wm-plane .wm-top{font-size:.4em;letter-spacing:.34em;margin:0 0 .04em .12em}
+.wm-plane .wm-top b{color:#fff}
+.wm-plane .wm-top::before{color:#2b1d9e;-webkit-text-stroke:.24em #2b1d9e;letter-spacing:.34em}
+.wm-plane .wm-main b,.wm-fog .wm-gold b{background:linear-gradient(180deg,#ffffff 0%,#fff3c4 40%,#ffc147 72%,#ff9a3d 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.wm-plane .wm-main::before,.wm-fog .wm-gold::before{color:#2b1d9e;-webkit-text-stroke:.17em #2b1d9e;text-shadow:0 .04em 0 #3a26c9,0 .08em 0 #2b1d9e,0 .12em 0 #22177e,0 .2em .28em rgba(20,10,80,.5)}
+.wm-swoosh{position:absolute;right:-.62em;top:-.42em;width:1.9em;height:.6em;overflow:visible}
+.wm-trail{fill:none;stroke:#fff;stroke-width:5;stroke-linecap:round;stroke-dasharray:2 12;opacity:.9}
+.wm-jet{fill:#fff;filter:drop-shadow(0 2px 0 #2b1d9e)}
+.wm-fog{gap:.06em;transform:rotate(-3deg)}
+.wm-fog .wm-cloud b{background:linear-gradient(180deg,#ffffff 0%,#f1edff 60%,#d6ccff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.wm-fog .wm-cloud::before{color:#6a4dff;-webkit-text-stroke:.17em #6a4dff;text-shadow:0 .04em 0 #5a3ffc,0 .08em 0 #4b36fc,0 .12em 0 #3a26c9,0 .2em .28em rgba(20,10,80,.45)}
+.wm-fog .wm-gold{font-size:1.06em;transform:translateY(.06em) rotate(-2deg)}
+.wm-spark{position:absolute;right:-.2em;top:-.12em;width:.36em;height:.36em;background:#fff6c8;clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);filter:drop-shadow(0 0 .08em #ffd56b);animation:wmSpark 1.6s ease-in-out infinite}
+@keyframes wmSpark{0%,100%{transform:scale(.7) rotate(0)}50%{transform:scale(1.1) rotate(20deg)}}
+@media (prefers-reduced-motion:reduce){.wm-spark{animation:none}}

@@ -4,7 +4,7 @@
     {
       "name": "plane-crash",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5173", "--directory", "Game #1 - Plane Crash"],
+      "runtimeArgs": ["-m", "http.server", "5173", "--directory", "."],
       "port": 5173
     },
     {

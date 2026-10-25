@@ -3,7 +3,7 @@
    and synapses that grows with the brain level, a ribbed collar, and floating mitten hands and feet. Built from
    primitives, lit like a studio product shot, and posed by expression. */
 import * as THREE from 'three';
-import { RoomEnvironment } from './assets/vendor/RoomEnvironment.js';
+import { RoomEnvironment } from './vendor/RoomEnvironment.js';
 
 // Per stage (ten levels each): neuron colours and count (as in the brand book), and the screen's base and glow colours.
 const LEVEL = [
@@ -238,7 +238,8 @@ export class Plane3D {
     const spinner = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.3, 32), this.accent); spinner.rotation.x = Math.PI / 2; spinner.position.z = 1.38; this.body.add(spinner);
     const cowl = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.06, 14, 48), this.accent); cowl.position.z = 1.05; this.body.add(cowl);   // a coloured ring round the nose
     this.prop = new THREE.Group(); this.prop.position.z = 1.33; this.body.add(this.prop);
-    for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.62, 0.02), new THREE.MeshStandardMaterial({ color: 0x2a2163, roughness: 0.5 })); b.position.y = 0.31; const arm = new THREE.Group(); arm.rotation.z = i * Math.PI * 2 / 3; arm.add(b); this.prop.add(arm); }
+    const bladeMat = new THREE.MeshStandardMaterial({ color: 0x2a2163, roughness: 0.5, transparent: true, opacity: 0.38, depthWrite: false });   // see-through, like blades spinning too fast to see
+    for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.62, 0.02), bladeMat); b.position.y = 0.31; const arm = new THREE.Group(); arm.rotation.z = i * Math.PI * 2 / 3; arm.add(b); this.prop.add(arm); }
     const disc = new THREE.Mesh(new THREE.CircleGeometry(0.66, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, depthWrite: false })); disc.position.z = 1.34; this.body.add(disc);
     // landing gear: two main wheels on struts and a tail wheel; it folds away after take-off
     this.gear = new THREE.Group(); this.body.add(this.gear);
@@ -334,7 +335,8 @@ export class BrainerStage {
     actor.root.visible = true;
     const c = this.camera, V = {
       front: [[0.0, 0.25, 7.2], [0, 0.05, 0]], hero: [[1.5, 0.7, 6.9], [0, 0.0, 0]], three: [[2.4, 0.9, 6.6], [0, 0.05, 0]], back: [[0, 1.15, -6.7], [0, 0.3, 0]],
-      plane: [[0, 1.85, -8.4], [0, 0.4, 0.6]], chute: [[0.6, 1.7, 13.5], [0, 1.4, 0]]
+      plane: [[0, 1.85, -8.4], [0, 0.4, 0.6]], chute: [[0.6, 1.7, 13.5], [0, 1.4, 0]],
+      planeHero: [[1.3, 1.6, 6.1], [0, 0.5, 0.2]], islandHero: [[2.0, 1.3, 8.2], [0, -0.45, 0]]
     }[view] || [[0, 0.25, 7.2], [0, 0.05, 0]];
     c.position.set(...V[0]); c.lookAt(...V[1]); c.aspect = w / h; c.updateProjectionMatrix();
     if (actor.shadow) actor.shadow.visible = view !== 'back' && view !== 'plane';

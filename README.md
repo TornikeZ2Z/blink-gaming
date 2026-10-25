@@ -6,22 +6,31 @@ The Brainer Games studio website and its browser games, one folder per game. Eve
 |---|---|---|
 | `Website` | B2B studio site for casinos and aggregators | `/` |
 | `Game #1 - Plane Crash` | Plane Crash demo, play money only | `/plane-crash/` |
+| `Game #2 - FogRush` | FogRush demo, play money only | `/fogrush/` |
+| `shared` | The 3D Brainer, its faces, the intro and three.js, used by every game | `/shared/` |
 
 On every push to `main`, `.github/workflows/pages.yml` publishes the website as the site root with the game next to it, so the site's game page embeds the demo from the same origin and both share the player's brain cells.
 
 ## Run it locally
 
-Serve the repo root so the website can reach the game folder, then open http://localhost:5174/Website/:
+Serve the repo root so the website and the games can reach each other and `shared/`, then open http://localhost:5174/Website/ (or a game folder):
 
 ```bash
 python -m http.server 5174
 ```
 
-To work on the game alone, serve its folder and open http://localhost:5173:
+## FogRush
 
-```bash
-python -m http.server 5173 --directory "Game #1 - Plane Crash"
-```
+The player's Brainer walks a 25 x 25 map of grassy islands hidden under clouds, starting in the middle. Every new tile clears its clouds:
+- Most new tiles are plain and nudge the multiplier up by about 2%.
+- 5% hold a chest: ×1.3, ×2, ×4, ×10 or ×25, rarest last.
+- 8% hold a bomb, which ends the round.
+
+Tiles already cleared are safe to cross. The player can cash out any time after the first new tile, with an optional auto cash-out. Move with the arrows, WASD, the on-screen pad, or by tapping a tile next to the Brainer.
+
+The math is fair at every step: a safe tile multiplies the multiplier by a base of about ×1.0211 times its chest factor (1 for plain), so (1 − 8%) × base × E[factor] = 1. The 98% RTP is applied once at the start, so the expected payout is 98% of the bet whichever way the player walks or whenever they cash out. Payouts are capped at $10,000. The original FogRush idea (in the NewIdeas repo) paid back 230–300% and was rebalanced to this.
+
+Every tile rolls HMAC-SHA256(server seed, "client seed:nonce:column:row"). A roll under 8% is a bomb, the rest picks plain or a chest, and the start tile is always safe. The shield button checks the last round and draws its whole map. Each finished round adds the same 10 brain cells as Plane Crash; the level is shared.
 
 ## Plane Crash
 
@@ -67,5 +76,5 @@ Progress lives in the browser (`localStorage` keys `brainer.xp` and `brainer.lev
 
 ### Intro
 
-`intro.js` is the Brainer Games intro, meant for every game: brain cells fly in and link into a network, fall into the logo, the wordmark rises, and the game's own motif plays (here a plane drawing its trail under "Plane Crash") while a row of neurons shows the loading. It plays in full once a visit and short after that, and opens like an iris once the game is ready.
+`shared/intro.js` is the Brainer Games intro for every game, and it is about the character. The player's 3D Brainer does the game's thing in the middle: flying its plane in Plane Crash, standing on a cloud island in FogRush. Its face follows the loading, from sleepy to focused to excited, with a wink at 100%. Under it are the game's styled wordmark and a 0–100% counter, and the studio logo sits small in the corner. It plays in full once a visit and short after that. The wordmarks (`BrainerIntro.wordmark`) also head each game's top bar.
 

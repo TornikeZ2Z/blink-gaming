@@ -1321,7 +1321,21 @@ function loadProgress() {   // fonts, the robot art and the 3D engine; a slow ne
   const three = b3 === false || has3D() ? 1 : window.Brainer3D ? 0.6 : 0;
   return (art + font + three * 2) / 4;
 }
-(window.BrainerIntro ? window.BrainerIntro.start({ title: 'Plane Crash', progress: loadProgress }) : Promise.resolve()).then(() => {
+// The intro's actor: the player's Brainer flying its 3D plane toward the camera, on its own renderer.
+let introA = null;
+function introActor(g, w, h, now, ex) {
+  if (!window.Brainer3D || introA === false) return false;
+  if (!introA) { try { const { Brainer, BrainerStage, Plane3D } = window.Brainer3D, pilot = new Brainer(myLevel()); introA = { stage: new BrainerStage(), pilot, plane: new Plane3D(pilot) }; pilot.root.scale.setScalar(0.58); introA.stage.setSize(512, 512); } catch (e) { introA = false; return false; } }
+  const a = introA;
+  a.pilot.update(now, ex, { seat: true, lookX: Math.sin(now / 1300) * 0.3, reduced });
+  a.plane.update(now, { bank: reduced ? 0 : Math.sin(now / 900) * 0.16, pitch: reduced ? 0 : Math.sin(now / 700) * 0.04, level: myLevel(), reduced });
+  a.plane.root.position.y = reduced ? 0 : Math.sin(now / 520) * 0.1;
+  a.stage.draw(a.plane, 0, 0, 512, 512, 'planeHero');
+  g.drawImage(a.stage.canvas, 0, 0, 512, 512, 0, 0, w, h);
+  return true;
+}
+$('.brand .t1').innerHTML = window.BrainerIntro ? window.BrainerIntro.wordmark('plane') : 'Plane Crash';
+(window.BrainerIntro ? window.BrainerIntro.start({ title: 'Plane Crash', mark: 'plane', theme: 'plane', what: 'your plane', actor: introActor, progress: loadProgress }) : Promise.resolve()).then(() => {
   if (store.get('blink.age-ok', '') !== '1') openSheet('#agegate');
   else if (store.get('brainer.pc.tutorial', '') !== 'seen') openSheet('#tutorial');
 });

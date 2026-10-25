@@ -10,6 +10,7 @@
 <link rel="icon" href="assets/favicon.png">
 <link rel="preload" href="assets/fonts/FiraGO-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="../shared/intro.css">
 </head>
 <body>
 <main class="app">
@@ -63,10 +64,10 @@
         <img src="assets/brainer-5.png" alt="" class="tut-robot">
         <b id="tutTitle">How to play</b>
         <ol>
-          <li><b>Pick a level and your bet</b>, then press Play.</li>
+          <li><b>Pick a difficulty and your bet</b>, then press Play.</li>
           <li><b>Bombs fall ahead. Choose one of five paths.</b> Every safe path raises your multiplier.</li>
           <li><b>Jump with the parachute</b> whenever you like to take your win. A bomb on your path ends the flight.</li>
-          <li><b>Your Brainer collects brain cells</b> from the stakes you play. Its brain level sets the return to player (demo feature, under review).</li>
+          <li><b>Your Brainer grows with every flight:</b> each one adds brain cells, whatever you bet. 100 levels, a new look every 10; levels never change the odds.</li>
         </ol>
         <button type="button" class="big play" id="tutGo"><span class="l1">Let's fly</span></button>
       </div>
@@ -112,10 +113,10 @@
   <p class="foot">Demo with play money · Keys: 1–5 pick a path · Space jumps or plays</p>
 </main>
 <div class="toast" id="toast" role="status"></div>
-<script type="importmap">{"imports":{"three":"./assets/vendor/three.module.min.js"}}</script>
-<script src="face.js"></script>
-<script src="intro.js"></script>
+<script type="importmap">{"imports":{"three":"../shared/vendor/three.module.min.js"}}</script>
+<script src="../shared/face.js"></script>
+<script src="../shared/intro.js"></script>
 <script src="game.js"></script>
-<script type="module">import { Brainer, BrainerStage, Plane3D, Chute3D } from './brainer3d.js'; window.Brainer3D = { Brainer, BrainerStage, Plane3D, Chute3D };</script>
+<script type="module">import { Brainer, BrainerStage, Plane3D, Chute3D } from '../shared/brainer3d.js'; window.Brainer3D = { Brainer, BrainerStage, Plane3D, Chute3D };</script>
 </body>
 </html>
