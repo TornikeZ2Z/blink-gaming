@@ -25,16 +25,18 @@ python -m http.server 5173 --directory "Game #1 - Plane Crash"
 
 ## Plane Crash
 
-The player's Brainer robot flies a plane toward five hoops while bombs fall ahead. At each step the player picks one of the five paths, or jumps out with a parachute to take the current win. A bomb on the chosen path ends the flight. Each flight is single-player and runs at the player's pace: no timers or shared rounds. All amounts are play-money US dollars: bets $0.10 to $200, max win $10,000 per flight.
+The player's Brainer flies a plane toward five hoops while bombs fall ahead. Between flights the plane waits parked on the road; Play starts a takeoff (roll, lift-off, climb) and then the hoops fly in. At each step the player picks one of the five paths, or jumps out with a parachute to take the current win. After a jump the Brainer floats down and lands on the road, and the game returns to the start screen; after a crash it returns too. Each flight is single player and runs at the player's pace: no timers or shared rounds. All amounts are play-money US dollars: bets $0.10 to $200, max win $10,000 per flight.
 
-| Difficulty | Paths | First → top multiplier at 98% RTP | Bomb chance per path |
+The math is Chicken Road's, one to one, at 98% RTP for every player. A 25-tile grid hides 1, 3, 5 or 10 bombs, and each step uncovers one more tile, so the chance of surviving n steps is C(25-n, b) / C(25, b). After n safe paths the multiplier is 0.98 divided by that chance, rounded down to the cent. Every path at a step has the same odds; picking a path is the player's own call, as Chicken's yes/no is.
+
+| Difficulty | Bombs in 25 | Paths | First → top multiplier |
 |---|---|---|---|
-| Easy | 24 | 1.04× → 25× | 6% rising to 19% |
-| Medium | 22 | 1.11× → 400× | 12% rising to 34% |
-| Hard | 20 | 1.22× → 2,500× | 20% rising to 43% |
-| Hardcore | 15 | 1.60× → 10,000× | 39% rising to 52% |
+| Easy | 1 | 24 | 1.02× → 24.50× |
+| Medium | 3 | 22 | 1.11× → 2,254.00× |
+| Hard | 5 | 20 | 1.22× → 52,067.40× |
+| Hardcore | 10 | 15 | 1.63× → 3,203,384.80× |
 
-The step counts and first multipliers follow Chicken Road; the tops were brought down from Chicken Road's to sensible values. The bomb chance rises with every step, fitted so that jumping out at any step returns the RTP. Every path at every step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"), so the chosen path survives with the same odds whichever one is picked. The shield button in the game shows the next flight's seed hash and re-checks the last flight: it re-hashes the revealed seed and redraws every bomb.
+The $10,000 max win caps every payout, so a flight jumps out automatically when it reaches it. Every path at every step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"). The shield button in the game shows the next flight's seed hash and re-checks the last flight: it re-hashes the revealed seed and redraws every bomb.
 
 ### Look
 
@@ -59,8 +61,11 @@ It blinks, and the glasses slip when it gets a fright.
 
 ### Brain levels
 
-Every path flown earns brain cells: stake × that step's bomb chance × 10. Cells follow the risk taken rather than the time spent, so grinding Easy is slow (a $10 Easy path earns about 6 cells, a $10 Hardcore path about 39). Ten levels need 0, 50, 150, 300, 550, 900, 1,400, 2,100, 3,000 and 4,200 cells (`cfg.brain.cells`).
+Brain levels are the Brainer's growth and never change the odds. Every finished flight earns 10 brain cells, the same at any bet and difficulty, so progress never asks for bigger bets. There are 100 levels in 10 stages: every 10 levels the Brainer gets a new look from the brand book, and its brain gains neurons every few levels. Level 10 takes about 80 flights, level 100 about 20,000. Level 20 unlocks the Cloud sea world and level 40 the City at dusk. In the demo, tapping the portrait opens "Your Brainer", with a slider to set any level and the worlds.
 
-The brain level sets the RTP, locked when a flight starts: 96.5% at level 1, below Chicken Road; 98% at level 5, level with it; 98.75% at level 10, a little above. The odds never change, only the payout. This is a demo feature pending test-lab and legal review; `cfg.brain.on = false` keeps every player at 98%. In the demo, tapping the robot portrait picks any level.
+Progress lives in the browser (`localStorage` keys `brainer.xp` and `brainer.level`), shared by every game and the website on the same origin. Flights are drawn in the browser so the math can be inspected. A production build must draw and settle them on the server, and keep brain cells on the player's account.
 
-Cells live in the browser (`localStorage` key `brainer.cells`), shared by every game and the website on the same origin. Flights are drawn in the browser so the math can be inspected. A production build must draw and settle them on the server, and keep brain cells on the player's account.
+### Intro
+
+`intro.js` is the Brainer Games intro, meant for every game: brain cells fly in and link into a network, fall into the logo, the wordmark rises, and the game's own motif plays (here a plane drawing its trail under "Plane Crash") while a row of neurons shows the loading. It plays in full once a visit and short after that, and opens like an iris once the game is ready.
+

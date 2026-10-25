@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from './assets/vendor/RoomEnvironment.js';
 
-// Per brain level: neuron colours and count (as in the brand book), and the screen's base and glow colours.
+// Per stage (ten levels each): neuron colours and count (as in the brand book), and the screen's base and glow colours.
 const LEVEL = [
   ['#33d66d', '#00ebc0', 2, ['#2f6cf0', '#4b3cf5'], '#18d6e8'], ['#33d66d', '#00ebc0', 3, ['#3d55f5', '#4b36fc'], '#18d6e8'],
   ['#fa7b5b', '#ffc147', 5, ['#2b1fff', '#3a26f2'], '#ffa45c'], ['#fa7b5b', '#ffc147', 7, ['#2b1fff', '#3a26f2'], '#ffa45c'],
@@ -93,15 +93,15 @@ export class Brainer {
   }
   setLevel(L) {
     if (L === this.L) return;
-    this.L = L;
-    const [c1, c2, n] = LEVEL[L - 1];
+    this.L = L; this.stage = Math.ceil(L / 10);
+    const [c1, c2] = LEVEL[this.stage - 1], n = Math.round(2 + (L - 1) * 22 / 99);   // the brain gains a neuron every few levels
     for (const ch of [...this.brain.children]) { this.brain.remove(ch); ch.geometry.dispose(); ch.material.dispose(); }
-    const rnd = rng(7 + L * 13), nodes = [];
+    const rnd = rng(7 + this.stage * 13), nodes = [];   // same layout within a stage, so growth adds neurons rather than reshuffling
     const nm = new THREE.MeshPhysicalMaterial({ color: c1, emissive: new THREE.Color(c2), emissiveIntensity: 0.35, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.1 });
     while (nodes.length < n) {   // neurons fill the dome, bigger as the brain grows
       const p = new THREE.Vector3((rnd() * 2 - 1) * 0.6, 0.1 + rnd() * 0.55, (rnd() * 2 - 1) * 0.6);
       if (p.length() > 0.62) continue;
-      const r = 0.06 + rnd() * (0.06 + L * 0.008);
+      const r = 0.06 + rnd() * (0.06 + L * 0.0008);
       nodes.push({ p, r });
     }
     this.links = [];
@@ -124,11 +124,11 @@ export class Brainer {
     const g = this.badgeCanvas.getContext('2d'); g.clearRect(0, 0, 128, 64);
     const bgr = g.createLinearGradient(0, 0, 128, 0); bgr.addColorStop(0, '#4b36fc'); bgr.addColorStop(1, '#8447fb');
     g.fillStyle = bgr; g.beginPath(); g.roundRect(14, 6, 100, 52, 26); g.fill();
-    g.fillStyle = '#ffffff'; g.font = '800 36px FiraGO, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(L), 64, 34);
+    g.fillStyle = '#ffffff'; g.font = `800 ${L < 100 ? 36 : 30}px FiraGO, system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(L), 64, 34);
     this.badgeTex.needsUpdate = true;
   }
   paintScreen(ex, t, o) {
-    const g = this.screenCanvas.getContext('2d'), [, , , base, glow] = LEVEL[this.L - 1], W = SCREEN_W, H = SCREEN_H;
+    const g = this.screenCanvas.getContext('2d'), [, , , base, glow] = LEVEL[this.stage - 1], W = SCREEN_W, H = SCREEN_H;
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
     g.save(); g.beginPath(); g.roundRect(6, 6, W - 12, H - 12, 58); g.clip();
     const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, base[0]); bg.addColorStop(1, base[1]); g.fillStyle = bg; g.fillRect(0, 0, W, H);
@@ -136,7 +136,7 @@ export class Brainer {
     const edge = g.createLinearGradient(0, 0, 0, H); edge.addColorStop(0, 'rgba(10,6,50,.25)'); edge.addColorStop(0.18, 'rgba(10,6,50,0)'); edge.addColorStop(0.82, 'rgba(10,6,50,0)'); edge.addColorStop(1, 'rgba(10,6,50,.35)');
     g.fillStyle = edge; g.fillRect(0, 0, W, H);   // the screen sits a little into the body
     g.translate(W / 2, H / 2 + 2); g.scale(1.4, 1.4);   // the face gets a roomy area on the bigger screen, so nothing is clipped
-    if (window.BrainerFace) window.BrainerFace.drawScreenFace(g, this.L, ex, t, { ...o, visorCol: base[1], clip: [380, 164] });
+    if (window.BrainerFace) window.BrainerFace.drawScreenFace(g, this.stage, ex, t, { ...o, visorCol: base[1], clip: [380, 164] });
     g.restore();
     this.screenTex.needsUpdate = true;
   }
@@ -190,6 +190,121 @@ export class Brainer {
   }
 }
 
+// The plane, from behind and a little above in the game: a glossy fuselage, wings with thickness and dihedral, a
+// canted twin tail, a spinning propeller, wingtip lights and contrails. The stripes and fins wear the colour of the
+// pilot's stage. The pilot (a Brainer) sits in the cockpit as part of the model.
+export class Plane3D {
+  constructor(pilot) {
+    this.root = new THREE.Group(); this.body = new THREE.Group(); this.root.add(this.body);
+    const white = pearl(); this.mats = [white];
+    this.accent = new THREE.MeshPhysicalMaterial({ color: 0x5a3ffc, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.1 });
+    const wingMat = pearl(); wingMat.side = THREE.DoubleSide; this.mats.push(wingMat);
+    const prof = [[0.0, -1.5], [0.12, -1.44], [0.28, -1.15], [0.44, -0.72], [0.56, -0.28], [0.61, 0.1], [0.6, 0.5], [0.53, 0.86], [0.4, 1.1], [0.2, 1.24], [0.0, 1.27]].map(([r, y]) => new THREE.Vector2(r, y));   // a chubby toy fuselage
+    const hull = new THREE.Mesh(new THREE.LatheGeometry(prof, 48), white); hull.rotation.x = Math.PI / 2; this.body.add(hull);   // nose toward +z
+    const stripe = new THREE.Mesh(new THREE.LatheGeometry(prof.map(v => new THREE.Vector2(v.x + 0.004, v.y)).slice(1, -1), 48, Math.PI * 0.94, Math.PI * 0.12), this.accent);
+    stripe.rotation.x = Math.PI / 2; this.body.add(stripe);   // a racing stripe along the spine
+    // cockpit: a padded rim and a dark tub; the pilot sits inside, its lower half hidden by the hull
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.075, 16, 48), white); rim.rotation.x = Math.PI / 2; rim.scale.set(1, 1.2, 1); rim.position.set(0, 0.56, 0.08); this.body.add(rim);
+    const tub = new THREE.Mesh(new THREE.CircleGeometry(0.33, 32), new THREE.MeshStandardMaterial({ color: 0x1a1240, roughness: 0.9 })); tub.rotation.x = -Math.PI / 2; tub.scale.set(1.05, 1.25, 1); tub.position.set(0, 0.55, 0.08); this.body.add(tub);
+    const glass = new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 16, -0.9, 1.8, 0.35, 0.75), new THREE.MeshPhysicalMaterial({ color: 0xd9f2ff, transparent: true, opacity: 0.32, roughness: 0.03, clearcoat: 1, envMapIntensity: 2.2, side: THREE.DoubleSide, depthWrite: false }));
+    glass.position.set(0, 0.5, 0.48); this.body.add(glass);   // windscreen ahead of the pilot
+    this.pilot = pilot; pilot.root.scale.setScalar(0.4); pilot.root.position.set(0, 0.62, 0.06); this.body.add(pilot.root);
+    // wings: a tapered planform, extruded for thickness and bevelled
+    const wing = new THREE.Shape(); wing.moveTo(0, -0.46); wing.lineTo(1.85, -0.16); wing.quadraticCurveTo(2.12, -0.02, 1.88, 0.24); wing.lineTo(0, 0.5); wing.closePath();
+    const wingGeo = new THREE.ExtrudeGeometry(wing, { depth: 0.1, bevelEnabled: true, bevelThickness: 0.045, bevelSize: 0.045, bevelSegments: 4, curveSegments: 14 });
+    wingGeo.rotateX(Math.PI / 2); wingGeo.translate(0, 0.05, 0);
+    const stripeShape = new THREE.Shape(); stripeShape.moveTo(1.2, -0.24); stripeShape.lineTo(1.5, -0.2); stripeShape.lineTo(1.5, 0.3); stripeShape.lineTo(1.2, 0.36); stripeShape.closePath();
+    const stripeGeo = new THREE.ShapeGeometry(stripeShape); stripeGeo.rotateX(-Math.PI / 2);
+    this.wingtips = [];
+    for (const sd of [-1, 1]) {
+      const w = new THREE.Group(); w.position.set(sd * 0.4, -0.12, 0.1); w.rotation.z = sd * 0.12; w.scale.x = sd; this.body.add(w);
+      w.add(new THREE.Mesh(wingGeo, wingMat));
+      const st = new THREE.Mesh(stripeGeo, this.accent); st.position.y = 0.105; w.add(st);
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), new THREE.MeshBasicMaterial({ color: sd < 0 ? 0xff3b58 : 0x33d66d })); lamp.position.set(2.02, 0.06, 0.06); w.add(lamp);
+      const trail = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 1.6), contrailMat()); trail.rotation.x = -Math.PI / 2; trail.position.set(2.02, 0.06, -0.85); w.add(trail);   // a contrail streaming back
+      this.wingtips.push(lamp);
+    }
+    // tail: a small tailplane and two canted fins in the accent colour
+    const tp = new THREE.Shape(); tp.moveTo(0, -0.2); tp.lineTo(0.85, -0.05); tp.quadraticCurveTo(0.95, 0.02, 0.85, 0.12); tp.lineTo(0, 0.22); tp.closePath();
+    const tpGeo = new THREE.ExtrudeGeometry(tp, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 2 }); tpGeo.rotateX(Math.PI / 2);
+    const fin = new THREE.Shape(); fin.moveTo(0, 0); fin.lineTo(0.4, 0); fin.lineTo(0.12, 0.4); fin.quadraticCurveTo(0.04, 0.45, -0.02, 0.38); fin.closePath();
+    const finGeo = new THREE.ExtrudeGeometry(fin, { depth: 0.05, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 3 }); finGeo.rotateY(-Math.PI / 2);
+    for (const sd of [-1, 1]) {
+      const t = new THREE.Group(); t.position.set(sd * 0.1, 0.06, -1.2); t.scale.x = sd; this.body.add(t);
+      t.add(new THREE.Mesh(tpGeo, wingMat));
+      const f = new THREE.Mesh(finGeo, this.accent); f.position.set(0.8, 0.02, -0.2); f.rotation.z = -0.22; t.add(f);
+    }
+    // propeller: a spinner, three blades and a blur disc
+    const spinner = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.3, 32), this.accent); spinner.rotation.x = Math.PI / 2; spinner.position.z = 1.38; this.body.add(spinner);
+    const cowl = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.06, 14, 48), this.accent); cowl.position.z = 1.05; this.body.add(cowl);   // a coloured ring round the nose
+    this.prop = new THREE.Group(); this.prop.position.z = 1.33; this.body.add(this.prop);
+    for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.62, 0.02), new THREE.MeshStandardMaterial({ color: 0x2a2163, roughness: 0.5 })); b.position.y = 0.31; const arm = new THREE.Group(); arm.rotation.z = i * Math.PI * 2 / 3; arm.add(b); this.prop.add(arm); }
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(0.66, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, depthWrite: false })); disc.position.z = 1.34; this.body.add(disc);
+    // landing gear: two main wheels on struts and a tail wheel; it folds away after take-off
+    this.gear = new THREE.Group(); this.body.add(this.gear);
+    const tyre = new THREE.MeshStandardMaterial({ color: 0x241c4a, roughness: 0.75 }), hubMat = new THREE.MeshStandardMaterial({ color: 0xd9d2ff, roughness: 0.3, metalness: 0.4 });
+    for (const sd of [-1, 1]) {
+      const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.42, 10), white); strut.position.set(sd * 0.56, -0.5, 0.32); strut.rotation.z = sd * 0.16; this.gear.add(strut);
+      const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.07, 14, 28), tyre); wheel.rotation.y = Math.PI / 2; wheel.position.set(sd * 0.6, -0.72, 0.32); this.gear.add(wheel);
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.1, 16), hubMat); hub.rotation.z = Math.PI / 2; hub.position.copy(wheel.position); this.gear.add(hub);
+    }
+    const tail = new THREE.Mesh(new THREE.SphereGeometry(0.08, 14, 10), tyre); tail.position.set(0, -0.32, -1.32); this.gear.add(tail);
+    this.soot = 0; this.stage = 0;
+  }
+  // Poses the plane: bank (roll), yaw toward the path, a gentle bob; soot darkens it after a crash.
+  update(t, o = {}) {
+    this.root.rotation.set(o.pitch || 0, o.yaw || 0, -(o.bank || 0));
+    this.body.position.y = o.reduced ? 0 : Math.sin(t / 420) * 0.025;
+    this.prop.rotation.z = o.idle ? t / 110 : t / 22;   // idling on the ground, full speed in the air
+    const g = o.gear ?? 0; this.gear.visible = g > 0.02; this.gear.scale.set(1, Math.max(0.02, g), 1); this.gear.position.y = (1 - g) * 0.35;
+    const blink = (t / 500 | 0) % 2; this.wingtips.forEach((l, i) => { l.material.color.set(blink ? 0xffffff : i ? 0x33d66d : 0xff3b58); });
+    const soot = o.soot ? 1 : 0; if (soot !== this.soot) { this.soot = soot; for (const m of this.mats) m.color.set(soot ? 0x8d8799 : 0xf7f5ff); }
+    const st = Math.ceil((o.level || 1) / 10); if (st !== this.stage) { this.stage = st; this.accent.color.set(LIVERY[st - 1]); }
+    this.pilot.root.visible = o.pilot !== false;
+  }
+}
+// The plane's livery per stage, from the brand book's level colours.
+const LIVERY = [0x5a3ffc, 0x1fbf6e, 0xf2703f, 0xff9f2e, 0xb23be6, 0xd94d8a, 0xe8304f, 0xf05a5a, 0x4b36fc, 0x8447fb];
+function contrailMat() {
+  const c = document.createElement('canvas'); c.width = 8; c.height = 64; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(1, 'rgba(255,255,255,.75)'); g.fillStyle = gr; g.fillRect(0, 0, 8, 64);
+  return new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, side: THREE.DoubleSide });
+}
+
+// The parachute: a fabric canopy in brand-coloured panels and suspension lines down to the Brainer's harness. open
+// (0..1) unfurls it; fold (0..1) collapses it to the side after landing.
+export class Chute3D {
+  constructor(brainer) {
+    this.root = new THREE.Group(); this.brainer = brainer; this.root.add(brainer.root);
+    const c = document.createElement('canvas'); c.width = 512; c.height = 16; const g = c.getContext('2d');
+    for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#ffffff' : '#5a3ffc'; g.fillRect(i * 64, 0, 64, 16); }
+    const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+    this.canopy = new THREE.Group(); this.canopy.position.y = 3.3; this.root.add(this.canopy);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(2.3, 48, 20, 0, Math.PI * 2, 0, Math.PI * 0.42), new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.7, sheen: 1, sheenColor: new THREE.Color(0xffffff), side: THREE.DoubleSide }));
+    cap.scale.y = 0.6; cap.position.y = -0.9; this.canopy.add(cap);   // a canopy much wider than its pilot, like a real one
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xf2eeff, transparent: true, opacity: 0.8 });
+    this.lines = [];
+    const rimR = 2.3 * Math.sin(Math.PI * 0.42), rimY = 3.3 - 0.9 + 2.3 * Math.cos(Math.PI * 0.42) * 0.6;
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * Math.PI * 2 + Math.PI / 8;
+      const top = new THREE.Vector3(Math.cos(a) * rimR, rimY, Math.sin(a) * rimR), bot = new THREE.Vector3(Math.cos(a) * 0.32, 0.55, Math.sin(a) * 0.2);
+      const len = top.distanceTo(bot), l = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, len, 4), lineMat);
+      l.position.copy(top).add(bot).multiplyScalar(0.5); l.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), top.clone().sub(bot).normalize());
+      this.root.add(l); this.lines.push(l);
+    }
+    this.shadow = brainer.shadow;
+  }
+  update(t, o = {}) {
+    const open = o.open ?? 1, fold = o.fold || 0, sway = o.reduced ? 0 : Math.sin(t / 700) * 0.12 * (1 - fold);
+    this.root.rotation.z = sway;
+    const sc = Math.max(0.05, open);
+    this.canopy.scale.set(sc * (1 - fold * 0.3), sc * (1 - fold * 0.75), sc * (1 - fold * 0.3));
+    this.canopy.position.set(fold * 2.0, 3.3 - fold * 3.0, -fold * 0.8); this.canopy.rotation.z = -fold * 1.2;
+    for (const l of this.lines) l.visible = open > 0.35 && fold < 0.3;
+    this.canopy.visible = open > 0.02;
+  }
+}
+
 // One WebGL renderer for every view of the Brainer; views are drawn into regions of its canvas and copied out.
 export class BrainerStage {
   constructor() {
@@ -213,15 +328,16 @@ export class BrainerStage {
   }
   setSize(w, h) { if (this.size[0] !== w || this.size[1] !== h) { this.renderer.setSize(w, h, false); this.size = [w, h]; } }
   // Renders `brainer` into the region (x, y, w, h) of the canvas (y from the top), seen from `view`.
-  draw(brainer, x, y, w, h, view = 'front') {
-    for (const ch of this.scene.children) if (ch.userData.brainer) ch.visible = ch === brainer.root;
-    if (!brainer.root.parent) { brainer.root.userData.brainer = true; this.scene.add(brainer.root); }
-    brainer.root.visible = true;
+  draw(actor, x, y, w, h, view = 'front') {   // actor: a Brainer, the plane or the parachute
+    for (const ch of this.scene.children) if (ch.userData.actor) ch.visible = ch === actor.root;
+    if (!actor.root.parent) { actor.root.userData.actor = true; this.scene.add(actor.root); }
+    actor.root.visible = true;
     const c = this.camera, V = {
-      front: [[0.0, 0.25, 7.2], [0, 0.05, 0]], hero: [[1.5, 0.7, 6.9], [0, 0.0, 0]], three: [[2.4, 0.9, 6.6], [0, 0.05, 0]], back: [[0, 1.15, -6.7], [0, 0.3, 0]]
+      front: [[0.0, 0.25, 7.2], [0, 0.05, 0]], hero: [[1.5, 0.7, 6.9], [0, 0.0, 0]], three: [[2.4, 0.9, 6.6], [0, 0.05, 0]], back: [[0, 1.15, -6.7], [0, 0.3, 0]],
+      plane: [[0, 1.85, -8.4], [0, 0.4, 0.6]], chute: [[0.6, 1.7, 13.5], [0, 1.4, 0]]
     }[view] || [[0, 0.25, 7.2], [0, 0.05, 0]];
     c.position.set(...V[0]); c.lookAt(...V[1]); c.aspect = w / h; c.updateProjectionMatrix();
-    brainer.shadow.visible = view !== 'back';
+    if (actor.shadow) actor.shadow.visible = view !== 'back' && view !== 'plane';
     const H = this.size[1];
     this.renderer.setViewport(x, H - y - h, w, h); this.renderer.setScissor(x, H - y - h, w, h);
     this.renderer.render(this.scene, c);

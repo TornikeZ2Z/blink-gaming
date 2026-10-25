@@ -43,9 +43,12 @@
 
     <div class="sheet" id="picker" role="dialog" aria-modal="true" aria-labelledby="pickerTitle" hidden>
       <div class="sheet-card">
-        <div class="sheet-head"><b id="pickerTitle">Choose your brain level</b><button type="button" class="round" id="pickerClose" aria-label="Close">✕</button></div>
-        <p class="sheet-note">Demo only: pick any brain level to see how it plays. Each level has its own return to player (RTP), fixed when a flight starts. Brain levels are a demo feature under review.</p>
+        <div class="sheet-head"><b id="pickerTitle">Your Brainer · level <span id="pickLevel">1</span></b><button type="button" class="round" id="pickerClose" aria-label="Close">✕</button></div>
+        <p class="sheet-note">Your Brainer grows with every flight: each one adds the same brain cells when it ends, whatever you bet. 100 levels, a new look every 10. Levels change how your Brainer looks, never the odds. <span id="pickNote"></span></p>
+        <label class="pick-slider">Demo: set any level <input type="range" id="pickSlider" min="1" max="100" step="1" value="1"></label>
         <div class="levels-grid" id="levelsGrid"></div>
+        <b class="pick-h">Worlds</b>
+        <div class="worlds-pick" id="worldsPick"></div>
       </div>
     </div>
     <div class="sheet" id="fairSheet" role="dialog" aria-modal="true" aria-labelledby="fairTitle" hidden>
@@ -111,7 +114,8 @@
 <div class="toast" id="toast" role="status"></div>
 <script type="importmap">{"imports":{"three":"./assets/vendor/three.module.min.js"}}</script>
 <script src="face.js"></script>
+<script src="intro.js"></script>
 <script src="game.js"></script>
-<script type="module">import { Brainer, BrainerStage } from './brainer3d.js'; window.Brainer3D = { Brainer, BrainerStage };</script>
+<script type="module">import { Brainer, BrainerStage, Plane3D, Chute3D } from './brainer3d.js'; window.Brainer3D = { Brainer, BrainerStage, Plane3D, Chute3D };</script>
 </body>
 </html>

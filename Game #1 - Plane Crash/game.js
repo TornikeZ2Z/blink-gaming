@@ -3,7 +3,7 @@
 const $ = s => document.querySelector(s);
 const money = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fx = m => m.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '×';
-const fxShort = m => (m < 1000 ? m.toFixed(2) : Math.floor(m).toLocaleString('en-US')) + '×';
+const fxShort = m => (m < 1000 ? m.toFixed(2) : m < 1e6 ? Math.floor(m).toLocaleString('en-US') : (Math.floor(m / 1e5) / 10) + 'M') + '×';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const ease = p => p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
@@ -13,42 +13,38 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
 
 /* ---------- config & math ---------- */
-// Each difficulty is fixed by its first and top multiplier at the 98% reference RTP. The chance of a bomb rises with
-// every step; after n safe paths the multiplier is RTP ÷ (chance of surviving all n), rounded down to the cent, so
-// jumping out at any step returns that RTP. The odds are the same for every player; only the RTP differs by brain level.
+// Chicken Road's ladder, one to one: 25 tiles hide 1, 3, 5 or 10 bombs and each step uncovers one more tile, so the
+// chance of surviving n steps is C(25-n, b) / C(25, b). After n safe paths the multiplier is the RTP divided by that
+// chance, rounded down to the cent, so jumping out at any step returns the RTP. Every path at a step has the same odds.
 const cfg = {
-  refRtp: 98, minBet: 0.1, maxBet: 200, maxWin: 10000, startBalance: 1000, paths: 5,
-  brain: {
-    // RTP by brain level: below Chicken Road at level 1, level with it (98%) at level 5, a little above at level 10.
-    // Locked in when a flight starts. Pending test-lab and legal review: on false keeps every player at refRtp.
-    on: true,
-    rtp: [96.5, 96.9, 97.3, 97.65, 98.0, 98.15, 98.3, 98.45, 98.6, 98.75],
-    // Brain cells needed for levels 1-10. Each path flown earns stake × that step's bomb chance × rate, so cells follow
-    // the risk taken: a $10 Easy path earns about 6, a $10 Hardcore path about 40, and grinding Easy is slow.
-    cells: [0, 50, 150, 300, 550, 900, 1400, 2100, 3000, 4200],
-    rate: 10
-  }
+  rtp: 98, minBet: 0.1, maxBet: 200, maxWin: 10000, startBalance: 1000, paths: 5,
+  // Brain levels are the Brainer's growth only and never change the odds. Each flight earns the same brain cells when
+  // it ends, whatever the bet or difficulty, so progress never asks for bigger bets (Marketing's responsible-gambling
+  // advice, pending legal review). perFlight: false would earn the bet times the difficulty factor instead.
+  brain: { max: 100, perFlight: 10, factor: { easy: 0.5, medium: 1, hard: 1.5, hardcore: 2 } }
 };
 const LEVELS = [
-  { key: 'easy', name: 'Easy', steps: 24, first: 1.04, top: 25 },
-  { key: 'medium', name: 'Medium', steps: 22, first: 1.11, top: 400 },
-  { key: 'hard', name: 'Hard', steps: 20, first: 1.22, top: 2500 },
-  { key: 'hardcore', name: 'Hardcore', steps: 15, first: 1.6, top: 10000 }
+  { key: 'easy', name: 'Easy', bombs: 1 }, { key: 'medium', name: 'Medium', bombs: 3 },
+  { key: 'hard', name: 'Hard', bombs: 5 }, { key: 'hardcore', name: 'Hardcore', bombs: 10 }
 ];
 for (const d of LEVELS) {
-  const r = cfg.refRtp / 100, N = d.steps, a = Math.log(d.first / r), b = 2 * (Math.log(d.top / r) - N * a) / (N * (N - 1));
-  d.safe = []; d.cum = [1];   // cum[n] = chance of surviving the first n paths
-  for (let n = 1; n <= N; n++) { d.safe.push(Math.exp(-(a + b * (n - 1)))); d.cum.push(d.cum[n - 1] * d.safe[n - 1]); }
+  d.steps = 25 - d.bombs; d.safe = []; d.cum = [1];   // cum[n] = chance of surviving the first n paths
+  for (let n = 1; n <= d.steps; n++) { const sv = (25 - d.bombs - (n - 1)) / (25 - (n - 1)); d.safe.push(sv); d.cum.push(d.cum[n - 1] * sv); }
 }
 const PATHS = [['Far left', -60], ['Left', -30], ['Ahead', 0], ['Right', 30], ['Far right', 60]];
-const brainLevel = cells => { let L = 1; cfg.brain.cells.forEach((t, i) => { if (cells >= t) L = i + 1; }); return L; };
-const rtpOf = L => cfg.brain.on ? cfg.brain.rtp[L - 1] : cfg.refRtp;
-const multAt = (d, n, rtp) => n <= 0 ? 1 : Math.floor(rtp / 100 / d.cum[n] * 100 + 1e-7) / 100;
+// Brain cells needed to reach each brain level (CELLS[L]): quick at first, then slower. At 10 cells a flight, level 10
+// takes about 80 flights and level 100 about 20,000. Ten stages of ten levels; each stage is one look from the brand book.
+const CELLS = (() => { const c = [0, 0]; for (let n = 1; n < 100; n++) c.push(c[n] + Math.round(10 + 8 * Math.pow(n, 1.4))); return c; })();
+const brainLevel = cells => { let L = 1; while (L < 100 && cells >= CELLS[L + 1]) L++; return L; };
+const stageOf = L => Math.ceil(L / 10);
+const UNLOCKS = [{ at: 20, world: 'clouds', name: 'Cloud sea' }, { at: 40, world: 'city', name: 'City at dusk' }];
+const rtpOf = () => cfg.rtp;
+const multAt = (d, n, rtp = cfg.rtp) => n <= 0 ? 1 : Math.floor(rtp / 100 / d.cum[n] * 100 + 1e-7) / 100;
 
 /* ---------- state ---------- */
-const S = { balance: cfg.startBalance, stake: 10, level: 0, nonce: 1, client: '', seed: '', hash: '', cells: Math.max(0, parseFloat(store.get('brainer.cells', '0')) || 0) };   // cells are shared by every Brainer game on this site
+const S = { balance: cfg.startBalance, stake: 10, level: 0, nonce: 1, client: '', seed: '', hash: '', cells: Math.max(0, parseFloat(store.get('brainer.xp', '0')) || 0) };   // brain cells, shared by every Brainer game on this site
 let round = null, lastRound = null, starting = false;   // round: the flight in play, or the last one settled; lastRound: the last settled, for the fairness check
-const inFlight = () => !!round && (round.status === 'choose' || round.status === 'flying');
+const inFlight = () => !!round && (round.status === 'takeoff' || round.status === 'choose' || round.status === 'flying');
 const myLevel = () => brainLevel(S.cells);
 
 /* ---------- fairness ---------- */
@@ -111,9 +107,8 @@ async function play() {
   const d = LEVELS[S.level];
   if (S.stake < cfg.minBet || S.stake > cfg.maxBet) { toast(`Bet between ${money(cfg.minBet)} and ${money(cfg.maxBet)}.`); return; }
   if (S.stake > S.balance) { toast('Not enough demo balance for this bet. Lower it or press Reset.'); return; }
-  starting = true; renderControls();
-  const L = myLevel();
-  const r = { stake: S.stake, d, n: 0, rtp: rtpOf(L), seed: S.seed, hash: S.hash, client: S.client, nonce: S.nonce++, status: 'choose', payout: 0, pick: -1, picks: [] };
+  starting = true; renderControls(); flushLevelUp();
+  const r = { stake: S.stake, d, n: 0, rtp: cfg.rtp, seed: S.seed, hash: S.hash, client: S.client, nonce: S.nonce++, status: 'choose', payout: 0, pick: -1, picks: [] };
   try { r.bombs = await drawBombs(r.seed, r.client, r.nonce, d); } finally { starting = false; }
   S.balance -= r.stake; round = r;
   sceneStart(d);
@@ -126,7 +121,6 @@ function choose(k) {
   r.pick = k; r.picks[r.n] = k; r.status = 'flying'; r.t0 = performance.now(); r.hit = r.bombs[r.n][k]; r.struck = false;
   sceneFly(k, r.bombs[r.n], r.t0);
   react('shake', 'Gulp…'); sound.pick();
-  addCells(r.stake * (1 - r.d.safe[r.n]) * cfg.brain.rate);
   renderControls();
 }
 function jump(auto) {
@@ -140,7 +134,7 @@ function jump(auto) {
   if (auto) toast(r.n >= r.d.steps ? 'Last path cleared, so your Brainer jumped automatically.' : `Max win of ${money(cfg.maxWin)} reached, so your Brainer jumped automatically.`);
   settle();
 }
-function settle() { lastRound = round; round.endAt = performance.now(); rotateSeed().then(() => { if (!$('#fairSheet').hidden) renderFair(); }); renderBalance(); renderControls(); renderLadder(); }
+function settle() { lastRound = round; round.endAt = performance.now(); earnCells(cfg.brain.perFlight || round.stake * cfg.brain.factor[round.d.key]); rotateSeed().then(() => { if (!$('#fairSheet').hidden) renderFair(); }); renderBalance(); renderControls(); renderLadder(); }
 function advance(now) {
   const r = round;
   if (!r || r.status !== 'flying') return;
@@ -150,52 +144,51 @@ function advance(now) {
     if (r.hit) {
       r.status = 'crashed'; sceneCrash(now); $('#pilot').classList.add('sooty'); react('shake', 'Ouch!'); feel('shock', 450); sound.boom();
       if (navigator.vibrate) navigator.vibrate(120);
-      settle(); flushLevelUp(); return;
+      settle(); return;
     }
     sound.safe();
   }
   if (p >= 1) {
     r.n++; r.status = 'choose'; r.pick = -1; r.popAt = now;
-    scenePassed(now); react('hop', 'Phew!'); feel('phew', 1000); flushLevelUp();
+    scenePassed(now); react('hop', 'Phew!'); feel('phew', 1000);
     if (r.n >= r.d.steps || r.stake * multAt(r.d, r.n, r.rtp) >= cfg.maxWin) jump(true);
     renderControls(); renderLadder();
   }
 }
 
-/* ---------- brain cells ---------- */
-let luT = 0, bubT = 0, pendingLevel = 0;
-function addCells(k) {
+/* ---------- brain cells and levels ---------- */
+let luT = 0, bubT = 0, pendingLevel = 0, levelFrom = 0;
+function earnCells(k) {
   const before = myLevel();
   S.cells = Math.round((S.cells + k) * 10) / 10;
-  store.set('brainer.cells', String(S.cells));
-  earnFloat(k);
-  const after = myLevel();
-  renderPilot();
-  if (after > before) { renderLevels(); pendingLevel = after; }   // shown once this path is decided
+  store.set('brainer.xp', String(S.cells)); store.set('brainer.level', String(myLevel()));   // the website reads brainer.level
+  earnFloat(k); renderPilot();
+  if (myLevel() > before) { if (!pendingLevel) levelFrom = before; pendingLevel = myLevel(); }   // celebrated once the flight's result has played out
 }
 function flushLevelUp() {
   if (!pendingLevel) return;
-  const L = pendingLevel, el = $('#levelup'); pendingLevel = 0;
-  plane.brain = L;   // the dome shows the new brain at once; the new RTP starts with the next flight
+  const L = pendingLevel, from = levelFrom, el = $('#levelup'); pendingLevel = 0;
+  const newStage = stageOf(L) > stageOf(from), opened = UNLOCKS.filter(u => u.at > from && u.at <= L);
+  plane.brain = L; renderLevels();
   $('#luImg').src = brainerURL(L, 'love'); $('#luTitle').textContent = `Brain level ${L}`; feel('love', 1900);
-  $('#luSub').textContent = cfg.brain.on ? `RTP ${rtpOf(L).toFixed(2)}%` : 'Your Brainer grew new brain cells';
+  $('#luSub').textContent = opened.length ? `${opened.map(u => u.name).join(' and ')} world unlocked` : newStage ? `New look: stage ${stageOf(L)} of 10` : L - from > 1 ? `Up ${L - from} levels` : 'Your Brainer grew new brain cells';
+  el.classList.toggle('big', newStage || opened.length > 0);
   el.hidden = true; void el.offsetWidth; el.hidden = false;
-  clearTimeout(luT); luT = setTimeout(() => { el.hidden = true; }, 2800);
+  clearTimeout(luT); luT = setTimeout(() => { el.hidden = true; }, newStage ? 3600 : 2800);
   sound.level();
+  if (newStage && !reduced) burst(W - 140 * PS, 110, 36, ['#ffc147', '#33d66d', '#8447fb', '#ffffff'], 0.45);
 }
 function setBrainLevel(L) {   // demo picker: jump straight to a brain level
-  S.cells = cfg.brain.cells[L - 1]; store.set('brainer.cells', String(S.cells));
-  pendingLevel = 0; renderPilot(); renderLevels();
-  if (!inFlight()) { plane.brain = L; setTrack(view.d, 0, rtpOf(L)); renderLadder(); }
-  else plane.brain = L;
+  S.cells = CELLS[L]; store.set('brainer.xp', String(S.cells)); store.set('brainer.level', String(L));
+  pendingLevel = 0; plane.brain = L; renderPilot(); renderLevels(); renderPicker();
   react('pop', `Level ${L}!`);
 }
 function earnFloat(k) {
   if (reduced || W < 10) return;
   const sr = stage.getBoundingClientRect(), pr = $('#pilot .ava').getBoundingClientRect();
   const el = document.createElement('span'); el.className = 'earn';
-  el.innerHTML = `<i></i>+${k < 10 ? k.toFixed(1) : Math.round(k)} brain cells`;
-  const x0 = PX + 70 * PS, y0 = PY - 110 * PS;   // starts beside the dome and flies into the portrait
+  el.innerHTML = `<i></i>+${k < 10 ? k.toFixed(1) : Math.round(k).toLocaleString('en-US')} brain cells`;
+  const x0 = W / 2 - 60, y0 = H * 0.3;   // starts under the result and flies into the portrait
   el.style.left = x0 + 'px'; el.style.top = y0 + 'px';
   stage.appendChild(el);
   const dx = pr.left - sr.left + pr.width / 2 - x0, dy = pr.top - sr.top + pr.height / 2 - y0;
@@ -203,12 +196,11 @@ function earnFloat(k) {
   view.glowT = performance.now();
 }
 function renderPilot() {
-  const L = myLevel(), t = cfg.brain.cells, next = t[L], cells = Math.floor(S.cells);
+  const L = myLevel(), next = L < 100 ? CELLS[L + 1] : null, have = S.cells - CELLS[L], cells = Math.floor(S.cells);
   $('#lvnum').textContent = L; $('#plv').textContent = `Brain level ${L}`;
-  $('#pilot').setAttribute('aria-label', `Brain level ${L}, ${cells} brain cells. Change brain level (demo).`);
-  $('#pbar').style.width = (next == null ? 100 : Math.round((S.cells - t[L - 1]) / (next - t[L - 1]) * 100)) + '%';
-  $('#pnote').textContent = (next == null ? `${cells.toLocaleString('en-US')} brain cells` : `${cells.toLocaleString('en-US')} / ${next.toLocaleString('en-US')} cells`) + (cfg.brain.on ? ` · RTP ${rtpOf(L).toFixed(2)}%` : '');
-  document.querySelectorAll('#levelsGrid button').forEach((b, i) => b.setAttribute('aria-pressed', String(i + 1 === L)));
+  $('#pilot').setAttribute('aria-label', `Brain level ${L}, ${cells.toLocaleString('en-US')} brain cells. Open your Brainer.`);
+  $('#pbar').style.width = (next == null ? 100 : Math.round(have / (next - CELLS[L]) * 100)) + '%';
+  $('#pnote').textContent = next == null ? `${cells.toLocaleString('en-US')} brain cells · top level` : `${Math.floor(have).toLocaleString('en-US')} / ${(next - CELLS[L]).toLocaleString('en-US')} cells to level ${L + 1}`;
 }
 function react(kind, text) {
   const p = $('#pilot'), b = $('#bubble');
@@ -231,6 +223,7 @@ const NEURONS = (() => {
 })();
 const sootCache = {};
 function sootyRobot(L) {
+  L = stageOf(L);
   const im = BLANK[L - 1];
   if (sootCache[L] || !im.complete || !im.naturalWidth) return sootCache[L] || null;
   const c = document.createElement('canvas'); c.width = c.height = 500; const g = c.getContext('2d');
@@ -253,6 +246,7 @@ const { drawScreenFace, faceAround, EXPR, restFace } = window.BrainerFace;
 // Draws the Brainer centred at (x, y), `size` px tall, with expression `ex`. o.img swaps the art (e.g. the sooty one),
 // o.lookX / o.lookY (-1..1) steer the eyes, o.since is when this expression started, for the pop-in.
 function drawBrainer(g, x, y, size, L, ex, t, o = {}) {   // the 2D stand-in, used until the 3D Brainer is ready or without WebGL
+  L = stageOf(L);   // the art comes in ten looks, one per stage
   const im = o.img || BLANK[L - 1];
   if (!(im instanceof HTMLCanvasElement) && (!im.complete || !im.naturalWidth)) return;   // o.img may be a prepared canvas
   const s = size / 500;
@@ -265,33 +259,42 @@ function drawBrainer(g, x, y, size, L, ex, t, o = {}) {   // the 2D stand-in, us
 }
 const fxOf = ex => (EXPR[ex] && EXPR[ex].fx) || [];
 
-/* The 3D Brainer (brainer3d.js, loaded as a module, sets window.Brainer3D). One renderer draws two views each
-   frame: region A, the Brainer from behind in the cockpit, and region B, the Brainer from the front for the portrait,
-   the parachute and the crash spotlight. Without WebGL the 2D art above stands in. */
+/* The 3D actors (brainer3d.js, loaded as a module, sets window.Brainer3D). One renderer draws three views each frame
+   into regions of one canvas: A, the plane from behind with the Brainer in its cockpit; B, the Brainer from the front
+   for the portrait and the crash spotlight; C, the Brainer under its parachute (only after a jump). Without WebGL the
+   2D drawings stand in. */
 let b3 = null;
 function init3D() {
   if (b3 !== null || !window.Brainer3D) return b3;
   try {
-    const { Brainer, BrainerStage } = window.Brainer3D;
-    b3 = { stage: new BrainerStage(), seat: new Brainer(myLevel()), front: new Brainer(myLevel()), A: 0, B: 0, ok: false };
+    const { Brainer, BrainerStage, Plane3D, Chute3D } = window.Brainer3D, seat = new Brainer(myLevel()), para = new Brainer(myLevel());
+    b3 = { stage: new BrainerStage(), seat, plane: new Plane3D(seat), front: new Brainer(myLevel()), para, chute: new Chute3D(para), wA: 0, hA: 0, B: 0, C: 0, ok: false };
   } catch (e) { b3 = false; }
   return b3;
 }
 function render3D(now) {
   const k = init3D();
   if (!k) return;
-  const A = Math.round(clamp(230 * PS * dpr, 128, 720)), B = Math.round(clamp(Math.min(W, H) * 0.56 * dpr, 160, 900));
-  if (A !== k.A || B !== k.B) { k.A = A; k.B = B; k.stage.setSize(A + B, Math.max(A, B)); }
+  const wA = Math.round(clamp(700 * PS * dpr, 240, 1400)), hA = Math.round(wA * 0.62), B = Math.round(clamp(Math.min(W, H) * 0.56 * dpr, 160, 900)), C = Math.round(clamp(400 * PS * dpr, 160, 900));
+  if (wA !== k.wA || B !== k.B || C !== k.C) { Object.assign(k, { wA, hA, B, C }); k.stage.setSize(wA + B + C, Math.max(hA, B, C)); }
   const m = moodNow(now), side = round && round.status === 'choose' && view.hover >= 0 ? Math.sign(view.hover - 2) : 0;
   k.seat.setLevel(plane.brain); k.seat.update(now, m.ex, { seat: true, side, lookX: lookNow(now), noFace: true, reduced });
-  k.stage.draw(k.seat, 0, 0, A, A, 'back');
-  const dazed = !!iris, L = dazed ? iris.brain : chute ? chute.brain : myLevel();
+  const tk = view.takeoff ? now - view.takeoff.t0 : -1, gear = view.parked ? 1 : tk >= 0 ? 1 - clamp((tk - 1500) / 600, 0, 1) : 0, pitch = tk >= 0 ? -0.14 * Math.sin(clamp((tk - 800) / 1400, 0, 1) * Math.PI) : 0;
+  k.plane.update(now, { yaw: view.bank * 0.5, pitch, gear, idle: view.parked, level: plane.brain, soot: plane.state === 'fall', pilot: plane.state !== 'empty' && plane.state !== 'gone', reduced });
+  k.stage.draw(k.plane, 0, 0, wA, hA, 'plane');
+  const dazed = !!iris, L = dazed ? iris.brain : myLevel();
   k.front.setLevel(L); k.front.update(now, dazed ? 'dizzy' : m.ex, { since: m.t0, lookX: lookNow(now), soot: dazed, glow: clamp(1 - (now - (view.glowT || -1e9)) / 700, 0, 1), reduced });
-  k.stage.draw(k.front, A, 0, B, B, 'hero');
+  k.stage.draw(k.front, wA, 0, B, B, 'hero');
+  if (chute && chute.st) {
+    const st = chute.st, landedFor = st.landed ? now - chute.t0 - 3000 : -1;
+    k.para.setLevel(chute.brain); k.para.update(now, landedFor > 700 ? 'wink' : m.ex, { since: m.t0, lookX: Math.sin(now / 1200) * 0.4, reduced });
+    k.chute.update(now, { open: st.open, fold: st.fold, reduced });
+    k.stage.draw(k.chute, wA + B, 0, C, C, 'chute');
+  }
   k.ok = true;
 }
-function blit3D(g, region, x, y, size) {   // copies region A or B of the 3D canvas, centred at (x, y), size px square
-  const [sx, sw] = region === 'A' ? [0, b3.A] : [b3.A, b3.B];
+function blit3D(g, region, x, y, size) {   // copies region B (front view) or C (parachute), centred at (x, y), size px square
+  const [sx, sw] = region === 'C' ? [b3.wA + b3.B, b3.C] : [b3.wA, b3.B];
   g.drawImage(b3.stage.canvas, sx, 0, sw, sw, x - size / 2, y - size / 2, size, size);
 }
 const has3D = () => b3 && b3.ok;
@@ -331,17 +334,18 @@ function brainerURL(L, ex) {
   if (has3D()) {   // a fresh render of the front view, copied straight away
     const snap = b3.snap || (b3.snap = new window.Brainer3D.Brainer(L));   // its own Brainer, so the live one keeps its pose
     snap.setLevel(L); for (let i = 0; i < 30; i++) snap.update(now + i * 16, ex, { reduced });
-    b3.stage.draw(snap, b3.A, 0, b3.B, b3.B, 'hero'); blit3D(g, 'B', 100, 100, 210);
+    b3.stage.draw(snap, b3.wA, 0, b3.B, b3.B, 'hero'); blit3D(g, 'B', 100, 100, 210);
   } else drawBrainer(g, 100, 100, 200, L, ex, now);
   return c.toDataURL();
 }
 
-const ZP = 2.2, Z_WAIT = 9, Z_FAR = 40, G_H = 5;   // depths: plane, waiting gates, new gates; ground drop
+const ZP = 2.2, Z_WAIT = 9, Z_FAR = 40, G_CRUISE = 5;   // depths: plane, waiting gates, new gates; ground drop in the air
+let G_H = G_CRUISE;   // the ground's drop below the camera: low while the plane is parked on the runway, G_CRUISE in flight
 let W = 0, H = 0, dpr = 1, F = 500, HY = 200, PX = 0, PY = 0, PS = 0.8, SPREAD = 2, RING = 1, last = 0;
 let shake = 0, flashAt = -1e9, flashCol = '255,255,255', nextDropAt = 0, sky = null;
-const view = { d: LEVELS[0], n: 0, rtp: cfg.refRtp, camX: 0, gz: Z_WAIT, introT: -1e9, pick: -1, row: null, struck: false, scroll: 0, fieldX: 0, speed: 1, bank: 0, hit: [], hover: -1 };
+const view = { d: LEVELS[0], n: 0, rtp: cfg.rtp, camX: 0, gz: Z_WAIT, introT: -1e9, pick: -1, row: null, struck: false, scroll: 0, fieldX: 0, speed: 1, bank: 0, hit: [], hover: -1 };
 const plane = { state: 'cruise', t0: 0, x: 0, y: 0, rot: 0, vx: 0, vy: 0, vr: 0, brain: 1 };
-let chute = null, iris = null, parts = [], booms = [], drops = [], texts = [];
+let chute = null, iris = null, outro = null, wipe = null, parts = [], booms = [], drops = [], texts = [];
 let clouds = [];
 
 function layout() {
@@ -401,13 +405,32 @@ function skyHills(g, col, amp, f, seed) {   // a band of rolling hills standing 
 }
 function haze(col, depth) { const g = ctx.createLinearGradient(0, HY - 1, 0, HY + H * depth); g.addColorStop(0, col); g.addColorStop(1, col.replace(/[\d.]+\)$/, '0)')); ctx.fillStyle = g; ctx.fillRect(0, HY - 1, W, H * depth + 1); }
 
+// The country road keeps a few unit left of the plane's course: each time the course shifts, the road bends toward it
+// beyond the horizon, so the bend never appears in view.
+let roadPts = [[-1e9, -3.5]];
+const smooth01 = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+function roadBase(zw) {
+  let i = roadPts.length - 1; while (i > 0 && roadPts[i][0] > zw) i--;
+  const [z0, u0] = roadPts[i], nx = roadPts[i + 1];
+  return nx ? lerp(u0, nx[1], smooth01((zw - z0) / (nx[0] - z0))) : u0;
+}
+function roadAt(zw) { return roadBase(zw) + 1.4 * Math.sin(zw * 0.03); }
+function rerouteRoad() {
+  const target = -view.fieldX - 3.5, far = view.scroll + 66;
+  if (Math.abs(roadBase(far + 30) - target) < 0.5) return;
+  const near = view.scroll - 20, keep = roadPts.filter(q => q[0] > near && q[0] < far);
+  roadPts = [[near, roadBase(near)], ...keep, [far, roadBase(far)], [far + 30, target]];   // the visible road stays put; only the far end bends
+}
+// Where a parachute lands in each world: the road, the avenue, or the cloud tops under the camera.
+const landOn = { fields: zw => ({ u: roadAt(zw), alt: G_H }), city: () => ({ u: 0, alt: G_H }), clouds: () => ({ u: view.camX - view.fieldX, alt: G_H - 0.35 }) };
+
 /* Lavender fields: patchwork farmland in brand-tinted colours, hedges and trees, a river and a country road,
    and clouds drifting below the plane with their shadows on the fields. */
 const FIELDS = ['#a6d873', '#8cc95f', '#c4df86', '#e6d585', '#d8bd6b', '#b292e9', '#c8acf3', '#9cd187', '#ece2a6', '#a98ae4'];
 function groundFields() {
   const D = 3.2, CW = 3.2, cx = view.camX - view.fieldX;
   ctx.fillStyle = '#b9d98c'; ctx.fillRect(0, HY, W, H - HY);
-  const river = zw => 9 + 5 * Math.sin(zw * 0.04) + 2.2 * Math.sin(zw * 0.13 + 1), road = zw => -12 + 2 * Math.sin(zw * 0.025);
+  const river = zw => 9 + 5 * Math.sin(zw * 0.04) + 2.2 * Math.sin(zw * 0.13 + 1), road = roadAt;
   forRows(D, 64, (row, z0, z1) => {
     if (groundY(z1) > H) return;
     const g2 = row >> 1, span = 1 + Math.floor(hash(g2, 3) * 3);   // fields are two rows deep and one to three cells wide
@@ -588,7 +611,9 @@ function setWorld(key) {
   cloudImg = world.cloudImg || (world.cloudImg = world.clouds.img());
   clouds = Array.from({ length: world.clouds.n }, () => ({ x: view.camX + (Math.random() - 0.5) * 34, alt: world.clouds.alt(), z: 4 + Math.random() * 56, s: 0.9 + Math.random() * 1.4 }));
   spires = worldKey === 'clouds' ? Array.from({ length: 5 }, () => spawnSpire(null, false)) : [];
+  roadPts = [[-1e9, -view.fieldX - 3.5]];
   if (W) paintSky();
+  if (W && !inFlight() && !outro) park();
   document.querySelectorAll('#worlds button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.w === worldKey)));
 }
 
@@ -599,12 +624,13 @@ const H_GATE = () => (PY - HY) * ZP / F;   // gates fly at the plane's height
 const gatePos = k => { const z = view.gz; return { x: projX(gateX(k), z), y: altY(H_GATE(), z), r: RING * F / z, z }; };
 
 function setTrack(d, n, rtp) { Object.assign(view, { d, n, rtp, pick: -1, row: null, struck: false, introT: performance.now(), camX: 0 }); }
-function recenter() { for (const c of clouds) c.x -= view.camX; for (const p of spires) p.x -= view.camX; view.fieldX -= view.camX; view.camX = 0; }
+function recenter() { for (const c of clouds) c.x -= view.camX; for (const p of spires) p.x -= view.camX; view.fieldX -= view.camX; view.camX = 0; if (worldKey === 'fields') rerouteRoad(); }
 function sceneStart(d) {
   const now = performance.now();
   recenter(); setTrack(d, 0, round.rtp); plane.brain = myLevel();
+  if (view.parked) { view.parked = false; view.takeoff = { t0: now }; round.status = 'takeoff'; }   // roll, lift off, climb, then the paths appear
   if (plane.state !== 'cruise') { plane.state = 'enter'; plane.t0 = now; }
-  if (chute) chute.leave = chute.leave || now;
+  chute = null; outro = null; wipe = null;
   if (iris) iris.out = iris.out || now;
   drops = drops.filter(b => !b.real);
   parts = parts.filter(q => q.type !== 'confetti' && q.type !== 'coin');   // last flight's celebration ends here
@@ -629,6 +655,7 @@ function sceneCrash(now) {
   flashAt = now; flashCol = '255,240,245'; shake = reduced ? 0 : 16;
   Object.assign(plane, { state: 'fall', t0: now, x: PX, y: PY, rot: view.bank, vx: 0.05 * (view.bank >= 0 ? 1 : -1), vy: -0.25, vr: 0.0028 });
   iris = { t0: now + 380, brain: myLevel() };
+  outro = { kind: 'crash', t0: now };
 }
 function scenePassed(now) {
   recenter(); setTrack(view.d, round.n, round.rtp);
@@ -636,12 +663,45 @@ function scenePassed(now) {
   texts.push({ text: fx(multAt(round.d, round.n, round.rtp)), x: PX, y: PY - 175 * PS, t0: now, col: '#7dffcf', size: 30, dur: 1300 });
 }
 function sceneJump(now, m) {
-  chute = { t0: now, x: PX, y0: PY - 70 * PS, leave: 0, brain: myLevel() };
+  const zw = view.scroll + 12.5;   // where it will land: a little ahead, while the world glides to a stop
+  chute = { t0: now, x0: PX, y0: PY - 60 * PS, brain: myLevel(), zw, spot: landOn[worldKey](zw) };
+  outro = { kind: 'jump', t0: now };
   Object.assign(plane, { state: 'empty', t0: now });
   const big = m >= 10, huge = m >= 100;
   for (let i = 0; i < (big ? 40 : 26); i++) parts.push({ type: 'coin', x: PX, y: PY - 70 * PS, vx: (Math.random() - 0.5) * 0.7, vy: -0.4 - Math.random() * 0.5, g: 0.0011, life: 0, max: 1500 + Math.random() * 600, r: 5 + Math.random() * 4 });
   for (let i = 0; i < (huge ? 160 : big ? 110 : 70); i++) parts.push({ type: 'confetti', x: Math.random() * W, y: -20 - Math.random() * H * 0.4, vx: (Math.random() - 0.5) * 0.08, vy: 0.08 + Math.random() * 0.12, g: 0, life: 0, max: 3200, r: 5 + Math.random() * 4, rot: Math.random() * 7, vr: (Math.random() - 0.5) * 0.02, c: ['#4b36fc', '#8447fb', '#33d66d', '#ffc147', '#ffffff', '#ed6b6b'][i % 6] });
   flashAt = now; flashCol = '200,180,255';
+}
+// Parked on the runway between flights, where the world has ground (the cloud sea has none, so there the plane waits
+// in the air). The camera drops so the plane's wheels stand on the road, which is moved under it.
+const TAKEOFF_MS = 2600;
+const parkAlt = () => (PY + 58 * PS - HY) * ZP / F;
+function park() {
+  view.takeoff = null; view.parked = worldKey !== 'clouds';
+  if (!view.parked) return;
+  const zp = view.scroll + ZP;
+  roadPts = [[-1e9, roadBase(zp)]];   // the road runs straight on from where the plane stands
+  view.camX = 0; view.fieldX = worldKey === 'fields' ? -roadAt(zp) : 0; view.speed = 0;
+}
+// The parachute from the jump to the landing: the Brainer's feet at (x, y), its height h on screen, how far the canopy
+// is open, and how far it has folded after touchdown.
+function chuteState(now) {
+  const c = chute, t = now - c.t0, z = Math.max(1.5, c.zw - view.scroll);
+  const Lx = projX(c.spot.u + view.fieldX, z), Ly = altY(c.spot.alt, z), hEnd = Math.max(62 * PS, 1.5 * F / z), h0 = 112 * PS;
+  const x1 = c.x0 + 20 * PS, y1 = c.y0 - 70 * PS, open = t < 220 ? 0 : easeBack(clamp((t - 220) / 520, 0, 1));
+  if (t < 420) { const q = easeOut(t / 420); return { x: lerp(c.x0, x1, q), y: lerp(c.y0 + 40 * PS, y1, q), h: h0, open, fold: 0, landed: false }; }   // pops out of the cockpit
+  if (t < 3000) { const q = ease((t - 420) / 2580); return { x: lerp(x1, Lx, q) + (reduced ? 0 : Math.sin(t / 900) * 14 * PS * (1 - q)), y: lerp(y1, Ly, q), h: lerp(h0, hEnd, q), open, fold: 0, landed: false }; }   // floats down to the road
+  const tl = t - 3000, hop = tl < 520 ? Math.sin(tl / 520 * Math.PI) * 10 * PS : 0;
+  return { x: Lx, y: Ly - hop, h: hEnd, open, fold: easeOut(clamp(tl / 700, 0, 1)), landed: true };   // touchdown, a little hop, the canopy folds
+}
+// Back to the start screen after a flight: the plane flies back in with the Brainer aboard, and any level-up is shown.
+function resetToStart(now) {
+  outro = null; chute = null; round = null; park();
+  if (iris) iris.out = iris.out || now;
+  plane.state = 'enter'; plane.t0 = now; plane.brain = myLevel();
+  recenter(); setTrack(LEVELS[S.level], 0, cfg.rtp);
+  $('#pilot').classList.remove('sooty');
+  renderControls(); renderLadder(); renderLevels(); flushLevelUp();
 }
 function burst(x, y, n, cols, sp) {
   for (let i = 0; i < n; i++) { const a = Math.random() * 7, v = sp * (0.4 + Math.random()); parts.push({ type: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.1, g: 0.0009, life: 0, max: 600 + Math.random() * 500, r: 3 + Math.random() * 4, c: cols[i % cols.length] }); }
@@ -662,7 +722,7 @@ function brandText(text, x, y, size, fill, rot, shadow) {
    body, a ribbed collar, a wide glass dome holding the brain for this brain level, and hands gripping the rim.
    Lit from the upper left like the rest of the scene, so every part reads as a solid. */
 function robotBack(t, L) {
-  const [c1, c2, n] = BRAIN[L - 1];
+  const [c1, c2, n] = BRAIN[stageOf(L) - 1];   // ten looks, one per stage of ten levels
   const bob = reduced ? 0 : Math.sin(t / 260) * 1.5;
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   ctx.save(); ctx.translate(0, bob);
@@ -732,6 +792,11 @@ function robotHands(t) {   // hands on the cockpit rim; the one on the side you'
    wings with dihedral and a visible trailing edge, a twin tail nearest the camera, and the propeller spinning out
    ahead of the nose. Shaded as solids lit from the upper left. */
 function planeBack(x, y, s, rot, t, pilot, soot, L) {
+  if (has3D()) {   // the 3D plane, posed in render3D; its cockpit sits at (x, y)
+    const w = 700 * s, h = w * b3.hA / b3.wA;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.drawImage(b3.stage.canvas, 0, 0, b3.wA, b3.hA, -w / 2, -h * 0.5 + 24 * s, w, h); ctx.restore();
+    return;
+  }
   ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
   if (soot) ctx.filter = 'brightness(.45) saturate(.5)';
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
@@ -776,10 +841,10 @@ function planeBack(x, y, s, rot, t, pilot, soot, L) {
   ctx.fillStyle = 'rgba(200,225,255,.35)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2.5; ctx.stroke();
   // cockpit: a dark opening, the pilot inside, then the padded near lip
   ell(0, 2, 56, 18); ctx.fillStyle = lin(0, -16, 0, 20, '#120d33', '#2a2163'); ctx.fill();
-  if (pilot) { if (has3D()) blit3D(ctx, 'A', 0, -30, 206); else robotBack(t, L); }
+  if (pilot) robotBack(t, L);
   ctx.beginPath(); ctx.ellipse(0, 2, 56, 18, 0, 0, Math.PI); ctx.lineWidth = 10; ctx.strokeStyle = lin(0, 2, 0, 24, '#ffffff', '#c3b6f5'); ctx.stroke();
   ctx.beginPath(); ctx.ellipse(0, 2, 56, 18, 0, Math.PI * 0.15, Math.PI * 0.85); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.stroke();
-  if (pilot && !has3D()) robotHands(t);
+  if (pilot) robotHands(t);
   // twin tail, nearest the camera: the tailplane, then a fin at each tip
   for (const sd of [-1, 1]) {
     ctx.beginPath(); ctx.moveTo(sd * 12, 84); ctx.lineTo(sd * 92, 72); ctx.quadraticCurveTo(sd * 102, 72, sd * 100, 80); ctx.lineTo(sd * 92, 86); ctx.lineTo(sd * 12, 98); ctx.closePath();
@@ -814,8 +879,7 @@ function chuteDraw(x, y, s, t, open, alpha, L) {
     ctx.restore();
   }
   const m = moodNow(t);
-  if (has3D()) { blit3D(ctx, 'B', 0, 40, 250); ctx.save(); ctx.translate(-125, -85); ctx.scale(0.5, 0.5); faceAround(ctx, fxOf(m.ex), t); ctx.restore(); }
-  else drawBrainer(ctx, 0, 40, 220, L, m.ex, t, { since: m.t0, lookX: Math.sin(t / 1200) * 0.5 });
+  drawBrainer(ctx, 0, 40, 220, L, m.ex, t, { since: m.t0, lookX: Math.sin(t / 1200) * 0.5 });
   ctx.restore();
 }
 
@@ -902,7 +966,19 @@ function drawGate(k, now, front) {
 /* ---------- loop ---------- */
 function update(now, dt) {
   const r = round, flying = r && r.status === 'flying', choosing = r && r.status === 'choose';
-  view.speed += ((flying ? 2.6 : 1) - view.speed) * Math.min(1, dt * 0.005);
+  const tk = view.takeoff ? now - view.takeoff.t0 : -1;
+  if (tk >= TAKEOFF_MS) { view.takeoff = null; if (r && r.status === 'takeoff') { r.status = 'choose'; view.introT = now; renderControls(); renderLadder(); } }
+  G_H = view.parked ? parkAlt() : tk >= 0 ? lerp(parkAlt(), G_CRUISE, ease(clamp((tk - 900) / 1500, 0, 1))) : G_CRUISE;   // the ground falls away as it climbs
+  view.speed += ((view.parked ? 0 : tk >= 0 ? (tk < 1200 ? 0.4 + 2.6 * tk / 1200 : 2.4) : outro && outro.kind === 'jump' ? 0 : flying ? 2.6 : 1) - view.speed) * Math.min(1, dt * (outro ? 0.0028 : 0.005));   // after a jump the world glides to a stop
+  if (chute) { const tx = chute.spot.u + view.fieldX; view.camX += (tx - view.camX) * Math.min(1, dt * 0.0022); }   // and the camera drifts over the landing spot
+  if (outro) {
+    const t = now - outro.t0;
+    if (outro.kind === 'jump' && t > 4700 && !wipe) wipe = { t0: now, x: chute && chute.st ? chute.st.x : W / 2, y: chute && chute.st ? chute.st.y - chute.st.h * 0.5 : H * 0.6 };
+    if (outro.kind === 'crash' && t > 3600) resetToStart(now);
+  }
+  if (wipe && !wipe.done && now - wipe.t0 > 430) { wipe.done = true; resetToStart(now); }
+  if (wipe && now - wipe.t0 > 950) wipe = null;
+  if (chute) chute.st = chuteState(now);
   const ds = view.speed * dt * 0.0035 * (reduced ? 0.5 : 1);
   view.scroll += ds;
   for (const c of clouds) { c.z -= ds; if (c.z < 1) { c.z = 46 + Math.random() * 14; c.x = view.camX + (Math.random() - 0.5) * 34; c.alt = world.clouds.alt(); } }
@@ -915,7 +991,7 @@ function update(now, dt) {
   const bankTo = flying ? clamp((gateX(view.pick) - view.camX) / SPREAD * 0.22, -0.45, 0.45) : choosing && view.hover >= 0 ? (view.hover - 2) * 0.07 : 0;
   view.bank += (bankTo - view.bank) * Math.min(1, dt * 0.008);
   // bombs keep falling far behind the hoops while the pilot decides; never in line with a hoop, so they hint nothing
-  if ((!r || choosing) && now > nextDropAt && W) {
+  if ((!r || choosing) && !view.parked && !view.takeoff && now > nextDropAt && W) {
     nextDropAt = now + 650 + Math.random() * 1100;
     const z = 22 + Math.random() * 22;
     for (let i = 0; i < 8; i++) {
@@ -940,7 +1016,6 @@ function update(now, dt) {
   for (const q of parts) { q.vy += q.g * dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.type === 'smoke') q.r += dt * 0.02; if (q.vr) q.rot += q.vr * dt; }
   booms = booms.filter(b => now - b.t0 < b.dur);
   texts = texts.filter(f => now - f.t0 < f.dur);
-  if (chute && chute.leave && now - chute.leave > 1200) chute = null;
   if (iris && iris.out && now - iris.out > 500) iris = null;
   shake *= Math.pow(0.9, dt / 16);
 }
@@ -953,15 +1028,17 @@ function drawGround(now) {
 }
 function drawCloud(c, near) {
   if (c.z < 1) return;
-  const w = c.s * 2.6 * F / c.z, h = w * 170 / 300, x = projX(c.x, c.z), y = altY(c.alt, c.z);
+  const w = c.s * 2.6 * F / c.z, h = w * 170 / 300, x = projX(c.x, c.z), y = altY(c.alt - (G_CRUISE - G_H), c.z);
   if (x + w / 2 < 0 || x - w / 2 > W || y - h > H || y + h < 0) return;
   ctx.globalAlpha = clamp((c.z - 1) / 2.5, 0, 1) * clamp((60 - c.z) / 14, 0, 1) * world.clouds.alpha * (near === true ? 0.45 : 1);
+  const lift = G_CRUISE - G_H;   // clouds keep their height above the ground while the camera is low
   ctx.drawImage(cloudImg, x - w / 2, y - h / 2, w, h); ctx.globalAlpha = 1;
 }
 function drawPlane(now) {
   const bob = reduced ? 0 : Math.sin(now / 420) * 5 * PS;
   const st = plane.state, L = plane.brain;
-  if (st === 'cruise') planeBack(PX + view.bank * 60 * PS, PY + bob, PS, view.bank * 0.9 + (reduced ? 0 : Math.sin(now / 900) * 0.02), now, true, false, L);
+  const ground = view.parked || (view.takeoff && now - view.takeoff.t0 < 900), rattle = view.takeoff && !reduced && now - view.takeoff.t0 < 900 ? Math.sin(now / 25) * 1.2 * PS : 0;
+  if (st === 'cruise') planeBack(PX + view.bank * 60 * PS, PY + (ground ? rattle : bob), PS, ground ? 0 : view.bank * 0.9 + (reduced ? 0 : Math.sin(now / 900) * 0.02), now, true, false, L);
   else if (st === 'enter') {
     const p = clamp((now - plane.t0) / 450, 0, 1);
     planeBack(PX, lerp(H + 160 * PS, PY, easeOut(p)), PS, 0, now, true, false, L);
@@ -987,7 +1064,7 @@ function draw(now) {
     ctx.globalAlpha = clamp(p * 4, 0, 1); bomb(projX(b.x, b.z), altY(alt, b.z), 0.32 * F / b.z, 0.3, now); ctx.globalAlpha = 1;
   }
   for (const b of booms) if (!b.front) drawBoom(b, now);
-  const showGates = r ? (r.status === 'choose' || r.status === 'flying' || r.status === 'crashed') : true;
+  const showGates = r ? (r.status === 'choose' || r.status === 'flying' || r.status === 'crashed') : !view.parked;
   if (showGates && plane.state !== 'empty') {
     if (r && (r.status === 'choose' || r.status === 'flying') && view.gz > ZP) {   // the five paths
       const sx = PX + view.bank * 60 * PS, sy = PY - 30 * PS;
@@ -1021,11 +1098,11 @@ function draw(now) {
     else if (q.type === 'confetti') { ctx.save(); ctx.globalAlpha = Math.min(1, a * 2); ctx.translate(q.x, q.y); ctx.rotate(q.rot); ctx.fillStyle = q.c; ctx.fillRect(-q.r / 2, -q.r / 4, q.r, q.r / 2); ctx.restore(); }
   }
   ctx.globalAlpha = 1;
-  if (chute) {
-    const t = now - chute.t0, p = clamp(t / 500, 0, 1), open = clamp((t - 280) / 450, 0, 1);
-    let y = Math.min(lerp(chute.y0, H * 0.58, easeOut(p)) + Math.max(0, t - 900) * 0.005, H * 0.64), alpha = 1;
-    if (chute.leave) { const q = (now - chute.leave) / 1200; y += q * q * H; alpha = 1 - q; }
-    chuteDraw(chute.x + (reduced ? 0 : Math.sin(t / 900) * 18 * PS), y, PS * 0.62, now, open > 0 ? easeBack(open) : 0, clamp(alpha, 0, 1), chute.brain);
+  if (chute && chute.st) {
+    const st = chute.st;
+    if (st.landed) { ctx.globalAlpha = 0.3; ell(st.x, st.y + 2, st.h * 0.4, st.h * 0.09); ctx.fillStyle = '#1d1458'; ctx.fill(); ctx.globalAlpha = 1; }   // its shadow on the road
+    if (has3D()) { const D = st.h / 0.376; blit3D(ctx, 'C', st.x, st.y - 0.388 * D, D); }   // in the chute view the Brainer fills 37.6% of the height, feet 38.8% below centre
+    else chuteDraw(st.x, st.y - st.h * 0.55, st.h / 160, now, st.open * (1 - st.fold), 1, chute.brain);
   }
   for (const f of texts) {
     const p = (now - f.t0) / f.dur; if (p < 0) continue;
@@ -1066,6 +1143,11 @@ function draw(now) {
       ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(132,71,251,.8)'; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
     }
   }
+  if (wipe) {   // a quick iris from the landed Brainer back to the start screen
+    const t = now - wipe.t0, k = t < 430 ? easeOut(t / 430) : 1 - easeOut(clamp((t - 430) / 500, 0, 1)), R = lerp(Math.hypot(W, H), 0, k);
+    const cx = t < 430 ? wipe.x : W / 2, cy = t < 430 ? wipe.y : H * 0.62;
+    ctx.fillStyle = NAVY; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(cx, cy, Math.max(0.1, R), 0, Math.PI * 2, true); ctx.fill();
+  }
   if (now - flashAt < 260 && !reduced) { ctx.fillStyle = `rgba(${flashCol},${0.75 * (1 - (now - flashAt) / 260)})`; ctx.fillRect(0, 0, W, H); }
 }
 
@@ -1081,11 +1163,12 @@ const put = (id, prop, v) => { const k = id + prop; if (cache[k] === v) return; 
 function updateUI(now) {
   const r = round, d = r ? r.d : LEVELS[S.level];
   let label, big, bigCls = 'mult', sub = '', subCls = 'sub';
-  if (!r || (!inFlight() && starting)) { label = `${d.name} · ${d.steps} paths · top win`; big = fxShort(multAt(d, d.steps, rtpOf(myLevel()))); bigCls = 'mult idle'; sub = 'Set your bet and press Play'; }
+  if (!r || (!inFlight() && starting)) { label = `${d.name} · ${d.steps} paths · top win`; big = fxShort(multAt(d, d.steps)); bigCls = 'mult idle'; sub = 'Set your bet and press Play'; }
   else if (r.status === 'choose') {
     const cur = multAt(r.d, r.n, r.rtp), next = multAt(r.d, r.n + 1, r.rtp);
     label = r.n ? `Path ${r.n} of ${r.d.steps} cleared · fly on or jump` : 'Bombs ahead! Pick a path';
     big = fx(cur); sub = r.n ? `Jump now: ${money(Math.min(r.stake * cur, cfg.maxWin))} · next ${fx(next)}` : `A safe path pays ${fx(next)}`;
+  } else if (r.status === 'takeoff') { label = 'Taking off…'; big = fx(1); sub = `A safe path pays ${fx(multAt(r.d, 1, r.rtp))}`;
   } else if (r.status === 'flying') { label = `Path ${r.pick + 1} · bombs away…`; big = fx(multAt(r.d, r.n, r.rtp)); sub = `Safe path pays ${fx(multAt(r.d, r.n + 1, r.rtp))}`; }
   else if (r.status === 'crashed') { label = 'Ka-boom!'; big = 'Crashed'; bigCls = 'mult bust'; sub = `Bomb on path ${r.pick + 1} · −${money(r.stake)}`; subCls = 'sub bad'; }
   else { const m = multAt(r.d, r.n, r.rtp); label = m >= 100 ? 'Huge win!' : m >= 10 ? 'Big win!' : `Jumped after ${r.n} path${r.n === 1 ? '' : 's'}!`; big = fx(m); bigCls = m >= 10 ? 'mult win gold' : 'mult win'; sub = `You won ${money(r.payout)}`; subCls = 'sub ok'; }
@@ -1105,17 +1188,20 @@ function renderControls() {
   document.querySelectorAll('#paths button').forEach((b, k) => { b.disabled = !round || round.status !== 'choose'; b.setAttribute('aria-pressed', String(!!round && round.pick === k)); });
 }
 function renderLevels() {
-  const rtp = rtpOf(myLevel());
-  $('#levels').innerHTML = LEVELS.map((d, i) => `<button type="button" data-l="${i}" aria-pressed="${i === S.level}"><b>${d.name}</b><span>up to ${fxShort(multAt(d, d.steps, rtp))}</span></button>`).join('');
+  $('#levels').innerHTML = LEVELS.map((d, i) => `<button type="button" data-l="${i}" aria-pressed="${i === S.level}"><b>${d.name}</b><span>up to ${fxShort(multAt(d, d.steps))}</span></button>`).join('');
 }
 function renderPaths() {
   $('#paths').innerHTML = PATHS.map(([nm, deg], k) => `<button type="button" data-p="${k}" aria-label="Path ${k + 1}, ${nm}"><span class="n"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g transform="rotate(${deg} 12 12)"><path d="M12 20V5M6 11l6-6 6 6" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></svg>${k + 1}</span><span class="nm">${nm}</span></button>`).join('');
 }
-function renderPicker() {
-  $('#levelsGrid').innerHTML = cfg.brain.rtp.map((rtp, i) => `<button type="button" data-b="${i + 1}" aria-pressed="${i + 1 === myLevel()}"><img src="assets/brainer-${i + 1}.png" alt=""><b>Level ${i + 1}</b><span>${cfg.brain.on ? `RTP ${rtp.toFixed(2)}%` : `${cfg.brain.cells[i].toLocaleString('en-US')} cells`}</span></button>`).join('');
+function renderPicker() {   // your Brainer: level, progress, the ten looks, and the worlds it has unlocked
+  const L = myLevel(), st = stageOf(L);
+  $('#pickLevel').textContent = L; $('#pickSlider').value = L;
+  $('#pickNote').textContent = L < 100 ? `${Math.floor(S.cells - CELLS[L]).toLocaleString('en-US')} of ${(CELLS[L + 1] - CELLS[L]).toLocaleString('en-US')} brain cells to level ${L + 1}` : 'Top level reached';
+  $('#levelsGrid').innerHTML = Array.from({ length: 10 }, (_, i) => `<button type="button" data-b="${i * 10 + 1}" aria-pressed="${i + 1 === st}"${i + 1 > st ? ' class="ahead"' : ''}><img src="assets/brainer-${i + 1}.png" alt=""><b>Stage ${i + 1}</b><span>Levels ${i * 10 + 1}–${i * 10 + 10}</span></button>`).join('');
+  $('#worldsPick').innerHTML = [['fields', 'Lavender fields', 1], ...UNLOCKS.map(u => [u.world, u.name, u.at])].map(([k, n, at]) => `<button type="button" data-w="${k}" aria-pressed="${k === worldKey}"${L < at ? ' disabled' : ''}><b>${n}</b><span>${L < at ? `Level ${at}` : k === worldKey ? 'Flying here' : 'Unlocked'}</span></button>`).join('');
 }
 function renderLadder() {
-  const r = round, d = r ? r.d : LEVELS[S.level], rtp = r ? r.rtp : rtpOf(myLevel()), n = r && r.status !== 'crashed' ? r.n : 0, live = inFlight();
+  const r = round, d = r ? r.d : LEVELS[S.level], rtp = cfg.rtp, n = r && r.status !== 'crashed' ? r.n : 0, live = inFlight();
   const el = $('#ladder');
   el.innerHTML = Array.from({ length: d.steps }, (_, i) => `<span class="rung ${i < n ? 'done' : i === n && live ? 'next' : ''}">${fxShort(multAt(d, i + 1, rtp))}</span>`).join('');
   const nx = el.querySelector('.next') || el.querySelectorAll('.done')[n - 1];
@@ -1160,7 +1246,9 @@ function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = fals
 function closeSheet(id) { $(id).hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
 $('#pilot').addEventListener('click', () => { renderPicker(); openSheet('#picker'); });
 $('#pickerClose').addEventListener('click', () => closeSheet('#picker'));
-$('#levelsGrid').addEventListener('click', e => { const b = e.target.closest('button[data-b]'); if (!b) return; setBrainLevel(+b.dataset.b); closeSheet('#picker'); if (inFlight()) toast('This flight keeps the RTP it started with.'); });
+$('#levelsGrid').addEventListener('click', e => { const b = e.target.closest('button[data-b]'); if (b) setBrainLevel(+b.dataset.b); });
+$('#pickSlider').addEventListener('input', e => setBrainLevel(+e.target.value));
+$('#worldsPick').addEventListener('click', e => { const b = e.target.closest('button[data-w]'); if (!b || b.disabled) return; setWorld(b.dataset.w); store.set('brainer.world', worldKey); renderPicker(); });
 $('#help').addEventListener('click', () => openSheet('#tutorial'));
 $('#fair').addEventListener('click', () => { renderFair(); openSheet('#fairSheet'); });
 $('#fairClose').addEventListener('click', () => closeSheet('#fairSheet'));
@@ -1182,9 +1270,8 @@ $('#levels').addEventListener('click', e => {
   const b = e.target.closest('button[data-l]'); if (!b || inFlight()) return;
   S.level = +b.dataset.l; renderLevels(); renderControls();
   const now = performance.now();
-  round = null; recenter(); setTrack(LEVELS[S.level], 0, rtpOf(myLevel())); plane.brain = myLevel();
+  round = null; outro = null; chute = null; wipe = null; recenter(); setTrack(LEVELS[S.level], 0, cfg.rtp); plane.brain = myLevel(); park();
   if (iris) iris.out = now;
-  if (chute) chute.leave = now;
   if (plane.state !== 'cruise') { plane.state = 'enter'; plane.t0 = now; }
   $('#pilot').classList.remove('sooty');
   renderLadder();
@@ -1215,7 +1302,8 @@ document.addEventListener('keydown', e => {
 for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { lastInput = performance.now(); }, true);
 {
   const q = new URLSearchParams(location.search), sw = $('#worlds');
-  setWorld(q.get('world'));
+  const saved = store.get('brainer.world', ''), ok = k => k === 'fields' || UNLOCKS.some(u => u.world === k && myLevel() >= u.at);
+  setWorld(q.get('world') || (ok(saved) ? saved : 'fields'));
   if (q.has('worlds') || q.has('world')) {
     sw.hidden = false;
     sw.addEventListener('click', e => { const b = e.target.closest('button[data-w]'); if (!b) return; setWorld(b.dataset.w); q.set('world', worldKey); history.replaceState(null, '', '?' + q.toString()); });
@@ -1224,8 +1312,18 @@ for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () =>
 S.client = randHex(8);
 rotateSeed();
 setStake(S.stake); renderLevels(); renderPaths(); renderBalance(); renderControls(); renderPilot(); renderSound();
-layout(); plane.brain = myLevel(); setTrack(LEVELS[S.level], 0, rtpOf(myLevel())); renderLadder();
-if (store.get('blink.age-ok', '') !== '1') openSheet('#agegate');
-else if (store.get('brainer.pc.tutorial', '') !== 'seen') openSheet('#tutorial');
+layout(); plane.brain = myLevel(); setTrack(LEVELS[S.level], 0, cfg.rtp); park(); renderLadder();
+// The Brainer intro plays first (logo motion and loading); the 18+ check and the tutorial follow it.
+const bootT = performance.now();
+function loadProgress() {   // fonts, the robot art and the 3D engine; a slow network never holds the player past 9 s
+  if (performance.now() - bootT > 9000) return 1;
+  const art = BLANK.filter(im => im.complete).length / BLANK.length, font = !document.fonts || document.fonts.status === 'loaded' ? 1 : 0;
+  const three = b3 === false || has3D() ? 1 : window.Brainer3D ? 0.6 : 0;
+  return (art + font + three * 2) / 4;
+}
+(window.BrainerIntro ? window.BrainerIntro.start({ title: 'Plane Crash', progress: loadProgress }) : Promise.resolve()).then(() => {
+  if (store.get('blink.age-ok', '') !== '1') openSheet('#agegate');
+  else if (store.get('brainer.pc.tutorial', '') !== 'seen') openSheet('#tutorial');
+});
 requestAnimationFrame(loop);
 })();
