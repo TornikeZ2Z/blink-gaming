@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#5b4af6">
+<meta name="theme-color" content="#0a1322">
 <meta name="description" content="FogRush by Brainer Games: walk your Brainer across islands hidden in the clouds, find chests, dodge bombs and cash out any time. Demo with play money.">
 <title>FogRush · Brainer Games</title>
 <link rel="icon" href="assets/favicon.png">
@@ -17,7 +17,7 @@
   <section class="stage" id="stage" aria-label="The cloud islands">
     <div class="nogl" id="nogl" hidden><b>FogRush needs 3D graphics (WebGL)</b><span>Turn on hardware acceleration in your browser, or try another browser.</span></div>
     <header class="hud">
-      <div class="brand"><img src="assets/logo-white.png" alt="Brainer Games" class="logo"><span class="t1">FogRush<small>BRAINER GAMES</small></span></div>
+      <div class="brand"><img src="assets/logo-white.png" alt="Brainer Games" class="logo"><span class="t1">FogRush</span></div>
       <div class="hud-right">
         <button type="button" class="round" id="fair" aria-label="Provably fair: check your rounds" aria-haspopup="dialog" aria-controls="fairSheet"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button type="button" class="round" id="help" aria-label="How to play"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></svg></button>
@@ -33,7 +33,12 @@
         <span class="pnote" id="pnote"></span>
       </span>
     </button>
-    <div class="banner" id="banner" aria-live="polite"><b id="bTitle"></b><span id="bSub"></span></div>
+    <div class="readout" id="readout" aria-live="polite">
+      <span class="label" id="label"></span>
+      <span class="mult" id="mult"></span>
+      <span class="sub" id="sub" hidden></span>
+    </div>
+    <div class="ladder" id="ladder" aria-label="Chests on the islands"></div>
     <div class="levelup" id="levelup" hidden><img id="luImg" alt=""><b id="luTitle"></b><span id="luSub"></span></div>
     <div class="curtain" id="curtain" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
 
@@ -76,12 +81,7 @@
     </div>
   </section>
 
-  <aside class="side" aria-label="Game controls">
-    <div class="mult" id="multCard">
-      <span class="lab" id="mLabel">TOP WIN · $10,000</span>
-      <div class="big-m" id="mult">1.00×</div>
-      <div class="pay" id="pay">Bet <b>$10.00</b></div>
-    </div>
+  <section class="controls" aria-label="Game controls">
     <div class="setup" id="setup">
       <div class="field">
         <label for="amt">Bet, USD</label>
@@ -92,23 +92,26 @@
         </div>
         <div class="chips" id="chips"><button type="button" data-chip="min">Min</button><button type="button" data-chip="half">½</button><button type="button" data-chip="dbl">2×</button><button type="button" data-chip="max">Max</button></div>
       </div>
-      <div class="field auto">
-        <label for="autoSel">Auto cash-out</label>
-        <select id="autoSel"><option value="0">Off</option><option value="1.5">at 1.50×</option><option value="2">at 2.00×</option><option value="3">at 3.00×</option><option value="5">at 5.00×</option><option value="10">at 10.00×</option><option value="25">at 25.00×</option><option value="100">at 100.00×</option></select>
+      <div class="field">
+        <span class="flabel">Auto cash-out</span>
+        <div class="auto" id="auto" role="group" aria-label="Auto cash-out">
+          <button type="button" data-a="0"><b>Off</b><span>you decide</span></button><button type="button" data-a="1.5"><b>1.5×</b><span>auto</span></button><button type="button" data-a="2"><b>2×</b><span>auto</span></button><button type="button" data-a="3"><b>3×</b><span>auto</span></button>
+          <button type="button" data-a="5"><b>5×</b><span>auto</span></button><button type="button" data-a="10"><b>10×</b><span>auto</span></button><button type="button" data-a="25"><b>25×</b><span>auto</span></button><button type="button" data-a="100"><b>100×</b><span>auto</span></button>
+        </div>
       </div>
       <button type="button" class="big play" id="play"><span class="l1">Play</span><span class="l2" id="playSub"></span></button>
     </div>
     <div class="explore" id="explore" hidden>
-      <button type="button" class="big cash" id="cash" disabled><span class="l1">Cash out</span><span class="l2" id="cashSub">after your first new tile</span></button>
+      <div class="stats"><div><b id="sTiles">0</b><span>new tiles</span></div><div><b id="sChests">0</b><span>chests</span></div><div><b>8%</b><span>bomb per new tile</span></div></div>
       <div class="pad" id="pad" aria-label="Move your Brainer">
         <span></span><button type="button" data-d="N" aria-label="Move up">↑</button><span></span>
         <button type="button" data-d="W" aria-label="Move left">←</button><span class="pad-c" aria-hidden="true"></span><button type="button" data-d="E" aria-label="Move right">→</button>
         <span></span><button type="button" data-d="S" aria-label="Move down">↓</button><span></span>
       </div>
-      <div class="stats"><div><b id="sTiles">0</b><span>new tiles</span></div><div><b id="sChests">0</b><span>chests found</span></div><div><b>8%</b><span>bomb per new tile</span></div></div>
+      <button type="button" class="big cash" id="cash" disabled><span class="l1">Cash out</span><span class="l2" id="cashSub">after your first new tile</span></button>
     </div>
-    <p class="foot">Demo with play money · RTP 98% · Arrows or WASD move · C cashes out · Enter plays</p>
-  </aside>
+  </section>
+  <p class="foot">Demo with play money · RTP 98% · Arrows or WASD move · C cashes out · Enter plays</p>
 </main>
 <div class="toast" id="toast" role="status"></div>
 <script type="importmap">{"imports":{"three":"../shared/vendor/three.module.min.js"}}</script>

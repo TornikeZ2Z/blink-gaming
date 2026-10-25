@@ -382,7 +382,7 @@ async function play() {
   if (S.stake < cfg.minBet || S.stake > cfg.maxBet) { toast(`Bet between ${money(cfg.minBet)} and ${money(cfg.maxBet)}.`); return; }
   if (S.stake > S.balance) { toast('Not enough demo balance for this bet. Lower it or press Reset.'); return; }
   starting = true; flushLevelUp(); renderControls();
-  const r = { stake: S.stake, auto: S.auto, seed: S.seed, hash: S.hash, client: S.client, nonce: S.nonce++, status: 'explore', m: cfg.rtp / 100, tiles: 0, chests: 0, path: [[C, C]], seen: new Set([idx(C, C)]), payout: 0 };
+  const r = { stake: S.stake, auto: S.auto, seed: S.seed, hash: S.hash, client: S.client, nonce: S.nonce++, status: 'explore', m: cfg.rtp / 100, tiles: 0, chests: 0, found: [0, 0, 0, 0, 0], path: [[C, C]], seen: new Set([idx(C, C)]), payout: 0 };
   try { r.map = await drawMap(r.seed, r.client, r.nonce); } finally { starting = false; }
   S.balance -= r.stake; round = r;
   react('hop', "Let's explore!"); feel('wink', 900); sound.start();
@@ -408,7 +408,7 @@ function land(x, y, fresh) {
   if (out < 0) { bust(x, y); return; }
   decorate(x, y);
   r.tiles++; r.m *= BASE * (out > 0 ? cfg.chests[out - 1].f : 1);
-  if (out > 0) { r.chests++; chest(x, y, out, now); sound.chest(out); feel(cfg.chests[out - 1].ex, out >= 4 ? 1800 : 1100); react('pop', `${cfg.chests[out - 1].name}! ×${cfg.chests[out - 1].f}`); banner(`${cfg.chests[out - 1].name}! ×${cfg.chests[out - 1].f}`, `Multiplier now ${fx(multOf(r))}`, out >= 3 ? 'hot' : '', 1800); }
+  if (out > 0) { r.chests++; chest(x, y, out, now); sound.chest(out); feel(cfg.chests[out - 1].ex, out >= 4 ? 1800 : 1100); react('pop', `${cfg.chests[out - 1].name}! ×${cfg.chests[out - 1].f}`); r.found[out - 1]++; say(`${cfg.chests[out - 1].name}! ×${cfg.chests[out - 1].f}`, 1800); }
   else { sound.plain(); feel('phew', 500); sparkle(x, y); }
   bumpMult();
   const pay = r.stake * multOf(r);
@@ -433,14 +433,12 @@ function cashOut(auto, why) {
   spray(holder.position.clone().add(new THREE.Vector3(0, 1.4, 0)), m >= 10 ? 40 : 24, 1.8, 5);
   if (m >= 10) rain(holder.position, m >= 100 ? 200 : 130);
   if (auto) toast(why === 'max' ? `Max win of ${money(cfg.maxWin)} reached, so your Brainer cashed out.` : `Auto cash-out at ${fx(r.auto)}.`);
-  banner(`You won ${money(r.payout)}`, `Cashed out at ${fx(m)} after ${r.tiles} new tile${r.tiles === 1 ? '' : 's'}`, m >= 10 ? 'win hot' : 'win', 0);
   settle(3400);
 }
 function bust(x, y) {
   const r = round; r.status = 'bust';
   bombAt(x, y);
   $('#pilot').classList.add('sooty'); setTimeout(() => react('shake', 'Ouch!'), 560);
-  banner('Ka-boom!', `A bomb on a new tile · −${money(r.stake)}`, 'bust', 0);
   settle(3900);
 }
 let resetT = 0;
@@ -495,7 +493,7 @@ function earnFloat(k) {
   if (reduced) return;
   const sr = stage.getBoundingClientRect(), pr = $('#pilot .ava').getBoundingClientRect();
   const el = document.createElement('span'); el.className = 'earn'; el.textContent = `+${k} brain cells`;
-  const x0 = sr.width / 2 - 50, y0 = sr.height * 0.42; el.style.left = x0 + 'px'; el.style.top = y0 + 'px'; stage.appendChild(el);
+  const x0 = sr.width / 2 - 50, y0 = sr.height * 0.5; el.style.left = x0 + 'px'; el.style.top = y0 + 'px'; stage.appendChild(el);
   const dx = pr.left - sr.left + pr.width / 2 - x0, dy = pr.top - sr.top + pr.height / 2 - y0;
   el.animate([{ transform: 'translate(0,0)', opacity: 0 }, { transform: 'translate(0,-24px)', opacity: 1, offset: 0.25 }, { transform: `translate(${dx}px,${dy}px) scale(.5)`, opacity: 0.2 }], { duration: 1200, easing: 'cubic-bezier(.5,0,.3,1)' }).onfinish = () => el.remove();
 }
@@ -601,42 +599,43 @@ $('#amt').addEventListener('change', () => setStake(parseFloat($('#amt').value))
 $('#dec').addEventListener('click', () => setStake(S.stake - (S.stake > 10 ? 1 : 0.5)));
 $('#inc').addEventListener('click', () => setStake(S.stake + (S.stake >= 10 ? 1 : 0.5)));
 $('#chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const c = b.dataset.chip; setStake(c === 'min' ? cfg.minBet : c === 'max' ? Math.min(cfg.maxBet, Math.floor(S.balance * 100) / 100) : c === 'half' ? S.stake / 2 : S.stake * 2); });
-$('#autoSel').addEventListener('change', e => { S.auto = +e.target.value; store.set('brainer.fr.auto', String(S.auto)); });
+$('#auto').addEventListener('click', e => { const b = e.target.closest('button[data-a]'); if (!b) return; S.auto = +b.dataset.a; store.set('brainer.fr.auto', String(S.auto)); renderAll(); });
 $('#play').addEventListener('click', play);
 $('#cash').addEventListener('click', () => cashOut(false));
 $('#sound').addEventListener('click', () => { sound.toggle(); renderSound(); });
 $('#refill').addEventListener('click', () => { if (round) { toast('Finish this round first.'); return; } S.balance = cfg.startBalance; renderAll(); toast(`Demo balance reset to ${money(cfg.startBalance)}.`); });
 
-let bannerT = 0, bannerLock = 0;
-function banner(title, sub, cls, ms) {
-  $('#bTitle').textContent = title; $('#bSub').textContent = sub; $('#banner').className = 'banner ' + (cls || '');
-  clearTimeout(bannerT); bannerLock = ms ? performance.now() + ms : 0;
-  if (ms) bannerT = setTimeout(() => { bannerLock = 0; renderBanner(); }, ms);
-}
-function renderBanner() {
-  if (bannerLock && performance.now() < bannerLock) return;
-  const r = round;
-  if (r && r.status !== 'explore') return;   // the result stays up until the next round
-  if (!r) banner('Find chests, dodge bombs', 'Each new tile: 8% bomb · chests ×1.3 to ×25', '', 0);
-  else if (!r.tiles) banner('Pick a direction', 'Every new tile clears the clouds', '', 0);
-  else banner(`${r.tiles} new tile${r.tiles === 1 ? '' : 's'} · next pays ${fx(Math.floor(r.m * BASE * 100 + 1e-7) / 100)} or more`, 'Cleared tiles are safe to cross', '', 0);
-}
+// The readout over the stage, as in Plane Crash: a label, the big multiplier, and a line under it.
+let sayT = 0, sayText = '';
+function say(text, ms) { sayText = text; clearTimeout(sayT); sayT = setTimeout(() => { sayText = ''; renderAll(); }, ms); renderAll(); }
 function bumpMult() { const el = $('#mult'); el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+const CHEST_COL = ['#e8b25c', '#d9e1f2', '#ffc147', '#8447fb', '#14a596'];
 function renderAll() {
-  const r = round;
+  const r = round, m = r ? multOf(r) : 1;
   $('#balance').textContent = money(S.balance);
   $('#setup').hidden = !!r; $('#explore').hidden = !r;
   $('#playSub').textContent = `${money(S.stake)} · 98% RTP`; $('#play').disabled = starting;
-  const m = r ? multOf(r) : 1, el = $('#mult');
-  if (!r) { $('#mLabel').textContent = `TOP WIN · ${money(cfg.maxWin)}`; el.textContent = '1.00×'; el.className = 'big-m idle'; $('#pay').innerHTML = `Bet <b>${money(S.stake)}</b>`; }
-  else if (r.status === 'bust') { $('#mLabel').textContent = 'KA-BOOM'; el.textContent = 'Lost'; el.className = 'big-m bust'; $('#pay').innerHTML = `Bet <b>${money(r.stake)}</b> · next round in a moment`; }
-  else { $('#mLabel').textContent = r.status === 'cashed' ? 'CASHED OUT' : 'MULTIPLIER'; el.textContent = fx(r.tiles ? m : 1); el.className = 'big-m'; $('#pay').innerHTML = r.status === 'cashed' ? `You won <b>${money(r.payout)}</b>` : `${money(r.stake)} → <b>${money(Math.min(r.stake * (r.tiles ? m : 1), cfg.maxWin))}</b>`; }
+  let label, big, bigCls = 'mult', sub = '', subCls = 'sub';
+  if (!r) { label = 'Chests up to ×25 · 8% bombs'; big = '1.00×'; bigCls = 'mult idle'; sub = 'Set your bet and press Play'; }
+  else if (r.status === 'explore') {
+    label = sayText || (r.tiles ? `${r.tiles} new tile${r.tiles === 1 ? '' : 's'} · cleared tiles are safe` : 'Pick a direction');
+    big = fx(r.tiles ? m : 1); if (sayText) bigCls = 'mult gold';
+    sub = r.tiles ? `Cash out ${money(Math.min(r.stake * m, cfg.maxWin))} · next ${fx(Math.floor(r.m * BASE * 100 + 1e-7) / 100)}+` : 'Every new tile clears the clouds';
+  } else if (r.status === 'bust') { label = 'Ka-boom!'; big = 'Lost'; bigCls = 'mult bust'; sub = `A bomb on a new tile · −${money(r.stake)}`; subCls = 'sub bad'; }
+  else { label = m >= 100 ? 'Huge win!' : m >= 10 ? 'Big win!' : `Cashed out after ${r.tiles} new tile${r.tiles === 1 ? '' : 's'}`; big = fx(m); bigCls = m >= 10 ? 'mult win gold' : 'mult win'; sub = `You won ${money(r.payout)}`; subCls = 'sub ok'; }
+  const lab = $('#label'), mul = $('#mult');
+  lab.textContent = label; lab.className = 'label' + (sayText || /win!$/.test(label) ? ' gold' : '');
+  if (mul.textContent !== big) mul.textContent = big;
+  mul.className = bigCls + (mul.classList.contains('pop') ? ' pop' : '');
+  $('#sub').hidden = !sub; $('#sub').textContent = sub; $('#sub').className = subCls;
+  $('#ladder').innerHTML = cfg.chests.map((c, i) => `<span class="rung chest${r && r.found[i] ? ' found' : ''}" style="--c:${CHEST_COL[i]}"><i></i>${c.name.replace(' chest', '')} ×${c.f}${r && r.found[i] > 1 ? ` (${r.found[i]})` : ''}</span>`).join('');
   const cash = $('#cash');
   cash.disabled = !r || r.status !== 'explore' || r.tiles < 1;
   $('#cashSub').textContent = r && r.status === 'cashed' ? 'Paid' : r && r.status === 'bust' ? '—' : !r || r.tiles < 1 ? 'after your first new tile' : money(Math.min(r.stake * m, cfg.maxWin));
   $('#sTiles').textContent = r ? r.tiles : 0; $('#sChests').textContent = r ? r.chests : 0;
   pad.querySelectorAll('button').forEach(b => { b.disabled = !r || r.status !== 'explore'; });
-  renderBanner(); renderPilot();
+  document.querySelectorAll('#auto button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.a === S.auto)));
+  renderPilot();
 }
 const renderControls = renderAll;
 function renderPilot() {
@@ -709,7 +708,7 @@ document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e =
 /* ---------- boot ---------- */
 S.client = randHex(8);
 rotateSeed();
-S.auto = +store.get('brainer.fr.auto', '0') || 0; $('#autoSel').value = String(S.auto);
+S.auto = +store.get('brainer.fr.auto', '0') || 0; if (![0, 1.5, 2, 3, 5, 10, 25, 100].includes(S.auto)) S.auto = 0;
 setStake(S.stake); renderSound(); resetClouds(); placeWalker(); layout(); renderAll();
 requestAnimationFrame(loop);
 const bootT = performance.now();
