@@ -10,6 +10,12 @@
 <link rel="icon" href="assets/brainer/logo/favicon.png">
 <link rel="preload" href="assets/fonts/firago/FiraGO-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/site.css">
+<script>
+// The hero's 3D Brainer comes from the games' shared folder: /shared/ when published, ../shared/ in the repo. The import
+// map has to exist before the first module script, so it is written here; its addresses must start with ./ or ../.
+window.BRAINER_SHARED = location.pathname.includes('/Website/') ? '../shared/' : './shared/';
+(m => { m.type = 'importmap'; m.textContent = JSON.stringify({ imports: { three: BRAINER_SHARED + 'vendor/three.module.min.js' } }); document.currentScript.after(m); })(document.createElement('script'));
+</script>
 </head>
 <body data-page="home">
 <header id="site-header"></header>
@@ -28,9 +34,8 @@
           </div>
           <div class="hero-stats" data-hero-stats></div>
         </div>
-        <div class="halo">
-          <img src="assets/brainer/robots/10.png" alt="The Brainer's look for brain levels 91 to 100">
-          <span class="badge"><i></i>Brain levels 91–100</span>
+        <div class="brainer3d" id="brainer3d">
+          <img class="still" src="assets/brainer/robots/10.png" alt="The Brainer, the character that grows with every player" hidden>
         </div>
       </div>
     </div>
@@ -106,5 +111,6 @@
 <footer id="site-footer"></footer>
 <script src="assets/js/data.js"></script>
 <script src="assets/js/site.js"></script>
+<script type="module" src="assets/js/hero-3d.js"></script>
 </body>
 </html>

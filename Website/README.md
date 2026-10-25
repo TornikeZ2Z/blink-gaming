@@ -16,13 +16,15 @@ Then open http://localhost:5174/Website/. In Claude Code the `website` entry in 
 
 | File | What it is |
 |---|---|
-| `index.html` | Home: core message, the six selling points, Brain cells (the ten robot levels, with the visitor's own Brainer marked once they have played), games, the three steps to go live, fairness sample, call to request a demo. The hero numbers sum up the live games in `data.js` |
+| `index.html` | Home: core message with the live 3D Brainer, the six selling points, Brain cells (the ten robot levels, with the visitor's own Brainer marked once they have played), games, the three steps to go live, fairness sample, call to request a demo. The hero numbers sum up the live games in `data.js` |
 | `games.html` | Every game from the catalogue |
 | `game.html?g=<id>` | One game: playable demo with full screen, how to play, the odds (Plane Crash: difficulties with bombs, paths, first and top multipliers; FogRush: every tile type with its chance and multiplier), fairness and specs |
 | `operators.html` | Skins, promo tools, player-facing qualities, compliance status, integration routes |
 | `fairness.html` | How provably fair works, with a working SHA-256 checker |
 | `contact.html` | Demo request form (not connected yet; says so and keeps what was typed) |
 | `responsible-gaming.html`, `terms.html`, `privacy.html` | Short legal pages for the demo stage |
+
+The home hero's 3D Brainer is the game team's component `shared/brainer-showcase.js` (model `shared/models/brainer.glb`, three.js from `shared/vendor/`), mounted by `assets/js/hero-3d.js`: its screen switches on, it grows through the ten stages (Baby to Master), and visitors pick stages and faces, switch it off and on and turn it. An inline script in `index.html` points the `three` import map and the component at `shared/` when published or `../shared/` in the repo. Without WebGL the robot still in the markup shows instead. `window.brainer3d` exposes `setStage`, `setFace` and `setPower` for other parts of the page.
 
 Header, footer, menu drawer and the 18+ check are drawn by `assets/js/site.js` on every page. Any element with `data-games` fills itself with game cards, `data-ladder` with the ten robots and `data-tiers` with the five level colours.
 
