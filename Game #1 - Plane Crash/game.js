@@ -258,7 +258,7 @@ function layout() {
   W = stage.clientWidth; H = stage.clientHeight; dpr = Math.min(2, window.devicePixelRatio || 1);
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   F = H * 0.95; HY = H * 0.4; PX = W / 2; PY = H * 0.74;
-  PS = clamp(Math.min(W / 900, H / 560), 0.45, 1);
+  PS = clamp(Math.min(W / 900, H / 560), 0.45, 1.25);
   const dx = Math.min(W * 0.17, 170);   // gap between waiting gates on screen
   SPREAD = dx * Z_WAIT / F; RING = Math.min(dx * 0.34, 56) * Z_WAIT / F;
   paintSky();
