@@ -133,23 +133,24 @@ function faceAround(g, fx, t) {   // sparkles, hearts, exclamation marks and zZ 
 function drawScreenFace(g, L, ex, t, o = {}) {
   const spec = ex === 'rest' ? restFace(L) : EXPR[ex] || restFace(L), k = Math.abs(g.getTransform().a);
   const pop = o.since == null ? 1 : easeBack(clamp((t - o.since) / 220, 0, 1));
+  const [cw, ch] = o.clip || [280, 128], glasses = L >= 9;
   g.save(); g.scale(0.8 + 0.2 * pop, 0.8 + 0.2 * pop);
-  g.save(); g.beginPath(); g.roundRect(-140, -64, 280, 128, 30); g.clip();
+  g.save(); g.beginPath(); g.roundRect(-cw / 2, -ch / 2, cw, ch, 30); g.clip();
   g.strokeStyle = g.fillStyle = '#ffffff'; g.lineWidth = 13; g.lineCap = g.lineJoin = 'round';
   g.shadowColor = 'rgba(255,255,255,.75)'; g.shadowBlur = 18 * k;
   const visorCol = o.visorCol || (L >= 9 ? '#7c4bf6' : L >= 3 ? '#3a26f2' : '#3d4cf2');
   const blink = OPEN_EYES.includes(Array.isArray(spec.eyes) ? spec.eyes[0] : spec.eyes) && !reduced && (t + L * 997) % 3800 < 130;
   const eo = { lookX: spec.look ? o.lookX || 0 : o.lookX * 0.4 || 0, lookY: spec.lookUp ? -0.9 : spec.look ? o.lookY || 0 : 0, pupil: spec.pupil, visorCol };
   [-1, 1].forEach((sd, i) => { const e = Array.isArray(spec.eyes) ? spec.eyes[i] : spec.eyes; faceEye(g, blink && OPEN_EYES.includes(e) ? 'blink' : e, sd, t, eo); });
-  if (spec.brows) faceBrows(g, spec.brows, t);
-  faceMouth(g, spec.mouth, t);
+  if (spec.brows) { g.save(); if (glasses) g.translate(0, -16); faceBrows(g, spec.brows, t); g.restore(); }   // above the frames
+  g.save(); if (glasses) g.translate(0, 10); faceMouth(g, spec.mouth, t); g.restore();   // below the frames
   faceFx(g, spec.fx || [], t, k);
   g.restore();
   if (L >= 9) {   // the glasses of the top levels; they slip when the Brainer gets a fright
     g.save(); if (spec.tilt) { g.rotate(0.14); g.translate(0, 8); }
     g.strokeStyle = '#ffffff'; g.lineWidth = 11; g.shadowColor = 'rgba(255,255,255,.75)'; g.shadowBlur = 14 * k;
-    for (const sd of [-1, 1]) { g.beginPath(); g.roundRect(sd * 76 - 48, -46, 96, 66, 24); g.stroke(); }
-    g.beginPath(); g.moveTo(-28, -22); g.quadraticCurveTo(0, -36, 28, -22); g.stroke();
+    for (const sd of [-1, 1]) { g.beginPath(); g.roundRect(sd * 76 - 54, -54, 108, 86, 28); g.stroke(); }   // frames roomy enough for wide or starry eyes
+    g.beginPath(); g.moveTo(-22, -24); g.quadraticCurveTo(0, -38, 22, -24); g.stroke();
     g.restore();
   }
   g.restore();

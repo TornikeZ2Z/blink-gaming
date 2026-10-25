@@ -329,8 +329,9 @@ function drawPilot(now) {   // the live portrait in the HUD
 function brainerURL(L, ex) {
   const c = document.createElement('canvas'); c.width = c.height = 200; const g = c.getContext('2d'), now = performance.now();
   if (has3D()) {   // a fresh render of the front view, copied straight away
-    b3.front.setLevel(L); for (let i = 0; i < 30; i++) b3.front.update(now + i * 16, ex, { reduced });
-    b3.stage.draw(b3.front, b3.A, 0, b3.B, b3.B, 'hero'); blit3D(g, 'B', 100, 100, 210);
+    const snap = b3.snap || (b3.snap = new window.Brainer3D.Brainer(L));   // its own Brainer, so the live one keeps its pose
+    snap.setLevel(L); for (let i = 0; i < 30; i++) snap.update(now + i * 16, ex, { reduced });
+    b3.stage.draw(snap, b3.A, 0, b3.B, b3.B, 'hero'); blit3D(g, 'B', 100, 100, 210);
   } else drawBrainer(g, 100, 100, 200, L, ex, now);
   return c.toDataURL();
 }

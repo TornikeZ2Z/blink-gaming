@@ -13,7 +13,7 @@ const LEVEL = [
   ['#ed2b4b', '#ed6b6b', 14, ['#4a3bf5', '#5235ee'], '#ff3d5e'], ['#ed2b4b', '#ed6b6b', 17, ['#4a3bf5', '#5235ee'], '#ff3d5e'],
   ['#4b36fc', '#8447fb', 20, ['#7c4bf6', '#6a3ff5'], '#c58bff'], ['#4b36fc', '#8447fb', 24, ['#7c4bf6', '#6a3ff5'], '#c58bff']
 ];
-const SCREEN_W = 560, SCREEN_H = 210;
+const SCREEN_W = 600, SCREEN_H = 244;
 
 function rng(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
 const pearl = () => new THREE.MeshPhysicalMaterial({ color: 0xf7f5ff, roughness: 0.36, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.12, sheen: 1, sheenColor: new THREE.Color(0xc4b5ff), sheenRoughness: 0.45 });
@@ -41,9 +41,9 @@ export class Brainer {
     // the face screen: a band of a cylinder hugging the front, painted live from a canvas
     this.screenCanvas = document.createElement('canvas'); this.screenCanvas.width = SCREEN_W; this.screenCanvas.height = SCREEN_H;
     this.screenTex = new THREE.CanvasTexture(this.screenCanvas); this.screenTex.colorSpace = THREE.SRGBColorSpace; this.screenTex.anisotropy = 4;
-    this.screen = new THREE.Mesh(band(-0.22, 0.44, 0.008, -1.05, 2.1), new THREE.MeshBasicMaterial({ map: this.screenTex, transparent: true, toneMapped: false }));
+    this.screen = new THREE.Mesh(band(-0.36, 0.48, 0.008, -1.2, 2.4), new THREE.MeshBasicMaterial({ map: this.screenTex, transparent: true, toneMapped: false }));
     this.body.add(this.screen);
-    const gloss = new THREE.Mesh(band(-0.2, 0.42, 0.014, -1.0, 2.0), new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.1, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 2.4, depthWrite: false }));
+    const gloss = new THREE.Mesh(band(-0.34, 0.46, 0.014, -1.15, 2.3), new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.1, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 2.4, depthWrite: false }));
     this.body.add(gloss);   // glass over the screen catches the light
     // ribbed collar
     const collarMat = pearl(); this.mats.push(collarMat);
@@ -67,10 +67,20 @@ export class Brainer {
     const dome = new THREE.Mesh(domeGeo, new THREE.MeshPhysicalMaterial({ color: 0xf2eeff, transparent: true, opacity: 0.26, roughness: 0.03, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 2.4, depthWrite: false }));
     dome.position.y = 0.6; dome.scale.y = 0.94; dome.renderOrder = 2; this.body.add(dome);
     const rim = new THREE.Mesh(domeGeo, rimMaterial(0xe9e2ff, 2.4, 1.6)); rim.position.y = 0.6; rim.scale.set(1.002, 0.942, 1.002); rim.renderOrder = 3; this.body.add(rim);
+    const shine = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
+    const streak = new THREE.Mesh(new THREE.SphereGeometry(0.79, 32, 6, Math.PI / 2 - 1.05, 0.7, 0.42, 0.2), shine); streak.position.y = 0.6; streak.scale.y = 0.94; streak.renderOrder = 4; this.body.add(streak);   // a window reflection across the glass
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.79, 12, 4, Math.PI / 2 + 0.5, 0.12, 0.5, 0.09), shine); dot.position.y = 0.6; dot.scale.y = 0.94; dot.renderOrder = 4; this.body.add(dot);
+    this.mist = new THREE.Mesh(new THREE.SphereGeometry(0.52, 32, 20), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false }));
+    this.mist.position.y = 0.86; this.mist.scale.y = 0.72; this.mist.renderOrder = 1; this.body.add(this.mist);   // the brain's glow fills the dome
     this.domeLight = new THREE.PointLight(0xffffff, 1.2, 1.6, 2); this.domeLight.position.set(0, 0.95, 0); this.body.add(this.domeLight);
     // floating mitten hands and feet
     const handGeo = new THREE.SphereGeometry(0.17, 32, 24);
-    this.hands = [-1, 1].map(sd => { const h = new THREE.Mesh(handGeo, mat); h.scale.set(0.9, 1.3, 0.78); h.userData.sd = sd; this.root.add(h); return h; });
+    const thumbGeo = new THREE.SphereGeometry(0.075, 20, 14);
+    this.hands = [-1, 1].map(sd => {
+      const h = new THREE.Mesh(handGeo, mat); h.scale.set(0.9, 1.3, 0.78); h.userData.sd = sd; this.root.add(h);
+      const th = new THREE.Mesh(thumbGeo, mat); th.position.set(-sd * 0.1, -0.02, 0.12); th.scale.set(0.85, 0.7, 1); h.add(th);   // a mitten thumb on the inner side
+      return h;
+    });
     const footGeo = new THREE.SphereGeometry(0.2, 32, 16);
     this.feet = [-1, 1].map(sd => { const f = new THREE.Mesh(footGeo, mat); f.scale.set(1.25, 0.46, 0.92); f.position.set(sd * 0.33, -1.12, 0.06); this.root.add(f); return f; });
     // a soft contact shadow for standalone views
@@ -94,6 +104,8 @@ export class Brainer {
       const r = 0.06 + rnd() * (0.06 + L * 0.008);
       nodes.push({ p, r });
     }
+    this.links = [];
+    const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
     nodes.forEach((a, i) => {
       const m = new THREE.Mesh(new THREE.SphereGeometry(a.r, 24, 16), nm); m.position.copy(a.p); m.userData.base = a.r; m.userData.i = i; this.brain.add(m);
       if (i === 0) return;
@@ -101,8 +113,9 @@ export class Brainer {
       const b = nodes[best].p, mid = a.p.clone().add(b).multiplyScalar(0.5), dir = b.clone().sub(a.p);
       const syn = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, dir.length(), 8), new THREE.MeshStandardMaterial({ color: c1, emissive: new THREE.Color(c1), emissiveIntensity: 0.4, roughness: 0.4 }));
       syn.position.copy(mid); syn.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()); this.brain.add(syn);
+      const sp = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), sparkMat); this.brain.add(sp); this.links.push({ a: a.p, b, sp, ph: i * 0.37 });   // a spark running along it
     });
-    this.domeLight.color.set(c2);
+    this.domeLight.color.set(c2); this.mist.material.color.set(c2); this.mist.material.opacity = 0.07 + L * 0.012;
     const fg = this.floorCanvas.getContext('2d'), fr = fg.createRadialGradient(64, 64, 2, 64, 64, 64);
     fr.addColorStop(0, '#3b2f8f'); fr.addColorStop(0.6, '#241a63'); fr.addColorStop(1, '#140e40');
     fg.fillStyle = fr; fg.fillRect(0, 0, 128, 128);
@@ -117,20 +130,20 @@ export class Brainer {
   paintScreen(ex, t, o) {
     const g = this.screenCanvas.getContext('2d'), [, , , base, glow] = LEVEL[this.L - 1], W = SCREEN_W, H = SCREEN_H;
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
-    g.save(); g.beginPath(); g.roundRect(6, 6, W - 12, H - 12, 50); g.clip();
+    g.save(); g.beginPath(); g.roundRect(6, 6, W - 12, H - 12, 58); g.clip();
     const bg = g.createLinearGradient(0, 0, W, H); bg.addColorStop(0, base[0]); bg.addColorStop(1, base[1]); g.fillStyle = bg; g.fillRect(0, 0, W, H);
     const gl = g.createRadialGradient(W * 0.56, -20, 10, W * 0.56, -20, W * 0.5); gl.addColorStop(0, glow); gl.addColorStop(1, glow + '00'); g.fillStyle = gl; g.fillRect(0, 0, W, H);
     const edge = g.createLinearGradient(0, 0, 0, H); edge.addColorStop(0, 'rgba(10,6,50,.25)'); edge.addColorStop(0.18, 'rgba(10,6,50,0)'); edge.addColorStop(0.82, 'rgba(10,6,50,0)'); edge.addColorStop(1, 'rgba(10,6,50,.35)');
     g.fillStyle = edge; g.fillRect(0, 0, W, H);   // the screen sits a little into the body
-    g.translate(W / 2, H / 2 + 6); g.scale(1.42, 1.42);
-    if (window.BrainerFace) window.BrainerFace.drawScreenFace(g, this.L, ex, t, { ...o, visorCol: base[1] });
+    g.translate(W / 2, H / 2 + 2); g.scale(1.4, 1.4);   // the face gets a roomy area on the bigger screen, so nothing is clipped
+    if (window.BrainerFace) window.BrainerFace.drawScreenFace(g, this.L, ex, t, { ...o, visorCol: base[1], clip: [380, 164] });
     g.restore();
     this.screenTex.needsUpdate = true;
   }
   // Poses the body for an expression. o.lookX (-1..1) turns it toward a path; o.seat poses it in the cockpit with its
   // hands on the rim (o.side lifts one toward the hovered path); o.soot singes it after a crash; o.noFace skips the screen.
   update(t, ex, o = {}) {
-    const dt = Math.min(0.05, this.last ? (t - this.last) / 1000 : 0.016); this.last = t;
+    const dt = this.last && t > this.last ? Math.min(0.05, (t - this.last) / 1000) : 0.016; this.last = t;   // never negative, so the easing cannot overshoot
     const s = Math.sin, look = o.lookX || 0, k = 1 - Math.exp(-dt * 9);
     const T = { y: s(t / 520) * 0.04, lean: 0.02, tilt: s(t / 1300) * 0.03, turn: look * 0.18, sq: 1, hl: [-1.0, -0.08 + s(t / 430) * 0.04, 0.05, 0.35], hr: [1.0, -0.08 + s(t / 430 + 1) * 0.04, 0.05, -0.35] };
     const up = (h, x, y, z, r) => { h[0] = x; h[1] = y; h[2] = z; h[3] = r; };
@@ -171,6 +184,7 @@ export class Brainer {
     this.shadow.material.opacity = 1 - Math.max(0, P.y) * 2;
     const pulse = o.reduced ? 1 : 1 + s(t / 300) * 0.06;
     for (const m of this.brain.children) if (m.userData.base) { const q = pulse + s(t / 400 + m.userData.i) * 0.04; m.scale.setScalar(q); }
+    for (const l of this.links || []) { const q = ((t / 900) + l.ph) % 1; l.sp.position.lerpVectors(l.a, l.b, q); l.sp.material.opacity = Math.sin(q * Math.PI); }
     this.domeLight.intensity = 1.1 + (o.glow || 0) * 2.5;
     if (!o.noFace) this.paintScreen(ex, t, o);
   }
