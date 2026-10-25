@@ -1,36 +1,45 @@
-# Blink Gaming
+# Brainer Games
 
-Browser games, one folder per game.
+The Brainer Games studio website and its browser games, one folder per game. Everything is plain HTML, CSS and JavaScript with no build step.
 
-| Game | Folder | Status |
+| Folder | What it is | Published at |
 |---|---|---|
-| Plane Crash | `Game #1 - Plane Crash` | Concept build, demo credits only |
+| `Website` | B2B studio site for casinos and aggregators | `/` |
+| `Game #1 - Plane Crash` | Plane Crash demo, play money only | `/plane-crash/` |
 
-## Run a game locally
+On every push to `main`, `.github/workflows/pages.yml` publishes the website as the site root with the game next to it, so the site's game page embeds the demo from the same origin and both share the player's brain cells.
 
-Each game is plain HTML, CSS and JavaScript with no build step. Serve its folder and open the page:
+## Run it locally
+
+Serve the repo root so the website can reach the game folder, then open http://localhost:5174/Website/:
+
+```bash
+python -m http.server 5174
+```
+
+To work on the game alone, serve its folder and open http://localhost:5173:
 
 ```bash
 python -m http.server 5173 --directory "Game #1 - Plane Crash"
 ```
 
-Then open http://localhost:5173.
-
 ## Plane Crash
 
-The player's Brainer robot flies a plane toward five hoops while bombs fall ahead. At each step the player picks one of the five paths, or jumps out with a parachute to take the current win. A bomb on the chosen path ends the flight. Each flight is single-player and runs at the player's pace: no timers or shared rounds.
+The player's Brainer robot flies a plane toward five hoops while bombs fall ahead. At each step the player picks one of the five paths, or jumps out with a parachute to take the current win. A bomb on the chosen path ends the flight. Each flight is single-player and runs at the player's pace: no timers or shared rounds. All amounts are play-money US dollars: bets $0.10 to $200, max win $10,000 per flight.
 
-| Level | Paths to clear | First → top multiplier | Bomb chance per path |
+| Difficulty | Paths | First → top multiplier at 98% RTP | Bomb chance per path |
 |---|---|---|---|
-| Easy | 24 | 1.02× → 24.5× | 4% rising to 20% |
-| Medium | 22 | 1.11× → 2,254× | 12% rising to 44% |
-| Hard | 20 | 1.22× → 52,067× | 20% rising to 58% |
-| Hardcore | 15 | 1.60× → 3,203,385× | 39% rising to 78% |
+| Easy | 24 | 1.04× → 25× | 6% rising to 19% |
+| Medium | 22 | 1.11× → 400× | 12% rising to 34% |
+| Hard | 20 | 1.22× → 2,500× | 20% rising to 43% |
+| Hardcore | 15 | 1.60× → 10,000× | 39% rising to 52% |
 
-Step counts, first and top multipliers and the 98% RTP follow Chicken Road; the steps in between are fitted so jumping at any step returns 98%. Every path at every step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"), so the chosen path survives with the same odds whichever one is picked.
+The step counts and first multipliers follow Chicken Road; the tops were brought down from Chicken Road's to sensible values. The bomb chance rises with every step, fitted so that jumping out at any step returns the RTP. Every path at every step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"), so the chosen path survives with the same odds whichever one is picked. The shield button in the game shows the next flight's seed hash and re-checks the last flight: it re-hashes the revealed seed and redraws every bomb.
 
-### Brain cells
+### Brain levels
 
-Every path flown earns one brain cell, and cells raise the robot's brain level from 1 to 10 (thresholds in `cfg.brain`). The glass dome shows the level, using the ten Brainer characters in `assets/`. Each level can add a small boost to every multiplier, locked in when a flight starts: +0% at level 1 up to +1% at level 10. The boost is pending legal review; `cfg.brain.boostOn = false` turns it off and keeps the certified 98%. In this demo the cells live in the browser (`localStorage` key `brainer.cells`), shared by every game on the same site.
+Every path flown earns brain cells: stake × that step's bomb chance × 10. Cells follow the risk taken rather than the time spent, so grinding Easy is slow (a $10 Easy path earns about 6 cells, a $10 Hardcore path about 39). Ten levels need 0, 50, 150, 300, 550, 900, 1,400, 2,100, 3,000 and 4,200 cells (`cfg.brain.cells`).
 
-Flights are drawn in the browser so the math can be inspected. A production build must draw and settle them on the server, and keep brain cells on the player's account.
+The brain level sets the RTP, locked when a flight starts: 96.5% at level 1, below Chicken Road; 98% at level 5, level with it; 98.75% at level 10, a little above. The odds never change, only the payout. This is a demo feature pending test-lab and legal review; `cfg.brain.on = false` keeps every player at 98%. In the demo, tapping the robot portrait picks any level.
+
+Cells live in the browser (`localStorage` key `brainer.cells`), shared by every game and the website on the same origin. Flights are drawn in the browser so the math can be inspected. A production build must draw and settle them on the server, and keep brain cells on the player's account.

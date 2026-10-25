@@ -48,24 +48,26 @@ function gameCard(g) {
   const soon = g.status === 'soon', href = `game.html?g=${encodeURIComponent(g.id)}`;
   const art = g.art ? `<img src="${g.art}" alt="" loading="lazy" decoding="async">` : '<span class="ph">?</span>';
   const more = soon ? '' : `
-      <div class="chips"><span class="chip">RTP <b>${g.rtp}%${g.rtpTop ? `–${g.rtpTop}%` : ''}</b></span><span class="chip">${g.levels.length} risk levels</span><span class="chip">Provably fair</span></div>
+      <div class="chips"><span class="chip">RTP <b>${g.rtp}%${g.rtpTop ? `–${g.rtpTop}%` : ''}</b></span><span class="chip">${g.levels.length} difficulties</span><span class="chip">Provably fair</span></div>
       <div class="ctas"><a class="btn btn-ink" href="${href}">${ICON.play}Play the demo</a><a class="btn" href="${href}#specs">Specs</a></div>`;
   return `<article class="game${soon ? ' is-soon' : ''}">
     ${soon ? `<span class="art" style="--art:${g.color}">${art}</span>` : `<a class="art" href="${href}" style="--art:${g.color}" tabindex="-1" aria-hidden="true">${art}</a>`}
     <div>
       <span class="sticker${soon ? ' paper' : ''}">${esc(g.badge)}</span>
-      <h3>${esc(g.title)}${g.workingTitle ? '<small>Working title</small>' : ''}</h3>
+      <h3>${esc(g.title)}</h3>
       <p>${esc(g.tagline)}</p>${more}
     </div></article>`;
 }
 $$('[data-games]').forEach(el => { el.innerHTML = GAMES.map(gameCard).join(''); });
 
-/* ---------- brain-cell ladder: [data-ladder] gets the ten robots with boost and cells, [data-tiers] the five colour tiers ---------- */
+/* ---------- brain-cell ladder: [data-ladder] gets the ten robots with RTP and cells, [data-tiers] the five colour tiers ---------- */
 const tierOf = n => BRAIN.tiers[Math.floor((n - 1) / 2)];
+// The demo keeps the visitor's brain cells under this key on the same site, so their own Brainer can be marked.
+const myCells = store.get('brainer.cells'), mine = myCells == null ? 0 : BRAIN.cells.reduce((L, t, i) => (+myCells >= t ? i + 1 : L), 1);
 $$('[data-ladder]').forEach(el => {
   el.innerHTML = Array.from({ length: 10 }, (_, i) => i + 1).map(n =>
-    `<div class="lv" style="--tier:${tierOf(n).css}"><img src="${BRAIN.robot(n)}" alt="Brainer robot, brain level ${n}" loading="lazy" decoding="async">`
-    + `<b>Brain level ${n}</b><span class="boost">+${BRAIN.boost[n - 1]}%</span><span class="cells">${BRAIN.cells[n - 1]} cells</span></div>`).join('');
+    `<div class="lv${n === mine ? ' me' : ''}" style="--tier:${tierOf(n).css}">${n === mine ? '<span class="you">Your Brainer</span>' : ''}<img src="${BRAIN.robot(n)}" alt="Brainer robot, brain level ${n}" loading="lazy" decoding="async">`
+    + `<b>Brain level ${n}</b><span class="boost"><i>RTP </i>${BRAIN.rtp[n - 1]}%</span><span class="cells">${BRAIN.cells[n - 1].toLocaleString('en-US')} cells</span></div>`).join('');
 });
 $$('[data-tiers]').forEach(el => {
   el.innerHTML = BRAIN.tiers.map(t => `<span class="tier" style="--tier:${t.css}"><i></i>${esc(t.label)}</span>`).join('');
@@ -97,7 +99,7 @@ if (header) {
   header.innerHTML = `<div class="wrap">${logo}
     <nav class="nav" aria-label="Main">${NAV.map(n => `<a href="${n.href}"${cur(n.key)}>${n.label}</a>`).join('')}</nav>
     <div class="head-cta">
-      <a class="btn btn-red btn-sm" href="contact.html">Book a demo</a>
+      <a class="btn btn-red btn-sm" href="contact.html">Request a demo</a>
       <button class="icon-btn menu-btn" type="button" data-act="menu" aria-label="Open menu">${ICON.menu}</button>
     </div></div>`;
 }
@@ -109,10 +111,10 @@ if (footer) {
     <div class="foot-top">
       <div class="foot-brand">${logo}<p>Crash games your casino can make its own. Every round provably fair.</p></div>
       <div class="foot-col"><h4>Studio</h4><ul>${NAV.map(n => `<li><a href="${n.href}">${n.label}</a></li>`).join('')}</ul></div>
-      <div class="foot-col"><h4>Legal</h4><ul><li><a href="#" data-todo="Responsible gaming">Responsible gaming</a></li><li><a href="#" data-todo="Terms">Terms</a></li><li><a href="#" data-todo="Privacy policy">Privacy policy</a></li></ul></div>
+      <div class="foot-col"><h4>Legal</h4><ul><li><a href="responsible-gaming.html"${cur('rg')}>Responsible gaming</a></li><li><a href="terms.html"${cur('terms')}>Terms</a></li><li><a href="privacy.html"${cur('privacy')}>Privacy</a></li></ul></div>
     </div>
     <div class="foot-rg"><span class="age-badge">${SITE.minAge}+</span><p><b>For adults only.</b> Our games are for players aged ${SITE.minAge} and over, in markets where online gambling is legal. Gambling can be addictive; play responsibly.</p></div>
-    <div class="foot-bottom"><span>${esc(SITE.operator)}, licensed by ${esc(SITE.regulator)}, licence ${esc(SITE.licence)}.</span><span>© ${new Date().getFullYear()} ${esc(SITE.brand)}</span></div>
+    <div class="foot-bottom"><span>${esc(SITE.legal)}</span><span>© ${new Date().getFullYear()} ${esc(SITE.brand)}</span></div>
   </div>`;
 }
 
@@ -120,7 +122,7 @@ document.body.insertAdjacentHTML('beforeend', `
   <dialog class="drawer" id="drawer" aria-label="Menu">
     <div class="drawer-head">${logo}<button class="icon-btn" type="button" data-close aria-label="Close menu">${ICON.close}</button></div>
     <nav>${NAV.map(n => `<a href="${n.href}"${cur(n.key)}>${n.label}</a>`).join('')}</nav>
-    <a class="btn btn-red btn-lg" href="contact.html">Book a demo</a>
+    <a class="btn btn-red btn-lg" href="contact.html">Request a demo</a>
   </dialog>
   <dialog class="modal" id="age" aria-labelledby="ageTitle">
     <div class="modal-body">
@@ -128,14 +130,14 @@ document.body.insertAdjacentHTML('beforeend', `
       <h2 id="ageTitle">Are you ${SITE.minAge} or older?</h2>
       <p>This site has playable demos of gambling games. You must be at least ${SITE.minAge} to enter.</p>
       <div class="age-actions"><button class="btn" type="button" data-age="no">No</button><button class="btn btn-red" type="button" data-age="yes">Yes, I am ${SITE.minAge}+</button></div>
-      <p class="fine" id="ageNo" hidden>Sorry, you cannot use this site.</p>
+      <p class="fine" id="ageNo" role="alert" hidden>Sorry, you cannot use this site.</p>
     </div>
   </dialog>`);
 
 const drawer = $('#drawer'), age = $('#age');
 drawer.addEventListener('click', e => {
   const r = drawer.getBoundingClientRect();
-  if (e.target.closest('[data-close]') || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) drawer.close();
+  if (e.target.closest('[data-close],a[href]') || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) drawer.close();
 });
 
 const AGE_KEY = 'blink.age-ok';

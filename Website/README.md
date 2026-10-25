@@ -16,12 +16,13 @@ Then open http://localhost:5174/Website/. In Claude Code the `website` entry in 
 
 | File | What it is |
 |---|---|
-| `index.html` | Home: core message, the six selling points, Brain cells (the ten robot levels), games, the three steps to go live, fairness sample, call to book a demo |
+| `index.html` | Home: core message, the six selling points, Brain cells (the ten robot levels, with the visitor's own Brainer marked once they have played), games, the three steps to go live, fairness sample, call to request a demo |
 | `games.html` | Every game from the catalogue |
-| `game.html?g=<id>` | One game: playable demo with full screen, how to play, risk levels, fairness, specs and downloads |
+| `game.html?g=<id>` | One game: playable demo with full screen, how to play, difficulties (last-step multipliers at brain levels 1, 5 and 10), fairness and specs |
 | `operators.html` | Skins, promo tools, player-facing qualities, compliance status, integration routes |
 | `fairness.html` | How provably fair works, with a working SHA-256 checker |
-| `contact.html` | Demo request form |
+| `contact.html` | Demo request form (not connected yet; says so and keeps what was typed) |
+| `responsible-gaming.html`, `terms.html`, `privacy.html` | Short legal pages for the demo stage |
 
 Header, footer, menu drawer and the 18+ check are drawn by `assets/js/site.js` on every page. Any element with `data-games` fills itself with game cards, `data-ladder` with the ten robots and `data-tiers` with the five level colours.
 
@@ -39,18 +40,15 @@ python -m fontTools.subset FiraGO-Medium.woff2 --unicodes="U+0000-00FF,U+0100-01
 ```
 - **Colours:** tokens at the top of `site.css`, taken from the brand book (`--g1` main gradient, `--l2` to `--l5` level gradients).
 - **Name and logo:** `SITE.logo` in `data.js` is the brand book's drawn wordmark (`logo/logo-mono.png`, B + "Brainer", 154x36 px), turned white in the footer by a CSS filter. It is soft on high-density screens; swap in the designer's vector with "Games" when it exists.
-- **Company, licence, lab and email:** `SITE` in `data.js`. Every `[bracketed]` value shows on the site until it is filled in.
+- **Email and legal line:** `SITE` in `data.js`. While `email` is empty the contact page says the address comes with the domain; `legal` is the footer's status line ("Licensing in progress"). Name the company, licence and lab there once they are final.
 
 ## Not real yet
 
-- Game specs mirror `cfg` and `LEVELS` in the rewritten `Game #1 - Plane Crash/game.js` (98% RTP, four levels, bets 0.10 to 200, max win 10,000) and are marked provisional until certification. The game developer session says when they change.
-- Brain levels (Tornike's pick, 2026-10-25): one brain cell per path flown; levels at 0, 10, 25, 45, 70, 100, 140, 190, 250 and 320 cells; each level adds +0% to +1% to every multiplier inside the game maths, locked at take-off, so RTP runs from 98% to about 98.98%. Mirrored in `BRAIN` and the Plane Crash entry in `data.js`. It is shown as a demo feature until the test lab and a lawyer sign it off. Wording rules from Marketing: "Brain level N" only, never "smarter", and no public level rankings.
-- Decided 2026-10-25: the player's own Brainer is the hero of every game, including the Plane Crash pilot. The tile shows the robot from behind in the cockpit as placeholder art; final key art comes from the game team.
-- Player-facing copy must not sell levels as smartness or status, or nudge people to play more (Marketing's rule). The old Brainer lines "Join the smart side", "top brainers" and "how many games will you play today?" are not used.
-- The demo's pilot is the player's Brainer robot, and brain cells (one per path flown) are stored in `localStorage` key `brainer.cells` on the site's origin, so every game served from the site shares one level. The game page's level table lists brain-level-1 multipliers with a note on the boost. Remove or reword `demoNote` in `data.js` once the review and the game name are settled. The Brainer version is live at https://tornikez2z.github.io/blink-gaming/plane-crash/.
-- The fairness page states the scheme (SHA-256 commit, HMAC-SHA256 per step). The release game has to match it, or the page changes.
-- Promo tools, skins, localisation and player protection settings are described from the marketing plan; they need to exist in the game before launch.
+- Game specs mirror `cfg` and `LEVELS` in `Game #1 - Plane Crash/game.js` (RTP 96.5% to 98.75% by brain level, four difficulties with tops 25×, 400×, 2,500× and 10,000× at 98%, bets $0.10 to $200, max win $10,000) and are marked provisional until certification. If the game math changes, update `BRAIN` and the Plane Crash entry in `data.js` with it.
+- Brain levels: each path flown earns stake × that step's bomb chance × 10 cells; levels at 0, 50, 150, 300, 550, 900, 1,400, 2,100, 3,000 and 4,200 cells; the level sets the RTP (96.5% at 1, 98% at 5, 98.75% at 10), locked at take-off. Shown as a demo feature until the test lab and a lawyer sign it off. Wording rules from Marketing: "Brain level N" only, never "smarter", no public level rankings, and nothing that nudges people to play more.
+- The player's own Brainer is the hero of every game, including the Plane Crash pilot. `assets/games/plane-crash.svg` is placeholder key art copied from the game's scene; swap in the game team's key art when it exists.
+- Brain cells live in `localStorage` key `brainer.cells` on the site's origin, so the website and every game served from it share one level.
+- The fairness page states the game's scheme exactly (SHA-256 commit; HMAC-SHA256 of "client seed:nonce:step:path", first 52 bits, bomb when the roll is at or above the step's survival chance). If the game changes it, the page changes with it.
+- Promo tools are marked "on the roadmap"; player protection settings, Georgian and the lab certificate are marked in progress. Skins exist as a service, not a self-serve tool.
 - The contact form checks its fields but sends nothing until a form backend is chosen.
-- Responsible gaming, Terms and Privacy are footer links that say "not written yet".
-- `assets/games/plane-crash.svg` is placeholder key art that copies the game's own scene (sky, fields, hoops, bombs, the white plane and the robot pilot from behind, colours taken from `game.js`). If the game's look changes, regenerate it or swap in the game team's key art.
-- Nothing here is published: the Pages workflow deploys only the root page and the game folder.
+- Every page is `noindex` until launch.

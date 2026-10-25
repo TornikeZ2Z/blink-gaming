@@ -14,7 +14,7 @@
   --r:16px; --r-lg:26px;
   --display:"FiraGO",system-ui,-apple-system,"Segoe UI",sans-serif;
   --body:"FiraGO",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Liberation Mono",monospace;
   --header-h:72px; --wrap:1220px;
 }
 *{box-sizing:border-box}
@@ -133,7 +133,10 @@ dialog::backdrop{background:rgba(10,19,34,.5);backdrop-filter:blur(3px)}
 .lv:hover img{transform:translateY(-4px) scale(1.04)}
 .lv b{font-size:12px;text-align:center;line-height:1.25}
 .lv .boost{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--main)}
+.lv .boost i{font-style:normal}
 .lv .cells{font-size:11px;color:var(--muted);margin-top:-4px}
+.lv.me{box-shadow:0 0 0 2.5px #8447fb,var(--shadow)}
+.lv .you{position:absolute;top:7px;left:50%;z-index:1;transform:translateX(-50%);padding:2px 8px;border-radius:999px;background:var(--g1);color:#fff;font-size:10px;font-weight:700;white-space:nowrap}
 .tiers{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
 .tier{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:#fff;box-shadow:var(--shadow-sm);font-size:12.5px;color:var(--ink-2)}
 .tier i{width:14px;height:14px;border-radius:50%;background:var(--tier)}
@@ -270,7 +273,8 @@ td.num{font-family:var(--mono)}
 .field textarea{min-height:130px;resize:vertical}
 .field input:focus,.field select:focus,.field textarea:focus{outline:none;background:#fff;border-color:#8447fb;box-shadow:0 0 0 4px rgba(132,71,251,.15)}
 .field .err{font-size:12.5px;font-weight:400;color:var(--red)}
-.check{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--ink-2)}
+.check{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:flex-start;font-size:13.5px;color:var(--ink-2)}
+.check .err{flex-basis:100%;padding-left:30px;font-size:12.5px;color:var(--red)}
 .check input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--main);flex:none}
 .side{display:flex;flex-direction:column;gap:18px}
 
@@ -329,6 +333,7 @@ td.num{font-family:var(--mono)}
   .lv{padding:8px 3px 10px;border-radius:14px}
   .lv b{font-size:10.5px}
   .lv .boost{font-size:10.5px}
+  .lv .boost i{display:none}
   .lv .cells{font-size:10px}
   .form{grid-template-columns:minmax(0,1fr);padding:20px}
   .play-head .tools .btn span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -339,3 +344,16 @@ td.num{font-family:var(--mono)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
 }
+
+/* focus stays visible on the violet gradient panels */
+.hero-panel :focus-visible,.cta-panel :focus-visible{outline-color:#fff}
+/* 16px fields stop phones zooming in on focus */
+@media (max-width:760px){.field input,.field select,.field textarea{font-size:16px}}
+/* legal pages */
+.legal{max-width:72ch;padding-bottom:40px}
+.legal h2{margin:34px 0 10px;font-size:22px}
+.legal p,.legal li{color:var(--ink-2)}
+.legal p+p{margin-top:12px}
+.legal ul{margin:10px 0 0;padding-left:20px;display:grid;gap:6px}
+.legal code{font-family:var(--mono);font-size:13px;padding:1px 6px;border-radius:6px;background:var(--tint-2);color:var(--ink)}
+.legal a{color:var(--main)}

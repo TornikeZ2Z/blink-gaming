@@ -45,16 +45,16 @@ main.innerHTML = `<div class="wrap">${crumbs}
     <div class="prose">
       <section id="about"><span class="eyebrow">${esc(g.genre)}</span><h2>About the game</h2>${g.about.map(p => `<p>${esc(p)}</p>`).join('')}</section>
       <section id="how"><h2>How to play</h2><ol class="list">${g.how.map(s => `<li>${esc(s)}</li>`).join('')}</ol></section>
-      <section id="levels"><h2>Risk levels</h2>
-        <p>Higher levels have fewer steps and a bigger chance of a bomb at each one, so the multipliers climb faster.</p>
+      <section id="levels"><h2>Difficulties</h2>
+        <p>Harder difficulties have fewer steps and a bigger chance of a bomb at each one, so the multipliers climb faster. The chance of a bomb also rises with every step you fly. Wins are capped at the max win per flight.</p>
         ${g.levelsNote ? `<p class="note">${ICON.info}<span>${esc(g.levelsNote)} <a href="index.html#brain">How brain levels work</a></span></p>` : ''}
         <div class="tbl"><table>
-          <thead><tr><th>Level</th><th>Steps per flight</th><th>Multiplier, first to last step</th></tr></thead>
-          <tbody>${g.levels.map(l => `<tr><td>${esc(l.name)}</td><td class="num">${l.steps}</td><td class="num">${fx(l.first)} to ${fx(l.top)}</td></tr>`).join('')}</tbody>
+          <thead><tr><th>Difficulty</th><th>Steps</th><th>First step</th><th>Last step at brain level 1</th><th>at brain level 5</th><th>at brain level 10</th></tr></thead>
+          <tbody>${g.levels.map(l => `<tr><td>${esc(l.name)}</td><td class="num">${l.steps}</td><td class="num">${fx(l.first)}</td>${l.tops.map(t => `<td class="num">${fx(t)}</td>`).join('')}</tr>`).join('')}</tbody>
         </table></div>
       </section>
       <section id="fairness"><h2>Provably fair</h2>
-        <p>Every round is fixed before the first bet and its SHA-256 hash is published. After the round the seed is revealed, so the player, the casino or a regulator can recompute every step.</p>
+        <p>Every flight is fixed before the bet: the game shows the SHA-256 hash of its server seed first and reveals the seed when the flight ends. The shield button in the game re-checks the hash and redraws every bomb of your last flight, so the player, the casino or a regulator can recompute it.</p>
         <div class="ctas" style="margin-top:4px"><a class="btn btn-sun" href="fairness.html">How the check works</a></div>
       </section>
     </div>
@@ -63,14 +63,14 @@ main.innerHTML = `<div class="wrap">${crumbs}
       <dl>${specs}</dl>
       ${g.provisional ? '<p class="fine">Provisional until the game is certified.</p>' : ''}
       ${assets ? `<div style="display:grid;gap:8px">${assets}</div>` : ''}
-      <a class="btn btn-red" href="contact.html">Book a demo</a>
+      <a class="btn btn-red" href="contact.html">Request a demo</a>
     </aside>
   </div>
 </div>`;
 
 const loader = $('#loader'), box = $('#frame');
 const done = () => loader.classList.add('done');
-$('iframe', box).addEventListener('load', done);
+$('iframe', box).addEventListener('load', () => { done(); jumpToHash(); });   // the frame can steal the first jump to #specs or #how
 setTimeout(done, 8000);
 
 const fs = $('#fs');
