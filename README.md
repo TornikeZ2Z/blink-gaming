@@ -18,6 +18,19 @@ Then open http://localhost:5173.
 
 ## Plane Crash
 
-Pilots bet, take off and choose a route at each intersection. Safe routes raise the multiplier, a storm cloud crashes the plane, and Land cashes out. After n safe routes the multiplier is RTP ÷ pⁿ (p = chance of a safe route, 96% RTP by default). Rounds use a provably fair commit: SHA-256 of the server seed is shown before bets open, and HMAC-SHA256 shuffles the routes.
+The player's Brainer robot flies a plane toward five hoops while bombs fall ahead. At each step the player picks one of the five paths, or jumps out with a parachute to take the current win. A bomb on the chosen path ends the flight. Each flight is single-player and runs at the player's pace: no timers or shared rounds.
 
-Rounds are drawn in the browser so the math can be inspected. A production build must draw and settle rounds on the server.
+| Level | Paths to clear | First → top multiplier | Bomb chance per path |
+|---|---|---|---|
+| Easy | 24 | 1.02× → 24.5× | 4% rising to 20% |
+| Medium | 22 | 1.11× → 2,254× | 12% rising to 44% |
+| Hard | 20 | 1.22× → 52,067× | 20% rising to 58% |
+| Hardcore | 15 | 1.60× → 3,203,385× | 39% rising to 78% |
+
+Step counts, first and top multipliers and the 98% RTP follow Chicken Road; the steps in between are fitted so jumping at any step returns 98%. Every path at every step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"), so the chosen path survives with the same odds whichever one is picked.
+
+### Brain cells
+
+Every path flown earns one brain cell, and cells raise the robot's brain level from 1 to 10 (thresholds in `cfg.brain`). The glass dome shows the level, using the ten Brainer characters in `assets/`. Each level can add a small boost to every multiplier, locked in when a flight starts: +0% at level 1 up to +1% at level 10. The boost is pending legal review; `cfg.brain.boostOn = false` turns it off and keeps the certified 98%. In this demo the cells live in the browser (`localStorage` key `brainer.cells`), shared by every game on the same site.
+
+Flights are drawn in the browser so the math can be inspected. A production build must draw and settle them on the server, and keep brain cells on the player's account.

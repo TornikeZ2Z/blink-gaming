@@ -1,706 +1,692 @@
 (() => {
 'use strict';
 const $ = s => document.querySelector(s);
-const fmt = n => (Math.round(n * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fx = m => m.toFixed(2) + '×';
-const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const money = n => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fx = m => m.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '×';
+const fxShort = m => m < 1000 ? m.toFixed(2) + '×' : m < 1e6 ? Math.floor(m).toLocaleString('en-US') + '×' : (m / 1e6).toFixed(2) + 'M×';
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
 const ease = p => p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+const easeOut = p => 1 - Math.pow(1 - p, 3);
+const easeBack = p => 1 + 2.4 * Math.pow(p - 1, 3) + 1.4 * Math.pow(p - 1, 2);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/* ---------- config & state ---------- */
+/* ---------- config & math ---------- */
+// Levels follow Chicken Road: same step counts, first and top multipliers, and 98% RTP. The chance of a
+// bomb rises with every step; after n safe paths the multiplier is RTP ÷ (chance of surviving all n),
+// rounded down to the cent, so jumping out at any step returns the same RTP.
 const cfg = {
-  rtp: 96,
-  diffs: [
-    { key: 'easy', name: 'Easy', short: 'E', paths: 5, safe: 4, max: 12 },
-    { key: 'medium', name: 'Medium', short: 'M', paths: 5, safe: 3, max: 10 },
-    { key: 'hard', name: 'Hard', short: 'H', paths: 4, safe: 2, max: 9 },
-    { key: 'extreme', name: 'Extreme', short: 'X', paths: 5, safe: 1, max: 5 }
-  ],
-  fallback: 'land', minBet: 0.1, maxBet: 500, maxWin: 25000,
-  betSec: 8, takeoffSec: 2.6, decSec: 6, resolveSec: 1.7, cruiseSec: 1.1, resultSec: 4.5
+  rtp: 98, minBet: 0.1, maxBet: 200, maxWin: 10000, paths: 5,
+  // Brain cells: one for every path flown. thresholds = cells needed for brain levels 1-10. boost = extra X in
+  // percent that each brain level adds to every multiplier, locked in when a flight starts. Pending legal review:
+  // boostOn false leaves the certified 98% untouched and keeps the levels as looks only.
+  brain: { thresholds: [0, 10, 25, 45, 70, 100, 140, 190, 250, 320], boost: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.85, 1], boostOn: true }
 };
-const DOC = [{ p: 0.8, lo: 1.15, hi: 1.35 }, { p: 0.6, lo: 1.3, hi: 1.7 }, { p: 0.5, lo: 1.6, hi: 2.4 }, { p: 0.2, lo: 2.5, hi: 5 }];
-const pOf = d => d.safe / d.paths;
-const ladder = (d, n, rtp) => n <= 0 ? 1 : Math.floor((rtp || cfg.rtp) / 100 / Math.pow(pOf(d), n) * 100 + 1e-7) / 100;
-const S = { balance: 1000, nonce: 1, roundId: 5120, rounds: [], mine: [] };
+const LEVELS = [
+  { key: 'easy', name: 'Easy', steps: 24, first: 1.02, top: 24.5 },
+  { key: 'medium', name: 'Medium', steps: 22, first: 1.11, top: 2254 },
+  { key: 'hard', name: 'Hard', steps: 20, first: 1.22, top: 52067 },
+  { key: 'hardcore', name: 'Hardcore', steps: 15, first: 1.6, top: 3203385 }
+];
+for (const d of LEVELS) {
+  const r = cfg.rtp / 100, N = d.steps, a = Math.log(d.first / r), b = 2 * (Math.log(d.top / r) - N * a) / (N * (N - 1));
+  d.safe = []; d.mult = [1];
+  for (let n = 1; n <= N; n++) {
+    d.safe.push(Math.exp(-(a + b * (n - 1))));
+    d.mult.push(Math.floor(r * Math.exp(n * a + b * n * (n - 1) / 2) * 100 + 1e-7) / 100);
+  }
+}
+const PATHS = [['Far left', -60], ['Left', -30], ['Ahead', 0], ['Right', 30], ['Far right', 60]];
+const brainLevel = cells => { let L = 1; cfg.brain.thresholds.forEach((t, i) => { if (cells >= t) L = i + 1; }); return L; };
+const boostOf = L => cfg.brain.boostOn ? cfg.brain.boost[L - 1] : 0;
+const multAt = (d, n, boost) => n <= 0 ? 1 : Math.floor(d.mult[n] * (1 + boost / 100) * 100 + 1e-7) / 100;
 
-let R = null, nextP = null, phase = 'init', t0 = 0, step = 0, winMs = 0, busy = false, bots = [];
-const me = { stake: 10, diff: 1, autoLand: false, autoN: 3, autoBet: false, queued: false, run: null };
-const FLY = ['takeoff', 'deciding', 'chosen', 'flying'];
-const isFlying = e => e && FLY.includes(e.status);
+/* ---------- state ---------- */
+const S = { balance: 1000, stake: 10, level: 1, nonce: 1, client: '', seed: '', hash: '', cells: 0 };
+try { S.cells = Math.max(0, parseInt(localStorage.getItem('brainer.cells'), 10) || 0); } catch (e) {}   // shared by every Brainer game on this site
+let round = null, starting = false;   // round: the flight in play, or the last one settled
+const inFlight = () => !!round && (round.status === 'choose' || round.status === 'flying');
+const myLevel = () => brainLevel(S.cells);
 
-/* ---------- crypto ---------- */
+/* ---------- fairness ---------- */
 const enc = new TextEncoder();
 const hex = b => Array.from(new Uint8Array(b), x => x.toString(16).padStart(2, '0')).join('');
 const randHex = n => hex(crypto.getRandomValues(new Uint8Array(n)));
 const sha256 = async s => hex(await crypto.subtle.digest('SHA-256', enc.encode(s)));
-async function hmac(key, msg) {
-  const k = await crypto.subtle.importKey('raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  return hex(await crypto.subtle.sign('HMAC', k, enc.encode(msg)));
+// Every path at every step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"), read as a fraction.
+// A path is bombed when its roll is at or above that step's survival chance, so whichever path the player
+// picks survives with exactly that chance.
+async function drawBombs(seed, client, nonce, d) {
+  const key = await crypto.subtle.importKey('raw', enc.encode(seed), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const roll = async msg => parseInt(hex(await crypto.subtle.sign('HMAC', key, enc.encode(msg))).slice(0, 13), 16) / 2 ** 52;
+  return Promise.all(Array.from({ length: d.steps }, (_, i) =>
+    Promise.all(Array.from({ length: cfg.paths }, (_, k) => roll(`${client}:${nonce}:${i + 1}:${k + 1}`).then(u => u >= d.safe[i])))));
 }
-function layoutFrom(h, n, safe) {
-  const idx = [...Array(n).keys()];
-  for (let i = n - 1, c = 0; i > 0; i--, c++) { const u = parseInt(h.slice(c * 8, c * 8 + 8), 16) / 2 ** 32, j = Math.floor(u * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
-  const out = Array(n).fill(false); for (let k = 0; k < safe; k++) out[idx[k]] = true; return out;
-}
-async function layoutsFor(seed, nonce, d) {
-  const hs = await Promise.all(Array.from({ length: d.max }, (_, i) => hmac(seed, `route:${nonce}:${d.key}:${i + 1}`)));
-  return [null].concat(hs.map(h => layoutFrom(h, d.paths, d.safe)));
-}
-async function drawRound() {
-  const serverSeed = randHex(32), nonce = S.nonce++, diffs = cfg.diffs.map(d => Object.assign({}, d)), rtp = cfg.rtp;
-  const hash = await sha256(serverSeed), layouts = {};
-  await Promise.all(diffs.map(async d => { layouts[d.key] = await layoutsFor(serverSeed, nonce, d); }));
-  return { id: S.roundId++, serverSeed, hash, nonce, diffs, rtp, layouts, maxStep: Math.max(...diffs.map(d => d.max)), steps: 0 };
-}
-
-/* ---------- bots ---------- */
-const LET = 'abcdefghjkmnprstvwz';
-const pick = a => a[Math.floor(Math.random() * a.length)];
-const gauss = () => Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
-function makeBots() {
-  const n = 16 + Math.floor(Math.random() * 22), out = [];
-  for (let i = 0; i < n; i++) {
-    const u = Math.random(), di = u < 0.35 ? 0 : u < 0.7 ? 1 : u < 0.9 ? 2 : 3, d = R.diffs[di];
-    let stake = clamp(Math.exp(1.5 + gauss() * 1.2), 0.5, 1500); stake = stake > 10 ? Math.round(stake) : Math.round(stake * 2) / 2;
-    const autoN = 1 + Math.floor(Math.random() * [6, 4, 3, 2][di]);
-    out.push({ name: pick(LET) + '***' + pick(LET) + Math.floor(Math.random() * 10), stake, di, d, autoN: Math.min(autoN, d.max), n: 0, mult: 1, status: 'confirmed', choice: null, chooseAt: 1, payout: 0, joinAt: Math.random() * 0.85 });
-  }
-  return out;
-}
-
-/* ---------- betting ---------- */
-const clampStake = v => Math.min(cfg.maxBet, Math.max(cfg.minBet, Math.round((Number.isFinite(v) ? v : cfg.minBet) * 100) / 100));
-function setStake(v) { me.stake = clampStake(v); $('#amt').value = me.stake.toFixed(2); }
-function setAutoBet(on) { me.autoBet = on; $('#ab').checked = on; }
-function validStake() {
-  if (me.stake < cfg.minBet || me.stake > cfg.maxBet) { toast(`Stake must be between ${fmt(cfg.minBet)} and ${fmt(cfg.maxBet)} FUN.`); return false; }
-  if (me.stake > S.balance) { toast('Not enough balance for this stake. Lower it or reset the demo balance.'); return false; }
-  return true;
-}
-function place() {
-  if (!validStake()) { setAutoBet(false); return false; }
-  S.balance -= me.stake;
-  me.run = { id: R.id, stake: me.stake, di: me.diff, d: R.diffs[me.diff], n: 0, mult: 1, status: 'confirmed', choice: null, payout: 0, you: true, name: 'You' };
-  me.queued = false; renderBalance(); renderList(); renderLadder(); return true;
-}
-function onGo() {
-  const r = me.run;
-  if (phase === 'betting') { if (r) { S.balance += r.stake; me.run = null; setAutoBet(false); renderBalance(); renderLadder(); } else place(); }
-  else if (isFlying(r)) return;
-  else if (me.queued) { me.queued = false; setAutoBet(false); }
-  else if (validStake()) me.queued = true;
-  renderList();
-}
-function canLand(r) { return isFlying(r) && r.n >= 1 && (phase === 'cruise' || (phase === 'decide' && r.choice == null)); }
-function land(e, now) {
-  e.payout = Math.min(e.stake * e.mult, cfg.maxWin); e.status = 'landed';
-  if (e.you) {
-    S.balance += e.payout;
-    S.mine.unshift({ round: e.id, diff: e.d.name, short: e.d.short, stake: e.stake, n: e.n, mult: e.mult, payout: e.payout });
-    plane.state = 'landing'; plane.t = now || performance.now();
-    floats.push({ text: '+' + fmt(e.payout - e.stake), x: 0.5, y: 0.55, t0: plane.t, col: '#3FD17A' });
-    renderBalance(); renderMine(); renderHistory();
-  }
-}
-function choose(i) {
-  const r = me.run;
-  if (phase !== 'decide' || !r || r.status !== 'deciding' || i < 0 || i >= r.d.paths) return;
-  r.choice = i; r.status = 'chosen'; renderRoutes(); renderList();
-}
+async function rotateSeed() { S.seed = randHex(32); S.hash = await sha256(S.seed); }
 
 /* ---------- round flow ---------- */
-async function startBetting() {
-  R = await (nextP || drawRound()); nextP = null;
-  phase = 'betting'; t0 = performance.now(); step = 0;
-  me.run = null; bots = makeBots();
-  if (me.queued || me.autoBet) { me.queued = false; place(); }
-  plane.state = 'parked'; world.camX = 0; gates = null;
-  $('#banner').hidden = true;
-  renderFair(); renderList(); renderLadder(); showPanels();
+const FLY_MS = 1100, IMPACT = 0.68;
+async function play() {
+  if (inFlight() || starting) return;
+  const d = LEVELS[S.level];
+  if (S.stake < cfg.minBet || S.stake > cfg.maxBet) { toast(`Bet between ${money(cfg.minBet)} and ${money(cfg.maxBet)} FUN.`); return; }
+  if (S.stake > S.balance) { toast('Not enough FUN for this bet. Lower it or reset the demo balance.'); return; }
+  starting = true; renderControls();
+  const r = { stake: S.stake, d, n: 0, boost: boostOf(myLevel()), seed: S.seed, hash: S.hash, client: S.client, nonce: S.nonce++, status: 'choose', payout: 0, pick: -1 };
+  try { r.bombs = await drawBombs(r.seed, r.client, r.nonce, d); } finally { starting = false; }
+  S.balance -= r.stake; round = r;
+  sceneStart(d);
+  $('#pilot').classList.remove('sooty'); react('hop', "Let's fly!");
+  renderBalance(); renderControls(); renderLadder();
 }
-function startTakeoff(now) {
-  phase = 'takeoff'; t0 = now;
-  bots.forEach(b => { b.status = 'takeoff'; });
-  if (me.run) me.run.status = 'takeoff'; else plane.state = 'gone';
-  if (me.run) plane.state = 'takeoff';
-  renderList(); showPanels();
+function choose(k) {
+  const r = round;
+  if (!r || r.status !== 'choose' || k < 0 || k >= cfg.paths) return;
+  r.pick = k; r.status = 'flying'; r.t0 = performance.now(); r.hit = r.bombs[r.n][k]; r.struck = false;
+  sceneFly(k, r.bombs[r.n], r.t0);
+  react('shake', 'Gulp…');
+  addCells(1);
+  renderControls();
 }
-function startDecide(now) {
-  phase = 'decide'; t0 = now; step++; R.steps = step;
-  for (const b of bots) {
-    if (!isFlying(b)) continue;
-    if (b.n >= b.autoN) { land(b); continue; }
-    b.status = 'deciding'; b.choice = null; b.chooseAt = 0.15 + Math.random() * 0.75;
+function jump(auto) {
+  const r = round;
+  if (!r || r.status !== 'choose' || r.n < 1) return;
+  r.payout = Math.min(r.stake * multAt(r.d, r.n, r.boost), cfg.maxWin); r.status = 'cashed';
+  S.balance += r.payout;
+  sceneJump(performance.now());
+  react('pop', 'Wheee!');
+  if (auto) toast(r.n >= r.d.steps ? 'Last path cleared, so your Brainer jumped automatically.' : 'Max win reached, so your Brainer jumped automatically.');
+  settle();
+}
+function settle() { rotateSeed(); renderBalance(); renderControls(); renderLadder(); }
+function advance(now) {
+  const r = round;
+  if (!r || r.status !== 'flying') return;
+  const p = (now - r.t0) / FLY_MS;
+  if (!r.struck && p >= IMPACT) {
+    r.struck = true; sceneImpact(now);
+    if (r.hit) { r.status = 'crashed'; sceneCrash(now); $('#pilot').classList.add('sooty'); react('shake', 'Ouch!'); settle(); flushLevelUp(); return; }
   }
-  const r = me.run;
-  if (isFlying(r)) { r.status = 'deciding'; r.choice = null; }
-  winMs = (isFlying(r) ? cfg.decSec : 1.8) * 1000;
-  const d = (r && r.d) || R.diffs[me.diff];
-  gates = { d, n: d.paths, xs: Array.from({ length: d.paths }, (_, i) => (i - (d.paths - 1) / 2) * GATE_SP), safe: null };
-  renderRoutes(); renderList(); showPanels();
+  if (p >= 1) {
+    r.n++; r.status = 'choose'; r.pick = -1; r.popAt = now;
+    scenePassed(now); react('hop', 'Phew!'); flushLevelUp();
+    if (r.n >= r.d.steps || r.stake * multAt(r.d, r.n, r.boost) >= cfg.maxWin) jump(true);
+    renderControls(); renderLadder();
+  }
 }
-function startResolve(now) {
-  phase = 'resolve'; t0 = now;
-  const lay = R.layouts;
-  const settle = e => {
-    if (!isFlying(e)) return;
-    if (e.choice == null) {
-      if (e.you && cfg.fallback === 'land' && e.n >= 1) { land(e, now); toast('Time ran out, so you landed automatically.'); return; }
-      e.choice = Math.floor(Math.random() * e.d.paths);
-      if (e.you) toast(`Time ran out, so route ${e.choice + 1} was picked for you.`);
+
+/* ---------- brain cells ---------- */
+let luT = 0, bubT = 0, pendingLevel = 0;
+function addCells(k) {
+  const before = myLevel();
+  S.cells += k;
+  try { localStorage.setItem('brainer.cells', String(S.cells)); } catch (e) {}
+  const after = myLevel();
+  renderPilot();
+  if (after > before) { renderLevels(); pendingLevel = after; }   // shown once this path is decided
+}
+function flushLevelUp() {
+  if (!pendingLevel) return;
+  const L = pendingLevel, el = $('#levelup'); pendingLevel = 0;
+  plane.brain = L;   // the dome shows the new brain at once; the X boost waits for the next flight
+  $('#luImg').src = `assets/brainer-${L}.png`; $('#luTitle').textContent = `Brain level ${L}`;
+  $('#luSub').textContent = cfg.brain.boostOn ? `X boost +${boostOf(L)}% from your next flight` : 'Your Brainer grew new brain cells';
+  el.hidden = true; void el.offsetWidth; el.hidden = false;
+  clearTimeout(luT); luT = setTimeout(() => { el.hidden = true; }, 2600);
+}
+function renderPilot() {
+  const L = myLevel(), t = cfg.brain.thresholds, next = t[L];
+  $('#pilotImg').src = `assets/brainer-${L}.png`; $('#pilotImg').alt = `Your Brainer, brain level ${L}`;
+  $('#lvnum').textContent = L; $('#plv').textContent = `Brain level ${L}`;
+  $('#pbar').style.width = (next == null ? 100 : Math.round((S.cells - t[L - 1]) / (next - t[L - 1]) * 100)) + '%';
+  $('#pnote').textContent = (next == null ? `${S.cells} brain cells` : `${S.cells} / ${next} brain cells`) + (cfg.brain.boostOn ? ` · X +${boostOf(L)}%` : '');
+}
+function react(kind, text) {
+  const p = $('#pilot'), b = $('#bubble');
+  p.classList.remove('r-hop', 'r-shake', 'r-pop'); void p.offsetWidth; p.classList.add('r-' + kind);
+  b.textContent = text; b.hidden = true; void b.offsetWidth; b.hidden = false;
+  clearTimeout(bubT); bubT = setTimeout(() => { b.hidden = true; }, 1300);
+}
+
+/* ---------- scene ---------- */
+const stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
+const NAVY = '#0a1322', VIOLET = '#532aff', LINE = 'rgba(10,19,34,.32)';
+const ROBOT = Array.from({ length: 10 }, (_, i) => { const im = new Image(); im.src = `assets/brainer-${i + 1}.png`; return im; });
+// Brain inside the dome, per level: two colours from the brand book and how many neurons glow.
+const BRAIN = [['#33d66d', '#00ebc0', 2], ['#33d66d', '#00ebc0', 3], ['#fa7b5b', '#ffc147', 5], ['#fa7b5b', '#ffc147', 7], ['#9433ed', '#e36072', 9], ['#9433ed', '#e36072', 11], ['#ed2b4b', '#ed6b6b', 14], ['#ed2b4b', '#ed6b6b', 17], ['#4b36fc', '#8447fb', 20], ['#4b36fc', '#8447fb', 24]];
+const NEURONS = (() => {
+  let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const out = [];
+  while (out.length < 24) { const x = (rnd() * 2 - 1) * 40, y = -96 + (rnd() * 2 - 1) * 30; if ((x / 42) ** 2 + ((y + 92) / 34) ** 2 < 1 && y < -62) out.push({ x, y, r: 4 + rnd() * 5, link: -1 }); }
+  out.forEach((n, i) => { let best = -1, bd = 1e9; for (let j = 0; j < i; j++) { const dd = (n.x - out[j].x) ** 2 + (n.y - out[j].y) ** 2; if (dd < bd) { bd = dd; best = j; } } n.link = best; });
+  return out;
+})();
+const sootCache = {};
+function sootyRobot(L) {
+  const im = ROBOT[L - 1];
+  if (sootCache[L] || !im.complete || !im.naturalWidth) return sootCache[L] || null;
+  const c = document.createElement('canvas'); c.width = c.height = 500; const g = c.getContext('2d');
+  g.drawImage(im, 0, 0, 500, 500); g.globalCompositeOperation = 'source-atop';
+  g.fillStyle = 'rgba(28,22,40,.45)'; g.fillRect(0, 0, 500, 500);
+  g.fillStyle = 'rgba(12,8,18,.55)';
+  for (const [x, y, r] of [[170, 120, 58], [330, 200, 66], [220, 390, 52], [360, 80, 40], [120, 300, 44], [270, 290, 36]]) { g.beginPath(); g.ellipse(x, y, r, r * 0.7, 0.4, 0, 7); g.fill(); }
+  return (sootCache[L] = c);
+}
+
+const ZP = 2.2, Z_WAIT = 9, Z_FAR = 40, G_H = 5;   // depths: plane, waiting gates, new gates; ground drop
+let W = 0, H = 0, dpr = 1, F = 500, HY = 200, PX = 0, PY = 0, PS = 0.8, SPREAD = 2, RING = 1, last = 0;
+let shake = 0, flashAt = -1e9, flashCol = '255,255,255', nextDropAt = 0, sky = null;
+const view = { d: LEVELS[1], n: 0, boost: 0, camX: 0, gz: Z_WAIT, introT: -1e9, pick: -1, row: null, struck: false, scroll: 0, fieldX: 0, speed: 1, bank: 0, hit: [], hover: -1 };
+const plane = { state: 'cruise', t0: 0, x: 0, y: 0, rot: 0, vx: 0, vy: 0, vr: 0, brain: 1 };
+let chute = null, iris = null, parts = [], booms = [], drops = [], texts = [];
+const clouds = Array.from({ length: 16 }, () => ({ x: (Math.random() - 0.5) * 34, alt: -2.6 + Math.random() * 4.2, z: 4 + Math.random() * 56, s: 0.9 + Math.random() * 1.4 }));
+
+function layout() {
+  W = stage.clientWidth; H = stage.clientHeight; dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  F = H * 0.95; HY = H * 0.4; PX = W / 2; PY = H * 0.8;
+  PS = clamp(Math.min(W / 900, H / 560), 0.45, 1);
+  const dx = Math.min(W * 0.17, 170);   // gap between waiting gates on screen
+  SPREAD = dx * Z_WAIT / F; RING = Math.min(dx * 0.34, 56) * Z_WAIT / F;
+  paintSky();
+}
+new ResizeObserver(layout).observe(stage);
+
+function paintSky() {
+  sky = document.createElement('canvas'); sky.width = Math.max(1, Math.round(W * dpr)); sky.height = Math.max(1, Math.round((HY + 2) * dpr));
+  const g = sky.getContext('2d'); g.scale(dpr, dpr);
+  const gr = g.createLinearGradient(0, 0, 0, HY);
+  gr.addColorStop(0, '#4b36fc'); gr.addColorStop(0.45, '#8447fb'); gr.addColorStop(0.8, '#c8a9ff'); gr.addColorStop(1, '#f1e9ff');
+  g.fillStyle = gr; g.fillRect(0, 0, W, HY + 2);
+  const sx = W * 0.82, sy = HY * 0.36, sr = clamp(H * 0.045, 16, 30);
+  const halo = g.createRadialGradient(sx, sy, sr * 0.4, sx, sy, sr * 4.5);
+  halo.addColorStop(0, 'rgba(255,214,240,.7)'); halo.addColorStop(1, 'rgba(255,214,240,0)');
+  g.fillStyle = halo; g.fillRect(0, 0, W, HY);
+  g.fillStyle = '#fff4fb'; g.beginPath(); g.arc(sx, sy, sr, 0, 7); g.fill();
+}
+const cloudImg = (() => {
+  const c = document.createElement('canvas'); c.width = 300; c.height = 170; const g = c.getContext('2d');
+  const P = [[78, 108, 46], [128, 80, 58], [190, 92, 50], [112, 120, 42], [170, 122, 44], [232, 116, 36], [48, 124, 30]];
+  const blob = (x, y, r, col) => { const gr = g.createRadialGradient(x, y, r * 0.2, x, y, r); gr.addColorStop(0, col); gr.addColorStop(0.78, col); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); };
+  P.forEach(([x, y, r]) => blob(x, y + 10, r, 'rgba(201,184,255,.95)'));
+  P.forEach(([x, y, r]) => blob(x - 3, y - 3, r * 0.9, 'rgba(255,255,255,.98)'));
+  return c;
+})();
+
+const gateX = k => (k - 2) * SPREAD;
+const projX = (x, z) => W / 2 + (x - view.camX) * F / z;
+const altY = (alt, z) => HY + alt * F / z;
+const H_GATE = () => (PY - HY) * ZP / F;   // gates fly at the plane's height
+const gatePos = k => { const z = view.gz; return { x: projX(gateX(k), z), y: altY(H_GATE(), z), r: RING * F / z, z }; };
+
+function setTrack(d, n, boost) { Object.assign(view, { d, n, boost, pick: -1, row: null, struck: false, introT: performance.now(), camX: 0 }); }
+function recenter() { for (const c of clouds) c.x -= view.camX; view.fieldX -= view.camX; view.camX = 0; }
+function sceneStart(d) {
+  const now = performance.now();
+  recenter(); setTrack(d, 0, round.boost); plane.brain = myLevel();
+  if (plane.state !== 'cruise') { plane.state = 'enter'; plane.t0 = now; }
+  if (chute) chute.leave = chute.leave || now;
+  if (iris) iris.out = iris.out || now;
+  drops = drops.filter(b => !b.real);
+}
+function sceneFly(k, row, t0) {
+  view.pick = k; view.row = row; view.struck = false;
+  row.forEach((bombed, j) => { if (bombed) drops.push({ real: true, k: j, t0 }); });
+}
+function sceneImpact(now) {
+  view.struck = true;
+  drops = drops.filter(b => !b.real);
+  view.row.forEach((bombed, j) => {
+    if (!bombed || j === view.pick) return;
+    const g = gatePos(j); booms.push({ x: g.x, y: g.y, r: g.r * 1.5, t0: now, dur: 900, rot: Math.random() * 7, text: Math.random() < 0.5 ? 'BOOM!' : 'POW!' });
+  });
+  if (!round.hit) { const g = gatePos(view.pick); burst(g.x, g.y, 18, ['#33d66d', '#00ebc0', '#ffffff'], 0.35); }
+}
+function sceneCrash(now) {
+  const g = gatePos(view.pick);
+  booms.push({ x: (g.x + PX) / 2, y: PY - 40 * PS, r: 230 * PS, t0: now, dur: 1200, rot: Math.random() * 7, text: 'KA-BOOM!', front: true });
+  burst(PX, PY - 40 * PS, 40, ['#ffc147', '#fa7b5b', '#ed2b4b', NAVY], 0.6);
+  flashAt = now; flashCol = '255,240,245'; shake = reduced ? 0 : 16;
+  Object.assign(plane, { state: 'fall', t0: now, x: PX, y: PY, rot: view.bank, vx: 0.05 * (view.bank >= 0 ? 1 : -1), vy: -0.25, vr: 0.0028 });
+  iris = { t0: now + 450, brain: myLevel() };
+}
+function scenePassed(now) {
+  recenter(); setTrack(view.d, round.n, round.boost);
+  burst(PX, PY - 50 * PS, 22, ['#33d66d', '#00ebc0', '#ffffff'], 0.4);
+  texts.push({ text: fx(multAt(round.d, round.n, round.boost)), x: PX, y: PY - 175 * PS, t0: now, col: '#7dffcf' });
+}
+function sceneJump(now) {
+  chute = { t0: now, x: PX, y0: PY - 70 * PS, leave: 0, brain: myLevel() };
+  Object.assign(plane, { state: 'empty', t0: now });
+  for (let i = 0; i < 26; i++) parts.push({ type: 'coin', x: PX, y: PY - 70 * PS, vx: (Math.random() - 0.5) * 0.7, vy: -0.4 - Math.random() * 0.5, g: 0.0011, life: 0, max: 1500 + Math.random() * 600, r: 5 + Math.random() * 4 });
+  for (let i = 0; i < 70; i++) parts.push({ type: 'confetti', x: Math.random() * W, y: -20 - Math.random() * H * 0.4, vx: (Math.random() - 0.5) * 0.08, vy: 0.08 + Math.random() * 0.12, g: 0, life: 0, max: 3200, r: 5 + Math.random() * 4, rot: Math.random() * 7, vr: (Math.random() - 0.5) * 0.02, c: ['#4b36fc', '#8447fb', '#33d66d', '#ffc147', '#ffffff', '#ed6b6b'][i % 6] });
+  flashAt = now; flashCol = '200,180,255';
+}
+function burst(x, y, n, cols, sp) {
+  for (let i = 0; i < n; i++) { const a = Math.random() * 7, v = sp * (0.4 + Math.random()); parts.push({ type: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.1, g: 0.0009, life: 0, max: 600 + Math.random() * 500, r: 3 + Math.random() * 4, c: cols[i % cols.length] }); }
+}
+
+/* drawing helpers */
+function ell(x, y, rx, ry, rot) { ctx.beginPath(); ctx.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), rot || 0, 0, Math.PI * 2); }
+function lin(x0, y0, x1, y1, c0, c1) { const g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, c0); g.addColorStop(1, c1); return g; }
+function star(x, y, r, n, inner) { ctx.beginPath(); for (let i = 0; i < n * 2; i++) { const a = i * Math.PI / n - Math.PI / 2, rr = i % 2 ? r * inner : r; ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } ctx.closePath(); }
+function brandText(text, x, y, size, fill, rot, shadow) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot || 0);
+  ctx.font = `900 ${Math.round(size)}px FiraGO, "Fira Sans", system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = shadow || 'rgba(75,54,252,.75)'; ctx.fillText(text, 0, size * 0.08);
+  ctx.fillStyle = fill; ctx.fillText(text, 0, 0); ctx.restore();
+}
+
+/* the player's Brainer from behind in the cockpit (rim at 0,0); its brain shows the brain level */
+function robotBack(t, L) {
+  const [c1, c2, n] = BRAIN[L - 1];
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.roundRect(-44, -50, 88, 56, 22); ctx.fillStyle = lin(0, -50, 0, 6, '#ffffff', '#d6cefa'); ctx.fill(); ctx.strokeStyle = LINE; ctx.lineWidth = 2; ctx.stroke();
+  ctx.strokeStyle = '#c9c0f5'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -46); ctx.lineTo(0, 2); ctx.stroke();
+  for (const sd of [-1, 1]) {   // arms resting on the rim
+    ctx.beginPath(); ctx.moveTo(sd * 34, -32); ctx.quadraticCurveTo(sd * 60, -22, sd * 56, -2);
+    ctx.lineWidth = 17; ctx.strokeStyle = '#c9c0f5'; ctx.stroke(); ctx.lineWidth = 12; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+  }
+  const bob = reduced ? 0 : Math.sin(t / 260) * 1.5;
+  ctx.save(); ctx.translate(0, bob);
+  ell(0, -88, 52, 46); ctx.fillStyle = 'rgba(196,182,255,.5)'; ctx.fill();
+  ctx.save(); ell(0, -88, 50, 44); ctx.clip();
+  ctx.lineWidth = 2.5; ctx.strokeStyle = c1;
+  for (let i = 1; i < n; i++) { const a = NEURONS[i], b = NEURONS[a.link]; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+  const pulse = reduced ? 1 : 1 + Math.sin(t / 300) * 0.08;
+  for (let i = 0; i < n; i++) { const a = NEURONS[i], g = ctx.createRadialGradient(a.x - a.r * 0.3, a.y - a.r * 0.3, 0, a.x, a.y, a.r * pulse); g.addColorStop(0, c2); g.addColorStop(1, c1); ell(a.x, a.y, a.r * pulse, a.r * pulse); ctx.fillStyle = g; ctx.fill(); }
+  ctx.restore();
+  ell(0, -88, 53, 47); ctx.strokeStyle = 'rgba(83,42,255,.45)'; ctx.lineWidth = 2; ctx.stroke();
+  ell(0, -88, 51, 45); ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(0, -88, 40, 34, 0, Math.PI * 1.08, Math.PI * 1.42); ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 5; ctx.stroke();
+  ell(0, -50, 50, 10); ctx.fillStyle = lin(0, -60, 0, -40, '#ffffff', '#ddd6fb'); ctx.fill(); ctx.strokeStyle = LINE; ctx.lineWidth = 2; ctx.stroke();
+  ctx.restore();
+}
+
+/* the plane from behind; origin at the cockpit rim */
+function planeBack(x, y, s, rot, t, pilot, soot, L) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
+  if (soot) ctx.filter = 'brightness(.45) saturate(.5)';
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = LINE; ctx.lineWidth = 2;
+  ell(0, 22, 96, 96); ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fill();   // propeller disc
+  ctx.save(); ctx.strokeStyle = 'rgba(10,19,34,.25)'; ctx.lineWidth = 7; const pa = t / 20;
+  for (const o of [0, Math.PI]) { ctx.beginPath(); ctx.moveTo(Math.cos(pa + o) * 22, 22 + Math.sin(pa + o) * 22); ctx.lineTo(Math.cos(pa + o) * 92, 22 + Math.sin(pa + o) * 92); ctx.stroke(); }
+  ctx.restore();
+  for (const sd of [-1, 1]) {
+    ctx.beginPath(); ctx.moveTo(sd * 40, 24); ctx.lineTo(sd * 198, 8); ctx.quadraticCurveTo(sd * 226, 8, sd * 224, 22); ctx.quadraticCurveTo(sd * 222, 34, sd * 198, 34); ctx.lineTo(sd * 40, 48); ctx.closePath();
+    ctx.fillStyle = lin(0, 8, 0, 48, '#ffffff', '#d4ccf8'); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sd * 182, 10); ctx.lineTo(sd * 198, 8); ctx.quadraticCurveTo(sd * 226, 8, sd * 224, 22); ctx.quadraticCurveTo(sd * 222, 34, sd * 198, 34); ctx.lineTo(sd * 182, 36); ctx.closePath();
+    ctx.fillStyle = lin(sd * 182, 0, sd * 226, 0, '#4b36fc', '#8447fb'); ctx.fill();
+    ctx.strokeStyle = '#8d86b8'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(sd * 54, 46); ctx.lineTo(sd * 64, 82); ctx.stroke();
+    ell(sd * 66, 90, 11, 15); ctx.fillStyle = NAVY; ctx.fill();
+    ctx.strokeStyle = LINE; ctx.lineWidth = 2;
+  }
+  const body = ctx.createRadialGradient(-18, 6, 6, 0, 28, 70); body.addColorStop(0, '#ffffff'); body.addColorStop(1, '#cfc6f7');
+  ell(0, 28, 62, 50); ctx.fillStyle = body; ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.strokeStyle = lin(-50, 0, 50, 0, '#4b36fc', '#8447fb'); ctx.lineWidth = 9; ctx.beginPath(); ctx.ellipse(0, 28, 50, 39, 0, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke(); ctx.restore();
+  ell(0, -4, 50, 15); ctx.fillStyle = '#1b1640'; ctx.fill();   // cockpit
+  if (pilot) robotBack(t, L);
+  ctx.strokeStyle = '#c9c0f5'; ctx.lineWidth = 9; ctx.beginPath(); ctx.ellipse(0, -4, 50, 15, 0, 0, Math.PI); ctx.stroke();
+  ctx.strokeStyle = LINE; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-116, 64); ctx.quadraticCurveTo(-128, 71, -116, 78); ctx.lineTo(116, 78); ctx.quadraticCurveTo(128, 71, 116, 64); ctx.closePath(); ctx.fillStyle = lin(0, 64, 0, 78, '#ffffff', '#d4ccf8'); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-8, 88); ctx.lineTo(-5, 36); ctx.quadraticCurveTo(0, 26, 5, 36); ctx.lineTo(8, 88); ctx.closePath(); ctx.fillStyle = lin(0, 30, 0, 88, '#8447fb', '#4b36fc'); ctx.fill();
+  ctx.restore();
+}
+function chuteDraw(x, y, s, t, open, alpha, L) {
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(reduced ? 0 : Math.sin(t / 700) * 0.1); ctx.scale(s, s);
+  if (open > 0.02) {
+    ctx.save(); ctx.scale(open, open); ctx.translate(0, -120 * (1 - open));
+    ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(255,255,255,.85)';
+    for (const px of [-138, -70, 70, 138]) { ctx.beginPath(); ctx.moveTo(px, -150); ctx.lineTo(px < 0 ? -62 : 62, -10); ctx.stroke(); }
+    const dome = () => { ctx.beginPath(); ctx.moveTo(-150, -150); ctx.bezierCurveTo(-150, -272, 150, -272, 150, -150); for (let i = 5; i >= 0; i--) { const xa = -150 + i * 50; ctx.quadraticCurveTo(xa + 25, -136, xa, -150); } ctx.closePath(); };
+    dome(); ctx.fillStyle = '#ffffff'; ctx.fill();
+    ctx.save(); dome(); ctx.clip(); ctx.fillStyle = lin(-150, -260, 150, -140, '#4b36fc', '#8447fb');
+    for (let i = 0; i < 6; i += 2) { ctx.beginPath(); ctx.moveTo(0, -290); ctx.lineTo(-150 + i * 50, -130); ctx.lineTo(-100 + i * 50, -130); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
+    ctx.restore();
+  }
+  const im = ROBOT[L - 1];
+  if (im.complete && im.naturalWidth) ctx.drawImage(im, -110, -70, 220, 220);
+  ctx.restore();
+}
+
+function bomb(x, y, r, rot, t) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  ctx.lineCap = 'round'; ctx.lineWidth = Math.max(1.5, r * 0.14);
+  ctx.beginPath(); ctx.moveTo(0, -r * 1.1); ctx.quadraticCurveTo(r * 0.5, -r * 1.5, r * 0.3, -r * 1.85); ctx.strokeStyle = '#c9a06a'; ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(-r * 0.32, -r * 1.2, r * 0.64, r * 0.36, r * 0.08); ctx.fillStyle = '#3a3f58'; ctx.fill();
+  const g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r); g.addColorStop(0, '#3a4366'); g.addColorStop(1, NAVY);
+  ell(0, 0, r, r); ctx.fillStyle = g; ctx.fill();
+  ell(-r * 0.38, -r * 0.38, r * 0.28, r * 0.17, -0.7); ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.fill();
+  if ((t / 70 | 0) % 2 === 0 || reduced) { star(r * 0.3, -r * 1.9, r * 0.45, 5, 0.45); ctx.fillStyle = '#ffc147'; ctx.fill(); }
+  ctx.restore();
+}
+function drawBoom(b, now) {
+  const a = (now - b.t0) / b.dur;
+  if (a < 0 || a >= 1) return;
+  const grow = easeOut(Math.min(1, a * 2.6)), fade = a < 0.6 ? 1 : 1 - (a - 0.6) / 0.4;
+  ctx.save(); ctx.translate(b.x, b.y); ctx.globalAlpha = fade;
+  for (let i = 0; i < 7; i++) {   // smoke
+    const an = b.rot + i * 0.9, d = b.r * (0.35 + 0.6 * a);
+    ell(Math.cos(an) * d, Math.sin(an) * d * 0.7 - a * b.r * 0.4, b.r * (0.22 + 0.22 * a), b.r * (0.2 + 0.2 * a)); ctx.fillStyle = 'rgba(86,78,118,.7)'; ctx.fill();
+  }
+  if (a < 0.7) {
+    const R = b.r * (0.35 + 0.65 * grow);
+    ctx.rotate(b.rot);
+    star(0, 0, R, 12, 0.56); ctx.fillStyle = '#ed2b4b'; ctx.fill();
+    star(0, 0, R * 0.78, 12, 0.52); ctx.fillStyle = '#fa7b5b'; ctx.fill();
+    star(0, 0, R * 0.56, 12, 0.5); ctx.fillStyle = '#ffc147'; ctx.fill();
+    ell(0, 0, R * 0.24, R * 0.24); ctx.fillStyle = '#fff6e0'; ctx.fill();
+    ctx.rotate(-b.rot);
+  }
+  ctx.restore();
+  if (b.text && a < 0.75) brandText(b.text, b.x, b.y - b.r * (0.15 + 0.2 * a), b.r * 0.4 * (0.7 + 0.3 * grow), '#ffffff', -0.1);
+}
+function drawGate(k, now, front) {
+  const g = gatePos(k);
+  if (g.r < 3 || g.x + g.r < -40 || g.x - g.r > W + 40) return;
+  const intro = clamp((now - view.introT) / 450, 0, 1);
+  const passing = g.z < ZP ? clamp((g.z / ZP - 0.45) / 0.45, 0, 1) : 1;
+  let st = 'idle';
+  if (view.struck && view.row) st = view.row[k] ? 'boom' : k === view.pick ? 'safe' : 'idle';
+  else if (k === view.pick) st = 'picked';
+  const r = round, choosing = r && r.status === 'choose';
+  ctx.save(); ctx.globalAlpha = easeOut(intro) * passing * (view.struck && st === 'idle' ? 0.5 : 1);
+  const lw = Math.max(4, g.r * 0.2);
+  if (!front) {
+    if (st === 'picked' || (choosing && view.hover === k)) { const gl = ctx.createRadialGradient(g.x, g.y, g.r * 0.5, g.x, g.y, g.r * 1.5); gl.addColorStop(0, 'rgba(132,71,251,.45)'); gl.addColorStop(1, 'rgba(132,71,251,0)'); ctx.fillStyle = gl; ctx.fillRect(g.x - g.r * 1.6, g.y - g.r * 1.6, g.r * 3.2, g.r * 3.2); }
+    ell(g.x, g.y + lw * 0.35, g.r, g.r); ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(10,19,34,.16)'; ctx.stroke();
+    ell(g.x, g.y, g.r, g.r);
+    ctx.lineWidth = lw; ctx.strokeStyle = st === 'boom' ? '#2a2540' : st === 'safe' ? lin(g.x - g.r, 0, g.x + g.r, 0, '#33d66d', '#00ebc0') : st === 'picked' ? lin(g.x - g.r, 0, g.x + g.r, 0, '#4b36fc', '#8447fb') : '#ffffff'; ctx.stroke();
+    if (st === 'idle' || st === 'picked') {
+      ctx.setLineDash([g.r * 0.18, g.r * 0.32]); ctx.lineDashOffset = reduced ? 0 : -now / 40;
+      ctx.lineWidth = lw * 0.32; ctx.strokeStyle = st === 'picked' ? '#ffffff' : '#8447fb'; ctx.stroke(); ctx.setLineDash([]);
     }
-    if (lay[e.d.key][step][e.choice]) { e.n++; e.mult = ladder(e.d, e.n, R.rtp); e.status = 'flying'; e.passed = true; }
-    else { e.status = 'crashed'; e.passed = false; e.crashedAt = step; }
-  };
-  bots.forEach(settle); settle(me.run);
-  const r = me.run;
-  if (r && r.status === 'crashed' && r.crashedAt === step) S.mine.unshift({ round: r.id, diff: r.d.name, short: r.d.short, stake: r.stake, n: r.n, mult: 0, payout: 0, crashedAt: step });
-  gates.safe = lay[gates.d.key][step];
-  renderRoutes(); renderList(); renderLadder(); renderMine();
-}
-function afterResolve(now) {
-  const r = me.run;
-  if (r && r.status === 'flying') {
-    if (r.n >= r.d.max || r.stake * r.mult >= cfg.maxWin || (me.autoLand && r.n >= me.autoN)) land(r, now);
   }
-  for (const b of bots) if (b.status === 'flying' && (b.n >= b.d.max || b.stake * b.mult >= cfg.maxWin)) land(b);
-  gates = null;
-  world.recenter();
-  const anyone = bots.some(isFlying) || isFlying(r);
-  if (!anyone || step >= R.maxStep) finish(now);
-  else { phase = 'cruise'; t0 = now; }
-  renderList(); renderHistory(); showPanels();
-}
-function finish(now) {
-  phase = 'result'; t0 = now;
-  for (const b of bots) if (isFlying(b)) land(b);
-  if (isFlying(me.run)) land(me.run, now);
-  S.rounds.unshift(R); if (S.rounds.length > 60) S.rounds.length = 60;
-  if (S.mine.length > 200) S.mine.length = 200;
-  const all = bots.concat(me.run ? [me.run] : []), landed = all.filter(e => e.status === 'landed');
-  $('#bLanded').textContent = landed.length; $('#bCrashed').textContent = all.filter(e => e.status === 'crashed').length;
-  const best = landed.reduce((a, e) => e.mult > a.mult ? e : a, { mult: 0 });
-  $('#bBest').textContent = best.mult ? `${fx(best.mult)} · ${best.d.name}` : '—';
-  const r = me.run, y = $('#bYou');
-  if (!r) { y.textContent = 'You watched this round.'; y.className = 'you'; }
-  else if (r.status === 'landed') { y.textContent = `You landed at ${fx(r.mult)} after ${r.n} safe route${r.n === 1 ? '' : 's'} · +${fmt(r.payout - r.stake)} FUN`; y.className = 'you ok'; }
-  else { y.textContent = `You crashed at intersection ${r.n + 1} · −${fmt(r.stake)} FUN`; y.className = 'you bad'; }
-  $('#banner').hidden = false;
-  nextP = drawRound();
-  renderList(); renderMine(); renderHistory(); renderFairRows(); showPanels();
+  if (front || g.z >= ZP) {   // path number in the hoop, the multiplier it leads to above it
+    view.hit[k] = g;
+    if (g.r > 14 && st !== 'boom' && g.z > ZP * 1.2) {
+      brandText(String(k + 1), g.x, g.y + g.r * 0.04, g.r * 0.62, st === 'picked' ? '#ffffff' : VIOLET, 0, st === 'picked' ? 'rgba(75,54,252,.75)' : 'rgba(255,255,255,.9)');
+      const tx = fxShort(multAt(view.d, Math.min(view.n + 1, view.d.steps), view.boost)), fs = clamp(g.r * 0.34, 11, 17);
+      ctx.font = `800 ${Math.round(fs)}px FiraGO, "Fira Sans", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const tw = ctx.measureText(tx).width + fs * 1.2, ty = g.y - g.r - fs * 0.9 - 6;
+      ctx.beginPath(); ctx.roundRect(g.x - tw / 2, ty - fs * 0.78, tw, fs * 1.56, fs * 0.78);
+      ctx.fillStyle = st === 'safe' ? lin(g.x - tw / 2, 0, g.x + tw / 2, 0, '#33d66d', '#00ebc0') : st === 'picked' ? lin(g.x - tw / 2, 0, g.x + tw / 2, 0, '#4b36fc', '#8447fb') : '#ffffff'; ctx.fill();
+      ctx.fillStyle = st === 'idle' ? VIOLET : st === 'safe' ? NAVY : '#ffffff'; ctx.fillText(tx, g.x, ty + fs * 0.06);
+    }
+  }
+  ctx.restore();
 }
 
 /* ---------- loop ---------- */
-let listAt = 0;
+function update(now, dt) {
+  const r = round, flying = r && r.status === 'flying';
+  view.speed += ((flying ? 2.6 : 1) - view.speed) * Math.min(1, dt * 0.005);
+  const ds = view.speed * dt * 0.0035 * (reduced ? 0.5 : 1);
+  view.scroll += ds;
+  for (const c of clouds) { c.z -= ds; if (c.z < 1) { c.z = 46 + Math.random() * 14; c.x = view.camX + (Math.random() - 0.5) * 34; c.alt = -2.6 + Math.random() * 4.2; } }
+  if (flying) {
+    const p = clamp((now - r.t0) / FLY_MS, 0, 1), pp = r.hit ? Math.min(p, IMPACT) : p;
+    view.gz = lerp(Z_WAIT, ZP * 0.45, ease(pp)); view.camX = gateX(view.pick) * ease(clamp(pp / 0.8, 0, 1));
+  } else if (!(r && r.status === 'crashed')) view.gz = lerp(Z_FAR, Z_WAIT, easeOut(clamp((now - view.introT) / 450, 0, 1)));
+  const bankTo = flying ? clamp((gateX(view.pick) - view.camX) / SPREAD * 0.22, -0.45, 0.45) : 0;
+  view.bank += (bankTo - view.bank) * Math.min(1, dt * 0.008);
+  // bombs keep falling far behind the hoops while the pilot decides; never in line with a hoop, so they hint nothing
+  if ((!r || r.status === 'choose') && now > nextDropAt && W) {
+    nextDropAt = now + 650 + Math.random() * 1100;
+    const z = 22 + Math.random() * 22;
+    for (let i = 0; i < 8; i++) {
+      const sx = Math.random() * W;
+      if ([0, 1, 2, 3, 4].some(k => Math.abs(W / 2 + gateX(k) * F / Z_WAIT - sx) < RING * F / Z_WAIT * 1.4)) continue;   // the hoops' resting spots
+      drops.push({ real: false, x: view.camX + (sx - W / 2) * z / F, z, t0: now, dur: 900 + Math.random() * 500 });
+      break;
+    }
+  }
+  drops = drops.filter(b => {
+    if (b.real) return true;
+    if (now - b.t0 < b.dur) return true;
+    booms.push({ x: projX(b.x, b.z), y: altY(H_GATE() + 0.25, b.z), r: 1.1 * F / b.z, t0: now, dur: 700, rot: Math.random() * 7 });
+    return false;
+  });
+  if (plane.state === 'fall') {
+    plane.vy += 0.0012 * dt; plane.x += plane.vx * dt; plane.y += plane.vy * dt; plane.rot += plane.vr * dt * (plane.vx >= 0 ? 1 : -1);
+    if (!reduced && Math.random() < 0.8) parts.push({ type: 'smoke', x: plane.x + (Math.random() - 0.5) * 30 * PS, y: plane.y - 20 * PS, vx: 0, vy: -0.03, g: 0, life: 0, max: 1100, r: (10 + Math.random() * 14) * PS });
+    if (plane.y > H + 260 * PS) plane.state = 'gone';
+  }
+  parts = parts.filter(q => (q.life += dt) < q.max);
+  for (const q of parts) { q.vy += q.g * dt; q.x += q.vx * dt; q.y += q.vy * dt; if (q.type === 'smoke') q.r += dt * 0.02; if (q.vr) q.rot += q.vr * dt; }
+  booms = booms.filter(b => now - b.t0 < b.dur);
+  texts = texts.filter(f => now - f.t0 < 1300);
+  if (chute && chute.leave && now - chute.leave > 1200) chute = null;
+  if (iris && iris.out && now - iris.out > 500) iris = null;
+  shake *= Math.pow(0.9, dt / 16);
+}
+
+function drawGround() {
+  const D = 3.2, CW = 3.4, base = Math.floor(view.scroll / D);
+  const FIELD = ['#e6defd', '#ddd3fb', '#efe9ff', '#d4c9f8', '#e9e2fe', '#e0d7fc', '#f3eeff', '#d9cffa'];
+  ctx.fillStyle = '#e4dcfd'; ctx.fillRect(0, HY, W, H - HY);
+  for (let k = 28; k >= 0; k--) {
+    const row = base + k, z0 = Math.max(0.6, row * D - view.scroll), z1 = row * D + D - view.scroll;
+    if (z1 <= 0.6) continue;
+    const y0 = Math.min(H + 2, altY(G_H, z0)), y1 = altY(G_H, z1);
+    if (y1 > H) continue;
+    const half = (W / 2) * z0 / F + CW, c0 = Math.floor((view.camX - view.fieldX - half) / CW), c1 = Math.ceil((view.camX - view.fieldX + half) / CW);
+    for (let c = c0; c <= c1; c++) {
+      const xa = c * CW + view.fieldX, xb = xa + CW;
+      ctx.fillStyle = FIELD[((row * 7 + c * 13) % FIELD.length + FIELD.length) % FIELD.length];
+      ctx.beginPath(); ctx.moveTo(projX(xa, z0), y0); ctx.lineTo(projX(xb, z0), y0); ctx.lineTo(projX(xb, z1), y1); ctx.lineTo(projX(xa, z1), y1); ctx.closePath(); ctx.fill();
+    }
+  }
+  const g = ctx.createLinearGradient(0, HY, 0, HY + H * 0.24);
+  g.addColorStop(0, 'rgba(246,240,255,.95)'); g.addColorStop(1, 'rgba(246,240,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, HY - 1, W, H * 0.24);
+  const v = ctx.createLinearGradient(0, H * 0.6, 0, H);   // violet shade so the white plane stands out
+  v.addColorStop(0, 'rgba(75,54,252,0)'); v.addColorStop(1, 'rgba(75,54,252,.28)');
+  ctx.fillStyle = v; ctx.fillRect(0, H * 0.6, W, H * 0.4);
+}
+function drawCloud(c, near) {
+  if (c.z < 1) return;
+  const w = c.s * 2.6 * F / c.z, h = w * 170 / 300, x = projX(c.x, c.z), y = altY(c.alt, c.z);
+  if (x + w / 2 < 0 || x - w / 2 > W || y - h > H || y + h < 0) return;
+  ctx.globalAlpha = clamp((c.z - 1) / 2.5, 0, 1) * clamp((60 - c.z) / 14, 0, 1) * (near === true ? 0.4 : 0.9);
+  ctx.drawImage(cloudImg, x - w / 2, y - h / 2, w, h); ctx.globalAlpha = 1;
+}
+function drawPlane(now) {
+  const bob = reduced ? 0 : Math.sin(now / 420) * 5 * PS;
+  const st = plane.state, L = plane.brain;
+  if (st === 'cruise') planeBack(PX + view.bank * 60 * PS, PY + bob, PS, view.bank * 0.9 + (reduced ? 0 : Math.sin(now / 900) * 0.02), now, true, false, L);
+  else if (st === 'enter') {
+    const p = clamp((now - plane.t0) / 450, 0, 1);
+    planeBack(PX, lerp(H + 160 * PS, PY, easeOut(p)), PS, 0, now, true, false, L);
+    if (p >= 1) plane.state = 'cruise';
+  } else if (st === 'fall') planeBack(plane.x, plane.y, PS, plane.rot, now, true, true, L);
+  else if (st === 'empty') {
+    const p = clamp((now - plane.t0) / 1700, 0, 1);
+    planeBack(PX + Math.sin(p * 8) * 12 * PS, lerp(PY, HY + 8, ease(p)), PS * lerp(1, 0.1, ease(p)), Math.sin(p * 9) * 0.1, now, false, false, L);
+    if (p >= 1) plane.state = 'gone';
+  }
+}
+function draw(now) {
+  const r = round;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.save();
+  if (shake > 0.5) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+  ctx.drawImage(sky, 0, 0, W, HY + 2);
+  drawGround();
+  const far = clouds.filter(c => c.z >= view.gz).sort((a, b) => b.z - a.z), near = clouds.filter(c => c.z < view.gz).sort((a, b) => b.z - a.z);
+  far.forEach(c => drawCloud(c));
+  for (const b of drops) if (!b.real) {   // distant bombs
+    const p = clamp((now - b.t0) / b.dur, 0, 1), alt = lerp(H_GATE() - 3.5, H_GATE() + 0.25, p * p);
+    ctx.globalAlpha = clamp(p * 4, 0, 1); bomb(projX(b.x, b.z), altY(alt, b.z), 0.32 * F / b.z, 0.3, now); ctx.globalAlpha = 1;
+  }
+  for (const b of booms) if (!b.front) drawBoom(b, now);
+  const showGates = r ? (r.status === 'choose' || r.status === 'flying' || r.status === 'crashed') : true;
+  if (showGates && plane.state !== 'empty') {
+    if (r && (r.status === 'choose' || r.status === 'flying') && view.gz > ZP) {   // the five paths
+      const sx = PX + view.bank * 60 * PS, sy = PY - 30 * PS;
+      for (let k = 0; k < cfg.paths; k++) {
+        const g = gatePos(k); if (g.r < 3) continue;
+        ctx.save(); ctx.lineCap = 'round';
+        if (k === view.pick) { ctx.lineWidth = 9; ctx.strokeStyle = lin(sx, sy, g.x, g.y, '#4b36fc', '#8447fb'); ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo((sx + g.x) / 2, sy - 20, g.x, g.y); ctx.stroke(); ctx.lineWidth = 3; ctx.strokeStyle = '#ffffff'; ctx.stroke(); }
+        else if (!view.row) { ctx.lineWidth = 3; ctx.setLineDash([8, 10]); ctx.lineDashOffset = reduced ? 0 : -now / 25; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo((sx + g.x) / 2, sy - 20, g.x, g.y); ctx.stroke(); }
+        ctx.restore();
+      }
+    }
+    if (view.gz >= ZP) for (let k = 0; k < cfg.paths; k++) drawGate(k, now, false);
+    for (const b of drops) if (b.real) {   // the bombs that decide this step
+      const p = clamp((now - b.t0) / (FLY_MS * IMPACT), 0, 1), g = gatePos(b.k), by = g.y - (1 - Math.pow(p, 1.6)) * H * 0.85;
+      bomb(g.x, by, g.r * 0.34, Math.sin(now / 90 + b.k) * 0.15, now);
+      ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 2;
+      for (const o of [-0.4, 0, 0.4]) { ctx.beginPath(); ctx.moveTo(g.x + o * g.r * 0.3, by - g.r * 0.7); ctx.lineTo(g.x + o * g.r * 0.3, by - g.r * 1.3); ctx.stroke(); }
+      ctx.restore();
+    }
+  }
+  for (const q of parts) if (q.type === 'smoke') { ctx.globalAlpha = 0.6 * (1 - q.life / q.max); ell(q.x, q.y, q.r, q.r * 0.85); ctx.fillStyle = '#5e5878'; ctx.fill(); }
+  ctx.globalAlpha = 1;
+  drawPlane(now);
+  if (showGates && view.gz < ZP && plane.state !== 'empty') for (let k = 0; k < cfg.paths; k++) { drawGate(k, now, false); drawGate(k, now, true); }
+  near.forEach(c => drawCloud(c, true));
+  for (const b of booms) if (b.front) drawBoom(b, now);
+  for (const q of parts) {
+    const a = 1 - q.life / q.max;
+    if (q.type === 'spark') { ctx.globalAlpha = a; star(q.x, q.y, q.r, 4, 0.4); ctx.fillStyle = q.c; ctx.fill(); }
+    else if (q.type === 'coin') { ctx.globalAlpha = a; ell(q.x, q.y, q.r * Math.abs(Math.cos(q.life / 90)) + 1, q.r); ctx.fillStyle = '#ffc147'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#e09a1f'; ctx.stroke(); }
+    else if (q.type === 'confetti') { ctx.save(); ctx.globalAlpha = Math.min(1, a * 2); ctx.translate(q.x, q.y); ctx.rotate(q.rot); ctx.fillStyle = q.c; ctx.fillRect(-q.r / 2, -q.r / 4, q.r, q.r / 2); ctx.restore(); }
+  }
+  ctx.globalAlpha = 1;
+  if (chute) {
+    const t = now - chute.t0, p = clamp(t / 500, 0, 1), open = clamp((t - 280) / 450, 0, 1);
+    let y = Math.min(lerp(chute.y0, H * 0.58, easeOut(p)) + Math.max(0, t - 900) * 0.005, H * 0.64), alpha = 1;
+    if (chute.leave) { const q = (now - chute.leave) / 1200; y += q * q * H; alpha = 1 - q; }
+    chuteDraw(chute.x + (reduced ? 0 : Math.sin(t / 900) * 18 * PS), y, PS * 0.62, now, open > 0 ? easeBack(open) : 0, clamp(alpha, 0, 1), chute.brain);
+  }
+  for (const f of texts) { const p = (now - f.t0) / 1300; ctx.globalAlpha = 1 - p; brandText(f.text, f.x, f.y - p * 60, 30 * clamp(PS * 1.4, 0.8, 1.2), f.col, -0.06); }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  if (iris) {   // closing iris on the sooty, dazed Brainer
+    const cx = W / 2, cy = H * 0.56, R0 = Math.hypot(W, H) * 0.6, R1 = Math.min(W, H) * 0.3;
+    let k = clamp((now - iris.t0) / 500, 0, 1);
+    if (iris.out) k = Math.min(k, 1 - clamp((now - iris.out) / 500, 0, 1));
+    if (k > 0) {
+      const R = lerp(R0, R1, easeOut(k));
+      ctx.fillStyle = NAVY; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(cx, cy, R, 0, Math.PI * 2, true); ctx.fill();
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+      const g = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R); g.addColorStop(0, 'rgba(241,233,255,.95)'); g.addColorStop(1, 'rgba(200,169,255,.6)');
+      ctx.fillStyle = g; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+      const pop = clamp((now - iris.t0 - 300) / 400, 0, 1), img = sootyRobot(iris.brain);
+      if (pop > 0 && img) {
+        const sz = R1 * 1.75 * easeBack(pop);
+        ctx.translate(cx, cy); ctx.rotate(reduced ? 0 : Math.sin(now / 300) * 0.05);
+        for (let i = 0; i < 3; i++) {   // smoke over the dome
+          const q = ((now / 900 + i / 3) % 1);
+          ctx.globalAlpha = 0.5 * (1 - q); ell(-R1 * 0.3 + i * R1 * 0.3, -R1 * 0.75 - q * R1 * 0.4, R1 * (0.08 + q * 0.12), R1 * (0.07 + q * 0.1)); ctx.fillStyle = '#6b6585'; ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        ctx.drawImage(img, -sz / 2, -sz / 2, sz, sz);
+        for (let i = 0; i < 4; i++) {   // stars circling the dome
+          const an = now / 380 + i * Math.PI / 2;
+          star(Math.cos(an) * R1 * 0.55, -R1 * 0.58 + Math.sin(an) * R1 * 0.12, R1 * 0.08, 5, 0.45); ctx.fillStyle = '#ffc147'; ctx.fill();
+        }
+      }
+      ctx.restore();
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(132,71,251,.8)'; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  if (now - flashAt < 260 && !reduced) { ctx.fillStyle = `rgba(${flashCol},${0.75 * (1 - (now - flashAt) / 260)})`; ctx.fillRect(0, 0, W, H); }
+}
+
 function loop(now) {
-  const t = now - t0;
-  if (phase === 'betting') { if (t >= cfg.betSec * 1000) startTakeoff(now); }
-  else if (phase === 'takeoff') { if (t >= cfg.takeoffSec * 1000) startDecide(now); }
-  else if (phase === 'decide') {
-    let changed = false;
-    for (const b of bots) if (b.status === 'deciding' && t >= b.chooseAt * winMs) { b.choice = Math.floor(Math.random() * b.d.paths); b.status = 'chosen'; changed = true; }
-    if (changed) renderList();
-    if (t >= winMs) startResolve(now);
-  } else if (phase === 'resolve') { if (t >= cfg.resolveSec * 1000) afterResolve(now); }
-  else if (phase === 'cruise') { if (t >= cfg.cruiseSec * 1000) startDecide(now); }
-  else if (phase === 'result' && t >= cfg.resultSec * 1000 && !busy) { busy = true; startBetting().finally(() => { busy = false; }); }
-  if (phase === 'betting' && now - listAt > 300) { listAt = now; renderList(); }
-  updateUI(now);
-  draw(now);
+  const dt = Math.min(50, now - (last || now)); last = now;
+  if (W && H) { advance(now); update(now, dt); draw(now); updateUI(now); }
   requestAnimationFrame(loop);
 }
 
 /* ---------- readout & controls ---------- */
 const cache = {};
-const put = (id, prop, v) => { const k = id + prop; if (cache[k] === v) return; cache[k] = v; const el = document.getElementById(id); if (prop === 'text') el.textContent = v; else if (prop === 'class') el.className = v; else if (prop === 'hidden') el.hidden = v; else if (prop === 'disabled') el.disabled = v; else if (prop === 'width') el.style.width = v; };
-const STATUS = { confirmed: 'Bet confirmed', takeoff: 'Taking off', deciding: 'Decision pending', chosen: 'Route locked', flying: 'Flying', landed: 'Landed', crashed: 'Crashed' };
+const put = (id, prop, v) => { const k = id + prop; if (cache[k] === v) return; cache[k] = v; const el = document.getElementById(id); if (prop === 'text') el.textContent = v; else if (prop === 'class') el.className = v; else if (prop === 'hidden') el.hidden = v; else if (prop === 'disabled') el.disabled = v; };
 function updateUI(now) {
-  const t = now - t0, r = me.run, mine = r && r.id === (R && R.id);
-  let label = '', big = '—', bigCls = 'big wait', sub = '', subCls = 'sub', timer = null;
-  const d = (r && r.d) || (R ? R.diffs[me.diff] : cfg.diffs[me.diff]);
-  if (phase === 'betting') { label = 'Bets open · takeoff in'; big = Math.max(0, cfg.betSec - t / 1000).toFixed(1) + 's'; sub = `${d.name}: ${d.safe} of ${d.paths} routes are safe`; }
-  else if (phase === 'takeoff') { label = 'Taking off'; big = '1.00×'; bigCls = 'big'; sub = 'First intersection ahead'; }
-  else if (phase === 'decide') {
-    label = `Intersection ${step}` + (r && (r.status === 'deciding') ? ' · choose a route' : '');
-    timer = 1 - t / winMs;
-    if (isFlying(r)) { big = fx(r.mult); bigCls = 'big'; const nx = ladder(r.d, r.n + 1, R.rtp); sub = `Safe route pays ${fx(nx)} · ${fmt(Math.min(r.stake * nx, cfg.maxWin))} FUN`; }
-  } else if (phase === 'resolve') {
-    if (r && r.status === 'crashed' && r.id === R.id && r.crashedAt === step) { label = 'Storm cloud!'; big = 'CRASH'; bigCls = 'big bust'; }
-    else if (r && r.status === 'flying') { label = 'Safe passage'; const p = clamp(t / 600, 0, 1), prev = ladder(r.d, r.n - 1, R.rtp); big = fx(prev + (r.mult - prev) * p); bigCls = 'big win'; }
-    else { label = 'Revealing routes'; big = r && isFlying(r) ? fx(r.mult) : '—'; }
-  } else if (phase === 'cruise') { label = isFlying(r) ? 'Flying · land now or fly on' : 'Next intersection ahead'; if (isFlying(r)) { big = fx(r.mult); bigCls = 'big'; } }
-  else if (phase === 'result') { label = 'Round complete'; }
-  if (mine && r.status === 'landed') { sub = `Landed at ${fx(r.mult)} · +${fmt(r.payout - r.stake)} FUN`; subCls = 'sub ok'; if (phase !== 'betting') { big = fx(r.mult); bigCls = 'big win'; } }
-  else if (mine && r.status === 'crashed') { sub = `Crashed at intersection ${r.n + 1} · −${fmt(r.stake)} FUN`; subCls = 'sub bad'; if (phase !== 'resolve' || r.crashedAt !== step) { big = 'Crashed'; bigCls = 'big bust wait'; } }
-  else if (!r && phase !== 'betting' && phase !== 'init') sub = 'Watching this round · bets reopen after it';
-  put('phase', 'text', label); put('big', 'text', big); put('big', 'class', bigCls);
+  const r = round, d = r ? r.d : LEVELS[S.level];
+  let label, big, bigCls = 'mult', sub = '', subCls = 'sub';
+  if (!r || (!inFlight() && starting)) { label = `${d.name} · ${d.steps} paths · top win`; big = fxShort(multAt(d, d.steps, boostOf(myLevel()))); bigCls = 'mult idle'; sub = 'Set your bet and press Play'; }
+  else if (r.status === 'choose') {
+    const cur = multAt(r.d, r.n, r.boost), next = multAt(r.d, r.n + 1, r.boost);
+    label = r.n ? `Path ${r.n} of ${r.d.steps} cleared · fly on or jump` : 'Bombs ahead! Pick a path';
+    big = fx(cur); sub = r.n ? `Jump now: ${money(Math.min(r.stake * cur, cfg.maxWin))} FUN · next ${fx(next)}` : `A safe path pays ${fx(next)}`;
+  } else if (r.status === 'flying') { label = `Path ${r.pick + 1} · bombs away…`; big = fx(multAt(r.d, r.n, r.boost)); sub = `Safe path pays ${fx(multAt(r.d, r.n + 1, r.boost))}`; }
+  else if (r.status === 'crashed') { label = 'Ka-boom!'; big = 'Crashed'; bigCls = 'mult bust'; sub = `Bomb on path ${r.pick + 1} · −${money(r.stake)} FUN`; subCls = 'sub bad'; }
+  else { label = `Jumped after ${r.n} path${r.n === 1 ? '' : 's'}!`; big = fx(multAt(r.d, r.n, r.boost)); bigCls = 'mult win'; sub = `You won ${money(r.payout)} FUN`; subCls = 'sub ok'; }
+  if (r && r.popAt && now - r.popAt < 400 && r.status === 'choose') bigCls += ' pop';
+  put('label', 'text', label); put('mult', 'text', big); put('mult', 'class', bigCls);
   put('sub', 'hidden', !sub); put('sub', 'text', sub); put('sub', 'class', subCls);
-  put('timer', 'hidden', timer == null); if (timer != null) put('tbar', 'width', Math.round(clamp(timer, 0, 1) * 100) + '%');
-
-  put('status', 'text', r ? STATUS[r.status] : me.queued ? 'Queued for next round' : 'Waiting');
-  put('status', 'class', 'chip ' + (r ? r.status : me.queued ? 'confirmed' : ''));
-
-  // setup button
-  let cls = 'go bet', l1 = 'Start flight', l2 = fmt(me.stake) + ' FUN · ' + cfg.diffs[me.diff].name;
-  if (phase === 'betting') { if (r) { cls = 'go cancel'; l1 = 'Cancel'; l2 = `Bet in · ${fmt(r.stake)} FUN · ${r.d.name}`; } }
-  else if (me.queued) { cls = 'go cancel'; l1 = 'Cancel'; l2 = 'Queued for next round'; }
-  else l1 = 'Bet next round';
-  put('go', 'class', cls);
-  const go = $('#go'); go.firstElementChild.textContent = l1; go.lastElementChild.textContent = l2;
-  const lock = !!(r && phase === 'betting') || me.queued;
-  ['amt', 'dec', 'inc'].forEach(id => put(id, 'disabled', lock));
-  document.querySelectorAll('#chips button, #diffs button').forEach(b => { b.disabled = lock; });
-
-  // land button
-  if (isFlying(r)) {
-    const ok = canLand(r), lb = $('#land');
-    put('land', 'disabled', !ok); put('land', 'class', ok ? 'go land' : 'go wait');
-    lb.firstElementChild.textContent = 'Land';
-    lb.lastElementChild.textContent = r.n < 1 ? 'Pass the first route to unlock landing' : !ok && phase === 'decide' ? 'Route locked · landing reopens after it' : fmt(Math.min(r.stake * r.mult, cfg.maxWin)) + ' FUN';
+  if (r && inFlight()) {
+    put('jump', 'disabled', !(r.status === 'choose' && r.n >= 1));
+    put('jumpSub', 'text', r.n < 1 ? 'after the first path' : money(Math.min(r.stake * multAt(r.d, r.n, r.boost), cfg.maxWin)) + ' FUN');
   }
 }
-function showPanels() {
-  const fl = isFlying(me.run);
+function renderControls() {
+  const fl = inFlight();
   $('#setup').hidden = fl; $('#flight').hidden = !fl;
-  requestAnimationFrame(layout);
+  $('#playSub').textContent = starting ? 'Taking off…' : `${money(S.stake)} FUN · ${LEVELS[S.level].name}`;
+  $('#play').disabled = starting;
+  document.querySelectorAll('#paths button').forEach((b, k) => { b.disabled = !round || round.status !== 'choose'; b.setAttribute('aria-pressed', String(!!round && round.pick === k)); });
 }
-function arrowFor(i, n) {
-  const c = (n - 1) / 2, off = i - c;
-  if (Math.abs(off) < 0.01) return ['↑', 'Ahead'];
-  if (off < 0) return Math.abs(off) >= 1.5 ? ['⇖', 'Far left'] : ['↖', 'Left'];
-  return off >= 1.5 ? ['⇗', 'Far right'] : ['↗', 'Right'];
+function renderLevels() {
+  const b = boostOf(myLevel());
+  $('#levels').innerHTML = LEVELS.map((d, i) => `<button type="button" data-l="${i}" aria-pressed="${i === S.level}"><b>${d.name}</b><span>up to ${fxShort(multAt(d, d.steps, b))}</span></button>`).join('');
 }
-function renderRoutes() {
-  const r = me.run; if (!r) return;
-  const n = r.d.paths, el = $('#routes');
-  el.style.gridTemplateColumns = `repeat(${n},minmax(0,1fr))`;
-  el.innerHTML = Array.from({ length: n }, (_, i) => {
-    const [a, nm] = arrowFor(i, n);
-    let cls = '';
-    if (phase === 'resolve' && gates && gates.safe) cls = gates.safe[i] ? 'safe' : 'storm';
-    return `<button type="button" data-r="${i}" class="${cls}" aria-pressed="${r.choice === i}" ${phase === 'decide' && r.status === 'deciding' ? '' : 'disabled'}><span class="ar">${a}</span><span class="nm">${i + 1} · ${nm}</span></button>`;
-  }).join('');
+function renderPaths() {
+  $('#paths').innerHTML = PATHS.map(([nm, deg], k) => `<button type="button" data-p="${k}"><span class="n"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g transform="rotate(${deg} 12 12)"><path d="M12 20V5M6 11l6-6 6 6" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></svg>${k + 1}</span><span class="nm">${nm}</span></button>`).join('');
 }
-$('#routes').addEventListener('click', e => { const b = e.target.closest('button[data-r]'); if (b && !b.disabled) choose(+b.dataset.r); });
-$('#land').addEventListener('click', () => { const r = me.run; if (canLand(r)) { land(r); renderList(); showPanels(); } });
 function renderLadder() {
-  const r = me.run, d = r ? r.d : cfg.diffs[me.diff], n = r ? r.n : 0, rtp = R ? R.rtp : cfg.rtp;
-  $('#ladder').innerHTML = Array.from({ length: d.max }, (_, i) => `<span class="rung ${i < n ? 'done' : i === n && isFlying(r) ? 'next' : ''}">${i + 1} · ${fx(ladder(d, i + 1, rtp))}</span>`).join('');
-  const lad = $('#ladder'), done = lad.querySelectorAll('.done'), nx = lad.querySelector('.next') || done[done.length - 1];
-  lad.scrollLeft = nx ? nx.offsetLeft - lad.offsetLeft - lad.clientWidth / 2 + nx.offsetWidth / 2 : 0;
+  const r = round, d = r ? r.d : LEVELS[S.level], b = r ? r.boost : boostOf(myLevel()), n = r && r.status !== 'crashed' ? r.n : 0, live = inFlight();
+  const el = $('#ladder');
+  el.innerHTML = Array.from({ length: d.steps }, (_, i) => `<span class="rung ${i < n ? 'done' : i === n && live ? 'next' : ''}">${fxShort(multAt(d, i + 1, b))}</span>`).join('');
+  const nx = el.querySelector('.next') || el.querySelectorAll('.done')[n - 1];
+  el.scrollLeft = nx ? nx.offsetLeft - el.clientWidth / 2 + nx.offsetWidth / 2 : 0;
 }
-function renderDiffs() {
-  $('#diffs').innerHTML = cfg.diffs.map((d, i) => `<button type="button" data-d="${i}" aria-pressed="${i === me.diff}"><b>${d.name}</b><span>${d.safe}/${d.paths} safe</span></button>`).join('');
-  const sel = $('#alN'); const mx = cfg.diffs[me.diff].max;
-  sel.innerHTML = Array.from({ length: mx }, (_, i) => `<option value="${i + 1}" ${i + 1 === Math.min(me.autoN, mx) ? 'selected' : ''}>${i + 1}</option>`).join('');
-  me.autoN = Math.min(me.autoN, mx);
-}
-$('#diffs').addEventListener('click', e => { const b = e.target.closest('button[data-d]'); if (!b || b.disabled) return; me.diff = +b.dataset.d; renderDiffs(); renderLadder(); });
-
-/* ---------- scene ---------- */
-const stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
-let W = 0, H = 0, dpr = 1, F = 600, HY = 250, PY = 450, last = 0;
-const GATE_SP = 1.9, GATE_R = 0.78;
-let gates = null;
-function layout() {
-  W = stage.clientWidth; H = stage.clientHeight; dpr = Math.min(2, window.devicePixelRatio || 1);
-  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-  F = H * 0.9; HY = H * 0.36;
-  const ctrl = $('#controls').offsetHeight;
-  PY = clamp(H - ctrl - 78, HY + 90, H - 120);
-}
-new ResizeObserver(layout).observe(stage);
-new ResizeObserver(layout).observe($('#controls'));
-
-const world = {
-  scroll: 0, speed: 0.4, camH: 0.55, camX: 0, fieldX: 0,
-  clouds: Array.from({ length: 26 }, () => ({ x: (Math.random() - 0.5) * 18, dy: -1.2 + Math.random() * 3.6, z: 6 + Math.random() * 80, s: 0.8 + Math.random() * 1.2 })),
-  recenter() { for (const c of this.clouds) c.x -= this.camX; this.fieldX -= this.camX; this.camX = 0; }
-};
-const plane = { state: 'parked', t: 0, x: 0, bank: 0, prop: 0 };
-let smoke = [], sparks = [], floats = [], flashAt = -1e9;
-
-const cloudImg = (() => {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 150; const g = c.getContext('2d');
-  const puffs = [[70, 92, 44], [122, 68, 56], [178, 88, 46], [106, 104, 40], [152, 106, 42], [210, 108, 30], [44, 110, 28]];
-  g.fillStyle = '#C6DCF2'; puffs.forEach(([x, y, r]) => { g.beginPath(); g.arc(x, y + 9, r, 0, 7); g.fill(); });
-  g.fillStyle = '#FFFFFF'; puffs.forEach(([x, y, r]) => { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); });
-  return c;
-})();
-const FIELD = ['#6FAE52', '#83BE5C', '#C9B46C', '#5E9C4A', '#A8C86A', '#7DA84E', '#D4BF78'];
-const proj = (x, dy, z) => ({ x: W / 2 + (x - world.camX) * F / z, y: HY - dy * F / z });
-
-function drawGround() {
-  const D = 3, CW = 3.2, h = world.camH, base = Math.floor(world.scroll / D);
-  for (let k = 0; k < 34; k++) {
-    const row = base + k, z0 = Math.max(0.5, row * D - world.scroll), z1 = row * D + D - world.scroll;
-    if (z1 <= 0.5) continue;
-    const y0 = HY + h * F / z0, y1 = HY + h * F / z1;
-    if (y1 > H) continue;
-    const c0 = Math.floor((world.camX - world.fieldX - 9 * CW) / CW), c1 = c0 + 18;
-    for (let c = c0; c <= c1; c++) {
-      const xa = c * CW + world.fieldX, xb = xa + CW;
-      const p = [W / 2 + (xa - world.camX) * F / z0, W / 2 + (xb - world.camX) * F / z0, W / 2 + (xb - world.camX) * F / z1, W / 2 + (xa - world.camX) * F / z1];
-      if (Math.max(...p) < 0 || Math.min(...p) > W) continue;
-      ctx.fillStyle = FIELD[((row * 7 + c * 13) % FIELD.length + FIELD.length) % FIELD.length];
-      ctx.beginPath(); ctx.moveTo(p[0], Math.min(H, y0)); ctx.lineTo(p[1], Math.min(H, y0)); ctx.lineTo(p[2], y1); ctx.lineTo(p[3], y1); ctx.closePath(); ctx.fill();
-    }
-  }
-  // runway for the takeoff scene
-  if (phase === 'betting' || phase === 'takeoff' || phase === 'init') {
-    const zA = Math.max(0.5, 0.4 - world.scroll + world.runway0), zB = 60 - world.scroll + world.runway0;
-    if (zB > 0.5) {
-      const yA = Math.min(H, HY + h * F / zA), yB = HY + h * F / zB, w = 0.75;
-      const xa = W / 2 + (-w - world.camX) * F / zA, xb = W / 2 + (w - world.camX) * F / zA, xc = W / 2 + (w - world.camX) * F / zB, xd = W / 2 + (-w - world.camX) * F / zB;
-      ctx.fillStyle = '#5C6470'; ctx.beginPath(); ctx.moveTo(xa, yA); ctx.lineTo(xb, yA); ctx.lineTo(xc, yB); ctx.lineTo(xd, yB); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = '#F4F1E6';
-      for (let z = Math.ceil((zA + world.scroll) / 2.5) * 2.5 - world.scroll; z < zB; z += 2.5) {
-        if (z < 0.6) continue;
-        const za = z, zb = z + 1.1, ya = HY + h * F / za, yb = HY + h * F / zb, ww = 0.05;
-        ctx.beginPath(); ctx.moveTo(W / 2 + (-ww - world.camX) * F / za, ya); ctx.lineTo(W / 2 + (ww - world.camX) * F / za, ya); ctx.lineTo(W / 2 + (ww - world.camX) * F / zb, yb); ctx.lineTo(W / 2 + (-ww - world.camX) * F / zb, yb); ctx.closePath(); ctx.fill();
-      }
-    }
-  }
-  const g = ctx.createLinearGradient(0, HY, 0, HY + H * 0.22);
-  g.addColorStop(0, 'rgba(206,229,248,.95)'); g.addColorStop(1, 'rgba(206,229,248,0)');
-  ctx.fillStyle = g; ctx.fillRect(0, HY - 1, W, H * 0.22);
-}
-function drawCloud(c) {
-  if (c.z < 0.9) return;
-  const p = proj(c.x, c.dy, c.z), w = c.s * 2.6 * F / c.z, h = w * 150 / 256;
-  if (p.x + w / 2 < 0 || p.x - w / 2 > W || p.y - h > H) return;
-  ctx.globalAlpha = clamp((c.z - 0.9) / 2.5, 0, 1) * clamp((90 - c.z) / 20, 0, 1) * 0.95;
-  ctx.drawImage(cloudImg, p.x - w / 2, p.y - h / 2, w, h);
-  ctx.globalAlpha = 1;
-}
-function gateZ(t) {
-  if (!gates) return 0;
-  const zDec = Math.max(5.5, (gates.n - 1) * GATE_SP * F / (0.8 * W));
-  gates.zDec = zDec;
-  if (phase === 'decide') return 70 + (zDec - 70) * ease(clamp(t / winMs, 0, 1));
-  if (phase === 'resolve') return zDec + (0.35 - zDec) * clamp(t / (cfg.resolveSec * 1000 * 0.85), 0, 1);
-  return 0;
-}
-function bolt(x, y0, y1, w) {
-  ctx.strokeStyle = '#FFE36E'; ctx.lineWidth = w; ctx.lineJoin = 'miter'; ctx.shadowColor = '#FFF3A6'; ctx.shadowBlur = 10;
-  ctx.beginPath(); ctx.moveTo(x, y0); const segs = 6;
-  for (let i = 1; i <= segs; i++) ctx.lineTo(x + (i % 2 ? 1 : -1) * w * 3 * (0.6 + Math.random() * 0.6), y0 + (y1 - y0) * i / segs);
-  ctx.stroke(); ctx.shadowBlur = 0;
-}
-function drawGates(z, now) {
-  if (!gates || z < 0.45) return;
-  const r = me.run, counts = Array(gates.n).fill(0);
-  for (const b of bots) if (b.d.key === gates.d.key && b.choice != null && (b.status === 'chosen' || phase === 'resolve')) counts[b.choice]++;
-  const gdy = -(PY - HY) / F * 1.05;
-  gates.hit = [];
-  for (let i = 0; i < gates.n; i++) {
-    const p = proj(gates.xs[i], gdy, z), rad = GATE_R * F / z;
-    gates.hit[i] = { x: p.x, y: p.y, r: rad };
-    if (p.x + rad * 1.4 < 0 || p.x - rad * 1.4 > W) continue;
-    const state = gates.safe ? (gates.safe[i] ? 'safe' : 'storm') : 'idle';
-    const a = clamp((70 - z) / 15, 0, 1); ctx.globalAlpha = a;
-    const inner = ctx.createRadialGradient(p.x, p.y, rad * 0.1, p.x, p.y, rad);
-    if (state === 'safe') { inner.addColorStop(0, 'rgba(160,255,200,.75)'); inner.addColorStop(1, 'rgba(63,209,122,.25)'); }
-    else if (state === 'storm') { inner.addColorStop(0, 'rgba(30,34,48,.85)'); inner.addColorStop(1, 'rgba(60,66,84,.6)'); }
-    else { inner.addColorStop(0, 'rgba(255,255,255,.5)'); inner.addColorStop(1, 'rgba(190,225,255,.15)'); }
-    ctx.fillStyle = inner; ctx.beginPath(); ctx.arc(p.x, p.y, rad * 0.86, 0, 7); ctx.fill();
-    const K = 14;
-    for (const pass of [0, 1]) {
-      ctx.fillStyle = state === 'storm' ? (pass ? '#5A6276' : '#3A4152') : (pass ? '#FFFFFF' : '#C6DCF2');
-      for (let k = 0; k < K; k++) {
-        const an = k / K * Math.PI * 2 + (state === 'storm' && !reduced ? Math.sin(now / 90 + k) * 0.04 : 0);
-        const pr = rad * 0.27 * (1 + 0.14 * Math.sin(k * 1.7));
-        ctx.beginPath(); ctx.arc(p.x + Math.cos(an) * rad, p.y + Math.sin(an) * rad * 0.94 + (pass ? 0 : pr * 0.22), pr, 0, 7); ctx.fill();
-      }
-    }
-    if (state === 'storm' && (reduced || Math.random() < 0.35)) bolt(p.x, p.y - rad * 0.7, p.y + rad * 0.7, Math.max(1.5, rad * 0.05));
-    if (r && r.choice === i && r.id === R.id) { ctx.strokeStyle = '#FFC23D'; ctx.lineWidth = Math.max(2, rad * 0.06); ctx.beginPath(); ctx.arc(p.x, p.y, rad * 1.24, 0, 7); ctx.stroke(); }
-    if (rad > 14) {
-      const by = p.y - rad * 1.42, br = clamp(rad * 0.24, 9, 22);
-      ctx.fillStyle = state === 'safe' ? '#3FD17A' : state === 'storm' ? '#E8463A' : '#FFF4DC';
-      ctx.beginPath(); ctx.arc(p.x, by, br, 0, 7); ctx.fill();
-      ctx.fillStyle = state === 'idle' ? '#0A1F33' : '#fff'; ctx.font = `800 ${Math.round(br * 1.1)}px Archivo, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(i + 1), p.x, by + 1);
-      if (counts[i]) {
-        const t = counts[i] + (counts[i] === 1 ? ' pilot' : ' pilots'); ctx.font = `700 ${Math.round(clamp(rad * 0.17, 10, 13))}px Archivo, sans-serif`;
-        const tw = ctx.measureText(t).width + 12, ty = p.y + rad * 1.36;
-        ctx.fillStyle = 'rgba(10,31,51,.75)'; ctx.beginPath(); ctx.roundRect(p.x - tw / 2, ty - 9, tw, 18, 9); ctx.fill();
-        ctx.fillStyle = '#FFF4DC'; ctx.fillText(t, p.x, ty);
-      }
-    }
-    ctx.globalAlpha = 1;
-  }
-}
-function rr(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
-function drawPlane(x, y, s, a, now, alpha) {
-  const RED = '#D7322B', DARK = '#8E1B17', OUT = '#2A1414';
-  ctx.save(); ctx.globalAlpha = alpha == null ? 1 : alpha; ctx.translate(x, y); ctx.rotate(a); ctx.scale(s, s);
-  ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = OUT;
-  ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.beginPath(); ctx.arc(0, -6, 52, 0, 7); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -6, 52, (now / 30) % 7, (now / 30) % 7 + 0.9); ctx.stroke();
-  ctx.strokeStyle = OUT; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(-22, 22); ctx.lineTo(-30, 42); ctx.moveTo(22, 22); ctx.lineTo(30, 42); ctx.stroke();
-  ctx.fillStyle = '#2B2B2B'; ctx.beginPath(); ctx.arc(-30, 46, 7, 0, 7); ctx.arc(30, 46, 7, 0, 7); ctx.fill();
-  rr(-94, 10, 188, 14, 7); ctx.fillStyle = RED; ctx.fill(); ctx.stroke();
-  rr(-100, -42, 200, 14, 7); ctx.fillStyle = RED; ctx.fill(); ctx.stroke();
-  for (const sx of [-64, -84, 64, 84]) { ctx.beginPath(); ctx.moveTo(sx, -28); ctx.lineTo(sx, 10); ctx.stroke(); }
-  for (const sx of [-74, 74]) { ctx.beginPath(); ctx.arc(sx, -35, 5, 0, 7); ctx.fillStyle = '#FFF4DC'; ctx.fill(); ctx.beginPath(); ctx.arc(sx, -35, 2.4, 0, 7); ctx.fillStyle = '#1F5FA8'; ctx.fill(); }
-  const g = ctx.createRadialGradient(-8, -14, 4, 0, -6, 28); g.addColorStop(0, '#F0584F'); g.addColorStop(1, DARK);
-  ctx.beginPath(); ctx.arc(0, -6, 26, 0, 7); ctx.fillStyle = g; ctx.fill(); ctx.stroke();
-  // wolf pilot
-  const flap = Math.sin(now / 70) * 6;
-  ctx.fillStyle = '#FFF4DC'; ctx.beginPath(); ctx.moveTo(6, -40); ctx.quadraticCurveTo(34, -52 + flap, 58, -44 + flap * 1.4); ctx.quadraticCurveTo(34, -40 + flap, 8, -34); ctx.closePath(); ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
-  ctx.fillStyle = '#7E8A9A'; ctx.lineWidth = 2.5;
-  ctx.beginPath(); ctx.moveTo(-14, -52); ctx.lineTo(-10, -72); ctx.lineTo(-2, -56); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(14, -52); ctx.lineTo(10, -72); ctx.lineTo(2, -56); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.arc(0, -46, 14, 0, 7); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#6B3E1F'; ctx.fillRect(-14, -49, 28, 5);
-  ctx.fillStyle = '#5E1A16'; ctx.beginPath(); ctx.moveTo(-4, -8); ctx.lineTo(0, -40); ctx.lineTo(4, -8); ctx.closePath(); ctx.fill(); ctx.lineWidth = 2.5; ctx.stroke();
-  rr(-44, 2, 88, 9, 4.5); ctx.fillStyle = DARK; ctx.fill(); ctx.stroke();
-  ctx.restore();
-}
-
-function draw(now) {
-  const dt = Math.min(50, now - (last || now)); last = now;
-  if (!W || !H) return;
-  const t = now - t0, r = me.run;
-  // world motion
-  const target = phase === 'betting' || phase === 'init' ? 0.5 : phase === 'takeoff' ? 4 + 14 * ease(clamp(t / (cfg.takeoffSec * 1000), 0, 1)) : 16 + (isFlying(r) ? Math.min(12, (r.mult - 1) * 0.6) : 2);
-  world.speed += (target - world.speed) * Math.min(1, dt * 0.004);
-  const camTarget = phase === 'betting' || phase === 'init' ? 0.55 : phase === 'takeoff' ? 0.55 + 3.6 * ease(clamp((t / (cfg.takeoffSec * 1000) - 0.25) / 0.75, 0, 1)) : 4.2;
-  if (phase === 'betting' && world.camH > 1) { world.camH = 0.55; world.runway0 = world.scroll; }
-  world.camH += (camTarget - world.camH) * Math.min(1, dt * (phase === 'takeoff' ? 0.01 : 0.004));
-  if (world.runway0 == null) world.runway0 = world.scroll;
-  const ds = reduced && phase !== 'takeoff' ? world.speed * 0.4 : world.speed;
-  world.scroll += ds * dt / 1000;
-  for (const c of world.clouds) { c.z -= ds * dt / 1000; if (c.z < 0.6) { c.z = 70 + Math.random() * 20; c.x = world.camX + (Math.random() - 0.5) * 18; c.dy = -1.2 + Math.random() * 3.6; } }
-  // camera follows the chosen route
-  let camTgt = 0;
-  if (gates && r && r.choice != null && r.id === R.id) camTgt = gates.xs[r.choice] * (phase === 'resolve' ? 1 : 0.3);
-  world.camX += (camTgt - world.camX) * Math.min(1, dt * (phase === 'resolve' ? 0.006 : 0.003));
-  plane.bank += (clamp((camTgt - world.camX) * 0.5, -0.45, 0.45) - plane.bank) * Math.min(1, dt * 0.008);
-
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  let shake = 0;
-  if (now - flashAt < 500 && !reduced) shake = 8 * (1 - (now - flashAt) / 500);
-  ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
-  const sky = ctx.createLinearGradient(0, 0, 0, HY);
-  sky.addColorStop(0, '#1F6FC0'); sky.addColorStop(0.6, '#3E9BE3'); sky.addColorStop(1, '#BFE3FA');
-  ctx.fillStyle = sky; ctx.fillRect(-10, -10, W + 20, HY + 11);
-  ctx.fillStyle = 'rgba(255,240,190,.55)'; ctx.beginPath(); ctx.arc(W * 0.82, HY * 0.32, 26, 0, 7); ctx.fill();
-  ctx.fillStyle = 'rgba(255,240,190,.18)'; ctx.beginPath(); ctx.arc(W * 0.82, HY * 0.32, 48, 0, 7); ctx.fill();
-  drawGround();
-
-  const gz = gateZ(t);
-  const far = world.clouds.filter(c => c.z >= gz).sort((a, b) => b.z - a.z), near = world.clouds.filter(c => c.z < gz).sort((a, b) => b.z - a.z);
-  far.forEach(drawCloud);
-  drawGates(gz, now);
-  near.forEach(drawCloud);
-
-  // speed lines
-  if (!reduced && (phase === 'decide' || phase === 'resolve' || phase === 'cruise')) {
-    const n = 10 + (isFlying(r) ? Math.min(14, Math.floor(r.mult)) : 0);
-    ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 1.5;
-    for (let i = 0; i < n; i++) {
-      const an = (i * 2.399) % (Math.PI * 2), ph = ((now / 600 + i * 0.37) % 1), r0 = 60 + ph * Math.max(W, H) * 0.7;
-      ctx.beginPath(); ctx.moveTo(W / 2 + Math.cos(an) * r0, HY + Math.sin(an) * r0 * 0.7); ctx.lineTo(W / 2 + Math.cos(an) * (r0 + 40 + ph * 60), HY + Math.sin(an) * (r0 + 40 + ph * 60) * 0.7); ctx.stroke();
-    }
-  }
-
-  // plane
-  const s = clamp(W / 480, 0.72, 1.05);
-  if (phase === 'resolve' && r && r.status === 'crashed' && r.id === R.id && r.crashedAt === step && plane.state !== 'crashing' && plane.state !== 'gone' && gz < 1.6) { plane.state = 'crashing'; plane.t = now; flashAt = now; for (let i = 0; i < 20; i++) sparks.push({ x: W / 2, y: PY, vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.7) * 0.5, life: 0, max: 700, c: '#FFE36E' }); }
-  if (phase === 'resolve' && r && r.status === 'flying' && r.passed && gz < 1.2 && !r.sparked) { r.sparked = true; for (let i = 0; i < 26; i++) sparks.push({ x: W / 2, y: PY - 20, vx: (Math.random() - 0.5) * 0.6, vy: (Math.random() - 0.8) * 0.5, life: 0, max: 900, c: Math.random() < 0.5 ? '#FFC23D' : '#3FD17A' }); }
-  if (phase === 'decide' && r) r.sparked = false;
-  const bob = reduced ? 0 : Math.sin(now / 380) * 4;
-  if (plane.state === 'parked') drawPlane(W / 2, PY + 26 + (reduced ? 0 : Math.sin(now / 60) * 0.8), s * 1.05, 0, now);
-  else if (plane.state === 'takeoff' || (plane.state !== 'crashing' && plane.state !== 'landing' && plane.state !== 'gone')) {
-    const p = phase === 'takeoff' ? ease(clamp(t / (cfg.takeoffSec * 1000), 0, 1)) : 1;
-    drawPlane(W / 2, PY + 26 - 26 * p + bob * p, s * (1.05 - 0.05 * p), plane.bank + (phase === 'takeoff' ? -0.05 * Math.sin(p * Math.PI) : 0), now);
-  } else if (plane.state === 'crashing') {
-    const p = clamp((now - plane.t) / 1700, 0, 1);
-    if (p < 1) {
-      const x = W / 2 + p * 60, y = PY + p * p * (H * 0.5);
-      if (!reduced && Math.random() < 0.7) smoke.push({ x, y: y - 10, r: 8 + Math.random() * 10, vy: -0.03, life: 0, max: 1200 });
-      drawPlane(x, y, s * (1 - 0.55 * p), p * 7, now);
-    } else plane.state = 'gone';
-  } else if (plane.state === 'landing') {
-    const p = clamp((now - plane.t) / 1600, 0, 1);
-    if (p < 1) drawPlane(W / 2, PY + p * (H - PY) * 0.55, s * (1 - 0.5 * p), plane.bank * (1 - p), now, 1 - p * 0.6);
-    else plane.state = 'gone';
-  }
-
-  // particles
-  smoke = smoke.filter(q => (q.life += dt) < q.max);
-  for (const q of smoke) { q.y += q.vy * dt; q.r += dt * 0.02; ctx.fillStyle = `rgba(70,74,84,${0.55 * (1 - q.life / q.max)})`; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, 7); ctx.fill(); }
-  sparks = sparks.filter(q => (q.life += dt) < q.max);
-  for (const q of sparks) { q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 0.0007 * dt; ctx.globalAlpha = 1 - q.life / q.max; ctx.fillStyle = q.c; ctx.fillRect(q.x, q.y, 4, 4); }
-  ctx.globalAlpha = 1;
-  floats = floats.filter(f => now - f.t0 < 1600);
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '30px "Alfa Slab One", Georgia, serif';
-  for (const f of floats) { const p = (now - f.t0) / 1600; ctx.globalAlpha = 1 - p; ctx.lineWidth = 6; ctx.strokeStyle = '#0B4527'; ctx.strokeText(f.text, W * f.x, H * f.y - p * 70); ctx.fillStyle = f.col; ctx.fillText(f.text, W * f.x, H * f.y - p * 70); }
-  ctx.globalAlpha = 1;
-  if (now - flashAt < 260) { ctx.fillStyle = `rgba(255,250,210,${0.7 * (1 - (now - flashAt) / 260)})`; ctx.fillRect(-10, -10, W + 20, H + 20); }
-}
-cv.addEventListener('click', e => {
-  if (phase !== 'decide' || !gates || !gates.hit || !me.run || me.run.status !== 'deciding') return;
-  const b = cv.getBoundingClientRect(), x = e.clientX - b.left, y = e.clientY - b.top;
-  gates.hit.forEach((h, i) => { if (h && Math.hypot(h.x - x, h.y - y) < h.r * 1.25) choose(i); });
-});
-
-/* ---------- side panels ---------- */
-function renderBalance() { $('#balance').textContent = fmt(S.balance); }
-function renderHistory() {
-  $('#history').innerHTML = S.mine.slice(0, 30).map(b => b.payout ? `<span class="pill ${b.mult >= 10 ? 'hi' : b.mult >= 2 ? 'mid' : ''}">${b.short || b.diff[0]} · ${fx(b.mult)}</span>` : `<span class="pill">${b.short || b.diff[0]} · crash</span>`).join('') || '<span class="pill">Your landings appear here</span>';
-}
-function renderList() {
-  if (!R) return;
-  const frac = phase === 'betting' ? (performance.now() - t0) / (cfg.betSec * 1000) : 1;
-  const vis = bots.filter(b => b.joinAt <= frac).sort((a, b) => b.stake - a.stake);
-  const r = me.run, all = (r ? [r] : []).concat(vis);
-  $('#lvN').textContent = all.length;
-  $('#lvF').textContent = all.filter(isFlying).length;
-  $('#lvL').textContent = all.filter(e => e.status === 'landed').length;
-  $('#lvC').textContent = all.filter(e => e.status === 'crashed').length;
-  const stakes = $('#showStakes').checked, showPick = phase === 'decide' || phase === 'resolve';
-  $('#lvRows').className = 'rows' + (stakes ? ' stakes' : '');
-  $('#lvRows').innerHTML = `<div class="row head"><span class="nm">Pilot</span>${stakes ? '<span>Stake</span>' : ''}<span>Lvl</span><span>×</span><span>Pick</span><span>Status</span></div>` +
-    all.map(e => {
-      const pk = showPick && e.choice != null && (e.status === 'chosen' || e.status === 'flying' || e.status === 'crashed') ? arrowFor(e.choice, e.d.paths)[0] : showPick && e.status === 'deciding' ? '…' : '–';
-      const mx = e.status === 'crashed' ? '<span class="bad">0.00</span>' : `<span class="${e.status === 'landed' ? 'ok' : ''}">${e.mult.toFixed(2)}</span>`;
-      return `<div class="row${e.you ? ' you' : ''}"><span class="nm">${e.name}</span>${stakes ? `<span>${fmt(e.stake)}</span>` : ''}<span class="dz d${e.di}">${e.d.short}</span>${mx}<span>${pk}</span><span class="chip ${e.status}">${STATUS[e.status]}</span></div>`;
-    }).join('');
-}
-$('#showStakes').addEventListener('change', renderList);
-function renderMine() {
-  let wag = 0, ret = 0; S.mine.forEach(b => { wag += b.stake; ret += b.payout; });
-  $('#myWag').textContent = fmt(wag); $('#myRet').textContent = fmt(ret);
-  const pl = ret - wag; $('#myPl').textContent = (pl >= 0 ? '+' : '') + fmt(pl); $('#myPl').className = pl > 0 ? 'ok' : pl < 0 ? 'bad' : '';
-  $('#myRtp').textContent = wag ? (ret / wag * 100).toFixed(2) + '%' : '—';
-  $('#myEmpty').hidden = S.mine.length > 0;
-  $('#myRows').innerHTML = S.mine.slice(0, 100).map(b => `<tr><td>#${b.round}</td><td>${b.diff}</td><td>${fmt(b.stake)}</td><td>${b.n}</td><td class="${b.payout ? 'ok' : 'bad'}">${b.payout ? 'Landed ' + fx(b.mult) : 'Crashed'}</td><td>${fmt(b.payout)}</td></tr>`).join('');
-}
-function renderFair() { $('#fRound').textContent = '#' + R.id; $('#fHash').textContent = R.hash; $('#fNonce').textContent = R.nonce; }
-function renderFairRows() { $('#fRows').innerHTML = S.rounds.slice(0, 40).map((rd, i) => `<tr><td>#${rd.id}</td><td>${rd.nonce}</td><td>${rd.steps}</td><td><button type="button" data-v="${i}">Verify</button></td></tr>`).join(''); }
-$('#fRows').addEventListener('click', e => { const b = e.target.closest('button[data-v]'); if (!b) return; const rd = S.rounds[+b.dataset.v]; $('#vSeed').value = rd.serverSeed; $('#vNonce').value = rd.nonce; verify(); });
-async function verify() {
-  const seed = $('#vSeed').value.trim(), n = $('#vNonce').value.trim(), di = +$('#vDiff').value, out = $('#vOut'); out.hidden = false;
-  if (!seed || !n) { out.innerHTML = '<span class="bad">Fill in the server seed and the nonce.</span>'; return; }
-  const commit = await sha256(seed), match = S.rounds.find(rd => rd.hash === commit);
-  const d = (match ? match.diffs : cfg.diffs)[di], lays = await layoutsFor(seed, n, d);
-  const played = match ? match.steps : d.max;
-  out.innerHTML = `<div class="note">SHA-256(server seed)</div><div class="mono">${commit}</div>
-    ${match ? `<div class="ok">Matches the commit of round #${match.id}, published before bets opened.</div>` : '<div class="note">No round in this session used that commit. The current route settings are used.</div>'}
-    <div class="note">${d.name}: safe routes at each intersection (1 = far left)</div>
-    <div class="tbl"><table><thead><tr><th>Step</th><th>Safe routes</th><th>Storm</th></tr></thead><tbody>
-    ${lays.slice(1).map((l, i) => `<tr style="${i >= played ? 'opacity:.45' : ''}"><td>${i + 1}</td><td class="ok">${l.map((s, j) => s ? j + 1 : null).filter(Boolean).join(', ')}</td><td class="bad">${l.map((s, j) => s ? null : j + 1).filter(Boolean).join(', ')}</td></tr>`).join('')}
-    </tbody></table></div>${match && played < d.max ? `<p class="note">Faded rows were committed but not reached this round.</p>` : ''}`;
-}
-$('#vGo').addEventListener('click', verify);
-
-/* ---------- math panel ---------- */
-function renderMathTable() {
-  $('#mTable').innerHTML = cfg.diffs.map((d, i) => `<tr><td>${d.name}</td><td><input id="mp${i}" type="number" min="2" max="6" step="1" value="${d.paths}"></td><td><input id="ms${i}" type="number" min="1" max="5" step="1" value="${d.safe}"></td><td id="mw${i}"></td><td><input id="mx${i}" type="number" min="1" max="20" step="1" value="${d.max}"></td><td id="mt${i}"></td></tr>`).join('');
-  $('#vDiff').innerHTML = cfg.diffs.map((d, i) => `<option value="${i}">${d.name}</option>`).join('');
-}
-function renderMathStats() {
-  cfg.diffs.forEach((d, i) => { $('#mw' + i).textContent = (pOf(d) * 100).toFixed(0) + '%'; $('#mt' + i).textContent = fx(ladder(d, d.max)); });
-  $('#mLadder').innerHTML = cfg.diffs.map(d => `<tr><td>${d.name}</td>${[1, 2, 3, 4, 5, 6].map(n => `<td>${n <= d.max ? ladder(d, n).toFixed(2) : '–'}</td>`).join('')}</tr>`).join('');
-}
-function readMath() {
-  cfg.rtp = parseFloat($('#mRtp').value); $('#mRtpV').textContent = cfg.rtp.toFixed(1) + '%';
-  let msg = '';
-  const next = cfg.diffs.map((d, i) => Object.assign({}, d, { paths: parseInt($('#mp' + i).value, 10), safe: parseInt($('#ms' + i).value, 10), max: parseInt($('#mx' + i).value, 10) }));
-  for (const d of next) {
-    if (![d.paths, d.safe, d.max].every(Number.isFinite)) { msg = `${d.name}: every field needs a whole number.`; break; }
-    if (d.paths < 2 || d.paths > 6) { msg = `${d.name}: use 2 to 6 routes.`; break; }
-    if (d.safe < 1 || d.safe >= d.paths) { msg = `${d.name}: safe routes must be at least 1 and fewer than the routes.`; break; }
-    if (d.max < 1 || d.max > 20) { msg = `${d.name}: max steps must be 1 to 20.`; break; }
-    if (ladder(d, 1) < 1.01) { msg = `${d.name}: the first safe route would pay less than 1.01×. Lower the safe routes or raise the RTP.`; break; }
-  }
-  $('#mWarn').hidden = !msg; $('#mWarn').textContent = msg ? msg + ' The last valid settings stay in use.' : '';
-  if (!msg) cfg.diffs = next;
-  renderMathStats(); renderDiffs(); if (!me.run) renderLadder();
-}
-$('#mTable').addEventListener('input', readMath);
-$('#mRtp').addEventListener('input', readMath);
-const num = (id, lo, hi, d) => { const v = parseFloat($(id).value); const r = Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; $(id).value = r; return r; };
-$('#mDec').addEventListener('change', () => { cfg.decSec = num('#mDec', 3, 15, 6); });
-$('#mBet').addEventListener('change', () => { cfg.betSec = num('#mBet', 3, 20, 8); });
-$('#mWin').addEventListener('change', () => { cfg.maxWin = num('#mWin', 10, 1e8, 25000); });
-$('#mMin').addEventListener('change', () => { cfg.minBet = num('#mMin', 0.1, cfg.maxBet, 0.1); });
-$('#mMax').addEventListener('change', () => { cfg.maxBet = num('#mMax', cfg.minBet, 1e6, 500); });
-$('#mFall').addEventListener('change', e => { cfg.fallback = e.target.value; });
-
-$('#sGo').addEventListener('click', () => {
-  const N = Math.round(num('#sN', 1e4, 1e6, 2e5)), t1 = performance.now();
-  const strat = [['Early landing (1)', () => 1], ['Fixed auto land (3)', () => 3], ['Aggressive (to max)', d => d.max], ['Mixed (1 to max)', d => 1 + Math.floor(Math.random() * d.max)]];
-  const rows = cfg.diffs.map((d, di) => {
-    const p = pOf(d), doc = DOC[di];
-    return strat.map(([nm, k]) => {
-      let lad = 0, dr = 0;
-      for (let i = 0; i < N; i++) {
-        const goal = Math.min(k(d), d.max);
-        let n = 0; while (n < goal && Math.random() < p) n++;
-        if (n === goal) lad += ladder(d, n);
-        let m = 1, ok = true; for (let s = 0; s < goal; s++) { if (Math.random() < doc.p) m *= doc.lo + Math.random() * (doc.hi - doc.lo); else { ok = false; break; } }
-        if (ok) dr += m;
-      }
-      return { d: d.name, nm, lad: lad / N * 100, dr: dr / N * 100 };
-    });
-  }).flat();
-  const out = $('#sOut'); out.hidden = false;
-  out.innerHTML = `<div class="note">${N.toLocaleString('en-US')} flights per cell in ${(performance.now() - t1).toFixed(0)} ms. The doc model uses its own win chances (80 / 60 / 50 / 20%) and step ranges.</div>
-    <div class="tbl"><table><thead><tr><th>Level · strategy</th><th>Fixed ladder</th><th>Doc ranges</th></tr></thead><tbody>
-    ${rows.map(r => `<tr><td>${r.d} · ${r.nm}</td><td>${r.lad.toFixed(2)}%</td><td class="${r.dr > 100 ? 'bad' : r.dr < 85 ? 'gold' : ''}">${r.dr.toFixed(2)}%</td></tr>`).join('')}
-    </tbody></table></div>
-    <p class="note">The fixed ladder lands near ${cfg.rtp.toFixed(1)}% in every row; rounding each multiplier down to the cent takes a little more off long flights. The doc ranges give away money on Easy and Hard and fall steeply on Medium and Extreme the longer a pilot flies.</p>`;
-});
-
-/* ---------- controls wiring ---------- */
-$('#amt').addEventListener('change', () => setStake(parseFloat($('#amt').value)));
-$('#dec').addEventListener('click', () => setStake(me.stake - (me.stake > 10 ? 1 : 0.5)));
-$('#inc').addEventListener('click', () => setStake(me.stake + (me.stake >= 10 ? 1 : 0.5)));
-$('#chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const c = b.dataset.chip; setStake(c === 'half' ? me.stake / 2 : c === 'dbl' ? me.stake * 2 : +c); });
-$('#alOn').addEventListener('change', e => { me.autoLand = e.target.checked; });
-$('#alN').addEventListener('change', e => { me.autoN = +e.target.value; });
-$('#ab').addEventListener('change', e => { me.autoBet = e.target.checked; if (me.autoBet && !me.run && !me.queued) onGo(); });
-$('#go').addEventListener('click', onGo);
-$('#refill').addEventListener('click', () => { S.balance = 1000; renderBalance(); toast('Demo balance reset to 1,000 FUN.'); });
-document.addEventListener('keydown', e => {
-  const tag = document.activeElement && document.activeElement.tagName;
-  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
-  if (/^[1-6]$/.test(e.key)) { choose(+e.key - 1); return; }
-  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowRight') {
-    const r = me.run; if (!r || r.status !== 'deciding') return;
-    const n = r.d.paths, c = Math.floor((n - 1) / 2);
-    choose(e.key === 'ArrowLeft' ? 0 : e.key === 'ArrowRight' ? n - 1 : c); return;
-  }
-  if (e.code !== 'Space' || e.repeat || tag === 'BUTTON') return;
-  e.preventDefault();
-  if (isFlying(me.run)) { if (canLand(me.run)) { land(me.run); renderList(); showPanels(); } }
-  else onGo();
-});
-function showTab(name) {
-  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name));
-  ['live', 'mine', 'fair', 'math'].forEach(t => { $('#p-' + t).hidden = t !== name; });
-  try { localStorage.setItem('plane-tab', name); } catch (e) {}
-}
-document.querySelector('.tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) showTab(b.dataset.tab); });
+function renderBalance() { $('#balance').textContent = money(S.balance); }
 let toastT = 0;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
 
+/* ---------- input ---------- */
+const clampStake = v => Math.min(cfg.maxBet, Math.max(cfg.minBet, Math.round((Number.isFinite(v) ? v : cfg.minBet) * 100) / 100));
+function setStake(v) { S.stake = clampStake(v); $('#amt').value = S.stake.toFixed(2); renderControls(); }
+$('#amt').addEventListener('change', () => setStake(parseFloat($('#amt').value)));
+$('#dec').addEventListener('click', () => setStake(S.stake - (S.stake > 10 ? 1 : 0.5)));
+$('#inc').addEventListener('click', () => setStake(S.stake + (S.stake >= 10 ? 1 : 0.5)));
+$('#chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const c = b.dataset.chip; setStake(c === 'min' ? cfg.minBet : c === 'max' ? Math.min(cfg.maxBet, Math.floor(S.balance * 100) / 100) : c === 'half' ? S.stake / 2 : S.stake * 2); });
+$('#levels').addEventListener('click', e => {
+  const b = e.target.closest('button[data-l]'); if (!b || inFlight()) return;
+  S.level = +b.dataset.l; renderLevels(); renderControls();
+  const now = performance.now();
+  round = null; recenter(); setTrack(LEVELS[S.level], 0, boostOf(myLevel())); plane.brain = myLevel();
+  if (iris) iris.out = now;
+  if (chute) chute.leave = now;
+  if (plane.state !== 'cruise') { plane.state = 'enter'; plane.t0 = now; }
+  $('#pilot').classList.remove('sooty');
+  renderLadder();
+});
+$('#play').addEventListener('click', play);
+$('#paths').addEventListener('click', e => { const b = e.target.closest('button[data-p]'); if (b && !b.disabled) choose(+b.dataset.p); });
+$('#jump').addEventListener('click', () => jump(false));
+$('#refill').addEventListener('click', () => { if (inFlight()) { toast('Finish this flight first.'); return; } S.balance = 1000; renderBalance(); toast('Demo balance reset to 1,000 FUN.'); });
+const gateAt = e => { const b = cv.getBoundingClientRect(), x = e.clientX - b.left, y = e.clientY - b.top; return view.hit.findIndex(g => g && Math.hypot(g.x - x, g.y - y) < g.r * 1.2); };
+cv.addEventListener('pointermove', e => { view.hover = round && round.status === 'choose' ? gateAt(e) : -1; cv.style.cursor = view.hover >= 0 ? 'pointer' : ''; });
+cv.addEventListener('click', e => { if (round && round.status === 'choose') { const k = gateAt(e); if (k >= 0) choose(k); } });
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === 'INPUT') return;
+  if (/^[1-5]$/.test(e.key)) { choose(+e.key - 1); return; }
+  if (e.code !== 'Space' || e.repeat || tag === 'BUTTON') return;
+  e.preventDefault();
+  if (inFlight()) jump(false); else play();
+});
 
 /* ---------- boot ---------- */
-async function boot() {
-  setStake(me.stake);
-  $('#mRtp').value = cfg.rtp; $('#mDec').value = cfg.decSec; $('#mBet').value = cfg.betSec; $('#mWin').value = cfg.maxWin; $('#mMin').value = cfg.minBet; $('#mMax').value = cfg.maxBet; $('#mFall').value = cfg.fallback;
-  renderMathTable(); readMath(); renderDiffs();
-  try { const t = localStorage.getItem('plane-tab'); if (t) showTab(t); } catch (e) {}
-  layout(); renderBalance(); renderHistory(); renderMine(); renderFairRows();
-  await startBetting();
-  requestAnimationFrame(loop);
-}
-boot();
+S.client = randHex(8);
+rotateSeed();
+setStake(S.stake); renderLevels(); renderPaths(); renderBalance(); renderControls(); renderPilot();
+layout(); plane.brain = myLevel(); setTrack(LEVELS[S.level], 0, boostOf(myLevel())); renderLadder();
+requestAnimationFrame(loop);
 })();
