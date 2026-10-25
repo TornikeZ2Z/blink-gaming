@@ -48,7 +48,7 @@ window.BLINK = {
       about: [
         'A single-player crash game played in steps. At every step the player picks one of five paths while bombs fall on some of them. Every safe path raises the multiplier, and the next one is always shown before the pick.',
         'Bail out with the parachute at any step to lock in the multiplier. Take a bomb and the flight is over. Flights are instant: no betting windows and no waiting for other players.',
-        'The Brainer and its plane are 3D. Each flight starts parked on the airfield’s runway and takes off over the meadow; after a jump the Brainer floats down on its parachute.'
+        'The Brainer and its plane are 3D. Each flight starts parked on the airfield’s runway and takes off over the meadow; after a jump the Brainer floats down on its parachute and lands on the meadow’s country road.'
       ],
       how: [
         'Pick a difficulty and a bet in US dollars, then press Play.',
