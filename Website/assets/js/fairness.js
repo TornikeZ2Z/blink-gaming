@@ -1,7 +1,7 @@
 /* Fairness page: makes a sample round in the browser, shows its SHA-256 commit, then reveals the seed and re-hashes it to prove the match. */
 (() => {
 'use strict';
-const { $, ICON } = window.Blink;
+const { $, ICON } = window.Brainer;
 const enc = new TextEncoder();
 const hex = b => Array.from(new Uint8Array(b), x => x.toString(16).padStart(2, '0')).join('');
 const sha256 = async s => hex(await crypto.subtle.digest('SHA-256', enc.encode(s)));

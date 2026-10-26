@@ -2,7 +2,7 @@
    Brand words, the robots and the catalogue come from data.js. The logo is the brand book's drawn wordmark (SITE.logo). */
 (() => {
 'use strict';
-const { SITE, GAMES, BRAIN } = window.BLINK;
+const { SITE, GAMES, BRAIN } = window.BRAINER;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -165,7 +165,8 @@ drawer.addEventListener('click', e => {
   if (e.target.closest('[data-close],a[href]') || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) drawer.close();
 });
 
-const AGE_KEY = 'blink.age-ok';
+const AGE_KEY = 'brainer.age-ok';
+if (store.get('blink.age-ok') === '1') store.set(AGE_KEY, '1'); // the name it had before the Brainer rename
 age.addEventListener('cancel', e => e.preventDefault());
 age.addEventListener('click', e => {
   const b = e.target.closest('[data-age]');
@@ -184,5 +185,5 @@ document.addEventListener('click', e => {
 // Content drawn by script lands after the browser's own jump to #section, so jump again once it is there.
 const jumpToHash = () => { const t = location.hash && document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); };
 
-window.Blink = { $, $$, esc, store, toast, ICON, jumpToHash, SITE, GAMES };
+window.Brainer = { $, $$, esc, store, toast, ICON, jumpToHash, SITE, GAMES };
 })();

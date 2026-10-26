@@ -2,7 +2,7 @@
    Everything shown comes from the game's entry in data.js. */
 (() => {
 'use strict';
-const { $, esc, ICON, toast, jumpToHash, SITE, GAMES } = window.Blink;
+const { $, esc, ICON, toast, jumpToHash, SITE, GAMES } = window.Brainer;
 const main = $('#main');
 // Multipliers to the cent, as the game's ladder rounds them (52,067.40×, never rounded up).
 const fx = m => m.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '×';

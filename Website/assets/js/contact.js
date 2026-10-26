@@ -2,7 +2,7 @@
    only says so on screen and keeps what was typed. */
 (() => {
 'use strict';
-const { $, $$, toast, SITE } = window.Blink;
+const { $, $$, toast, SITE } = window.Brainer;
 
 $$('[data-site]').forEach(el => { el.textContent = SITE[el.dataset.site] || el.dataset.empty || ''; });
 

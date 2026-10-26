@@ -1,6 +1,6 @@
 /* Site settings and the game catalogue. Adding a game is one entry in GAMES; brand words and legal status live in SITE.
    An empty value (email, licence) means it is not final yet, and the pages say so instead of showing a placeholder. */
-window.BLINK = {
+window.BRAINER = {
   SITE: {
     brand: 'Brainer Games',
     // The brand book's drawn wordmark (B + "Brainer"), 154x36 px until a designer redraws it as a vector with "Games".

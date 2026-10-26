@@ -750,7 +750,7 @@ $('#fair').addEventListener('click', () => { renderFair(); openSheet('#fairSheet
 $('#fairClose').addEventListener('click', () => closeSheet('#fairSheet'));
 $('#fairBody').addEventListener('click', e => { if (e.target.closest('#fairCheck')) checkFair(); });
 $('#tutGo').addEventListener('click', () => { store.set('brainer.fr.tutorial', 'seen'); closeSheet('#tutorial'); });
-$('#ageYes').addEventListener('click', () => { store.set('blink.age-ok', '1'); closeSheet('#agegate'); if (store.get('brainer.fr.tutorial', '') !== 'seen') openSheet('#tutorial'); });
+$('#ageYes').addEventListener('click', () => { store.set('brainer.age-ok', '1'); closeSheet('#agegate'); if (store.get('brainer.fr.tutorial', '') !== 'seen') openSheet('#tutorial'); });
 $('#ageNo').addEventListener('click', () => { $('#ageSorry').hidden = false; document.querySelector('.age-actions').hidden = true; });
 document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if (e.target === s && s.id !== 'agegate') { if (s.id === 'tutorial') store.set('brainer.fr.tutorial', 'seen'); closeSheet('#' + s.id); } }));
 
@@ -797,7 +797,7 @@ function introActor(g, w, h, now, ex) {
 document.querySelector('.brand .t1').innerHTML = window.BrainerIntro ? window.BrainerIntro.wordmark('fog') : 'FogRush';
 (window.BrainerIntro ? window.BrainerIntro.start({ title: 'FogRush', mark: 'fog', theme: 'fog', what: 'the valley', actor: introActor, progress: loadProgress }) : Promise.resolve()).then(() => {
   if (introA) introA.stage.dispose(); introA = false;   // the intro's own WebGL context goes: phones allow only so many
-  if (store.get('blink.age-ok', '') !== '1') openSheet('#agegate');
+  if (store.get('brainer.age-ok', store.get('blink.age-ok', '')) !== '1') openSheet('#agegate');
   else if (store.get('brainer.fr.tutorial', '') !== 'seen') openSheet('#tutorial');
 });
 // for headless tests and the demo: what's under the clouds stays hidden; only the round's public state is exposed
