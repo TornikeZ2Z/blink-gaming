@@ -11,6 +11,7 @@
 <link rel="icon" href="assets/brainer/logo/favicon.png" sizes="any">
 <link rel="preload" href="assets/fonts/firago/FiraGO-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/site.css">
+<script>try{var t=localStorage.getItem('brainer.theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body data-page="contact">
 <header id="site-header"></header>
@@ -24,28 +25,39 @@
     </div>
 
     <div class="contact">
-      <form class="form" id="contactForm" method="dialog" novalidate>
-        <label class="field">Your name<input name="name" autocomplete="name" required><span class="err" hidden></span></label>
-        <label class="field">Work email<input name="email" type="email" autocomplete="email" placeholder="name@casino.com" pattern="[^@\s]+@[^@\s]+\.[^@\s]+" required><span class="err" hidden></span></label>
-        <label class="field">Company<input name="company" autocomplete="organization" required><span class="err" hidden></span></label>
-        <label class="field">You are<select name="type" required>
+      <form class="form" id="contactForm" novalidate>
+        <label class="field">Your name<input name="name" autocomplete="name" maxlength="120" required><span class="err" hidden></span></label>
+        <label class="field">Work email<input name="email" type="email" autocomplete="email" maxlength="200" placeholder="name@casino.com" pattern="[^@\s]+@[^@\s]+\.[^@\s]+" required><span class="err" hidden></span></label>
+        <label class="field">Company<input name="company" autocomplete="organization" maxlength="160" required><span class="err" hidden></span></label>
+        <label class="field">You are<select name="company_type" required>
           <option value="">Choose one</option>
-          <option>Aggregator</option>
-          <option>Casino platform</option>
-          <option>Casino operator</option>
+          <option>Online casino / operator</option>
+          <option>Aggregator / platform</option>
+          <option>Affiliate / streamer</option>
+          <option>Media / press</option>
           <option>Other</option>
         </select><span class="err" hidden></span></label>
-        <label class="field full">Markets you operate in<input name="markets" placeholder="Georgia, Brazil, Latin America"></label>
-        <label class="field full">What would you like to see?<textarea name="message" placeholder="A demo for our team, integration through our aggregator, promo tools…"></textarea></label>
-        <label class="check full"><input type="checkbox" name="consent" required> I agree that Brainer Games may contact me about this request.<span class="err" hidden></span></label>
+        <label class="field"><span>Company website <i>optional</i></span><input name="website" type="url" inputmode="url" autocomplete="url" maxlength="200" placeholder="https://"></label>
+        <label class="field"><span>Markets and licences <i>optional</i></span><input name="markets" maxlength="400" placeholder="Brazil (SPA), Georgia, Curaçao"></label>
+        <label class="field"><span>Aggregator or platform you use <i>optional</i></span><input name="platform" maxlength="200" placeholder="SOFTSWISS, Hub88, St8, own platform"></label>
+        <label class="field"><span>Telegram or WhatsApp <i>optional</i></span><input name="messenger" maxlength="160" placeholder="@handle or +995…"></label>
+        <label class="field full"><span>Message <i>optional</i></span><textarea name="message" maxlength="4000" placeholder="Which games interest you, and when do you plan to launch?"></textarea></label>
+        <label class="check full"><input type="checkbox" name="consent" required> <span>I agree that Brainer Games may use these details to reply to my enquiry, as described in our <a href="privacy.html">privacy notice</a>.</span><span class="err" hidden></span></label>
+        <label class="check full"><input type="checkbox" name="news"> <span>Send me new game releases, about once a month.</span></label>
+        <label class="hp" aria-hidden="true">Leave this empty<input name="fax" tabindex="-1" autocomplete="off"></label>
         <div class="full" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
           <button class="btn btn-red btn-lg" type="submit">Send request</button>
-          <span class="fine">The form is not connected yet, so nothing is sent.</span>
+          <span class="fine" id="formNote">We reply within one business day.</span>
         </div>
       </form>
+      <div class="form sent" id="formSent" tabindex="-1" hidden>
+        <span class="ic-ok" aria-hidden="true"></span>
+        <h2>Thanks, we&rsquo;ve got it</h2>
+        <p>Someone from Brainer Games will reply within one business day. Meanwhile, <a href="games.html">try any of our demos</a>, with play money only.</p>
+      </div>
 
       <aside class="side">
-        <div class="box"><span class="ic"><span data-icon="mail"></span></span><h3>Email us</h3><p data-site="email" data-empty="Our partner email goes live with our domain. Until then, reply to the person who sent you this site."></p></div>
+        <div class="box"><span class="ic"><span data-icon="mail"></span></span><h3>Email us</h3><p><a href="mailto:partners@brainer.games">partners@brainer.games</a></p></div>
         <div class="box"><span class="ic"><span data-icon="chat"></span></span><h3>A named contact</h3><p>One person handles your account from the first demo to go-live, not a ticket queue.</p></div>
       </aside>
     </div>

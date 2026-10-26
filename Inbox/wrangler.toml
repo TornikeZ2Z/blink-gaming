@@ -1,0 +1,32 @@
+# The demo-request inbox (src/worker.js): the form endpoint on api.brainer.games and the inbox on admin.brainer.games.
+# Deploy from this folder: npx wrangler deploy. The secret SESSION_SECRET is set once with: npx wrangler secret put SESSION_SECRET
+name = "brainer-inbox"
+main = "src/worker.js"
+compatibility_date = "2026-05-01"
+workers_dev = false
+
+routes = [
+  { pattern = "api.brainer.games", custom_domain = true },
+  { pattern = "admin.brainer.games", custom_domain = true }
+]
+
+rules = [{ type = "Text", globs = ["**/*.html"], fallthrough = true }]
+
+[vars]
+API_HOST = "api.brainer.games"
+ADMIN_HOST = "admin.brainer.games"
+ALLOWED_ORIGINS = "https://brainer.games,https://www.brainer.games"
+# who may sign in to the inbox, and who gets an email for every new request (comma-separated). Every address here must
+# also be a verified destination in Cloudflare Email Routing and be listed in allowed_destination_addresses below.
+ADMIN_EMAILS = "tornike@datastudio.ge"
+NOTIFY_TO = "tornike@datastudio.ge"
+MAIL_FROM = "inbox@brainer.games"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "brainer-inbox"
+database_id = "e997a259-f328-4bde-bef3-8a6511ba5519"
+
+[[send_email]]
+name = "MAILER"
+allowed_destination_addresses = ["tornike@datastudio.ge"]

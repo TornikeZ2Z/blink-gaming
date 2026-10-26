@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Brainer inbox</title>
+<link rel="icon" href="https://brainer.games/assets/brainer/logo/favicon.svg" type="image/svg+xml">
+<style>
+/* The demo-request inbox: the site's colours and FiraGO, light or dark from the system setting. */
+@font-face{font-family:"FiraGO";src:url("https://brainer.games/assets/fonts/firago/FiraGO-Regular.woff2") format("woff2");font-weight:400}
+@font-face{font-family:"FiraGO";src:url("https://brainer.games/assets/fonts/firago/FiraGO-Bold.woff2") format("woff2");font-weight:700}
+:root{color-scheme:light;--bg:#f5f4ff;--surface:#fff;--tint:#ecE9ff;--line:#e4e1f7;--ink:#1b1838;--ink-2:#4a4766;--muted:#6e6b8a;--main:#532aff;--g1:linear-gradient(135deg,#4b36fc,#8447fb);--r:14px;
+  --new:#532aff;--talking:#0f7bd6;--qualified:#00a35c;--won:#c97a00;--closed:#6e6b8a;--spam:#d22d50}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#0b0f1e;--surface:#141a30;--tint:#1e2550;--line:#262e52;--ink:#eeedff;--ink-2:#bcb9de;--muted:#8e8bb3;--main:#a493ff;
+  --new:#a493ff;--talking:#5ab4ff;--qualified:#3fd18b;--won:#ffc147;--closed:#8e8bb3;--spam:#ff6b86}}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;font:15px/1.5 "FiraGO",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.btn{min-height:40px;padding:0 16px;border:0;border-radius:999px;background:var(--tint);color:var(--ink);font-weight:700}
+.btn:hover{filter:brightness(.97)}
+.btn.main{background:var(--g1);color:#fff}
+.btn.danger{background:transparent;color:var(--spam);box-shadow:inset 0 0 0 1.5px var(--spam)}
+a{color:var(--main)}
+.mark{display:inline-flex;align-items:center;gap:9px;font-weight:700;font-size:19px;letter-spacing:-.02em}
+.mark svg{height:24px;width:auto}
+/* sign in */
+.signin{min-height:100vh;display:grid;place-items:center;padding:20px}
+.signin form{width:min(400px,100%);background:var(--surface);border-radius:22px;padding:28px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(27,24,56,.12)}
+.signin h1{margin:6px 0 0;font-size:22px}
+.signin p{margin:0;color:var(--ink-2)}
+input,select,textarea{width:100%;min-height:42px;padding:9px 12px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#8447fb}
+/* app */
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+.top .who{margin-left:auto;color:var(--muted);font-size:13px}
+.app{display:grid;grid-template-columns:minmax(320px,440px) minmax(0,1fr);height:calc(100vh - 65px)}
+.side{display:flex;flex-direction:column;border-right:1px solid var(--line);min-height:0}
+.tools{padding:14px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{padding:5px 11px;border:0;border-radius:999px;background:var(--tint);font-size:13px;font-weight:700;color:var(--ink-2)}
+.tab[aria-pressed=true]{background:var(--g1);color:#fff}
+.tab b{font-weight:400;opacity:.8;margin-left:4px}
+.list{overflow:auto;flex:1}
+.item{display:block;width:100%;text-align:left;padding:13px 16px;border:0;border-bottom:1px solid var(--line);background:none}
+.item:hover{background:var(--tint)}
+.item[aria-current=true]{background:var(--tint);box-shadow:inset 3px 0 0 var(--main)}
+.item .l1{display:flex;gap:8px;align-items:baseline}
+.item .co{font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .when{font-size:12px;color:var(--muted);white-space:nowrap}
+.item .l2{font-size:13px;color:var(--ink-2);display:flex;gap:8px;align-items:center;margin-top:3px}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:700;background:color-mix(in srgb,var(--c) 15%,transparent);color:var(--c)}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c)}
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+.detail{overflow:auto;padding:24px clamp(18px,3vw,40px) 60px}
+.detail h2{margin:0;font-size:24px;letter-spacing:-.02em}
+.sub{color:var(--ink-2);margin-top:2px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0 22px}
+.bar select{width:auto;min-height:40px}
+.card{background:var(--surface);border-radius:var(--r);padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 0 var(--line)}
+.card h3{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+dl{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr);gap:8px 16px;margin:0}
+dt{color:var(--muted)}dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.note{padding:10px 0;border-top:1px solid var(--line)}.note:first-child{border-top:0}
+.note .meta{font-size:12px;color:var(--muted)}
+.note p{margin:3px 0 0;white-space:pre-wrap}
+.add{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.back{display:none}
+@media (max-width:820px){.app{grid-template-columns:minmax(0,1fr);height:auto}.side{border-right:0}.app.open .side{display:none}.app:not(.open) .detail{display:none}.back{display:inline-flex}.list{max-height:none}}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);padding:10px 18px;border-radius:999px;background:#0a1322;color:#fff;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="vg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3f7bff"/><stop offset="1" stop-color="#5a32fb"/></linearGradient>
+<symbol id="visor" viewBox="0 0 64 44"><rect width="64" height="44" rx="19" fill="url(#vg)"/><rect x="17" y="14" width="9" height="15" rx="3.6" fill="#fff"/><rect x="38" y="14" width="9" height="15" rx="3.6" fill="#fff"/></symbol></defs></svg>
+
+<div class="signin" id="signin" hidden>
+  <form id="signinForm">
+    <span class="mark"><svg viewBox="0 0 64 44"><use href="#visor"/></svg>Brainer inbox</span>
+    <h1>Sign in</h1>
+    <p id="signinText">Enter your email. If it has access, we'll send you a sign-in link that works once, for 15 minutes.</p>
+    <input name="email" type="email" autocomplete="email" placeholder="you@company.com" required>
+    <button class="btn main" type="submit">Email me a sign-in link</button>
+  </form>
+</div>
+
+<div id="inbox" hidden>
+  <header class="top">
+    <span class="mark"><svg viewBox="0 0 64 44"><use href="#visor"/></svg>Brainer inbox</span>
+    <span class="who" id="who"></span>
+    <a class="btn" href="/api/export.csv" style="display:inline-flex;align-items:center;text-decoration:none">Export CSV</a>
+    <form method="post" action="/logout" style="margin:0"><button class="btn" type="submit">Sign out</button></form>
+  </header>
+  <div class="app" id="app">
+    <section class="side">
+      <div class="tools">
+        <input id="q" type="search" placeholder="Search name, email, company, markets…">
+        <div class="tabs" id="tabs" role="group" aria-label="Status"></div>
+      </div>
+      <div class="list" id="list"></div>
+    </section>
+    <section class="detail" id="detail"><div class="empty">Pick a request on the left.</div></section>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const LABEL = { new: 'New', talking: 'Talking', qualified: 'Qualified', won: 'Won', closed: 'Closed', spam: 'Spam' };
+const pill = s => `<span class="pill" style="--c:var(--${s})">${LABEL[s] || esc(s)}</span>`;
+const when = iso => { const d = new Date(iso), s = (Date.now() - d) / 1000; return s < 3600 ? `${Math.max(1, Math.round(s / 60))} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }); };
+const full = iso => new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+let toastT = 0;
+const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); };
+async function call(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { 'x-inbox': '1', ...(opts.body ? { 'content-type': 'application/json' } : {}) } });
+  if (r.status === 401) { showSignin(); throw new Error('signin'); }
+  const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j;
+}
+const state = { status: '', q: '', id: null, meta: null };
+
+function showSignin(msg) { $('#inbox').hidden = true; $('#signin').hidden = false; if (msg) $('#signinText').textContent = msg; }
+$('#signinForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = new FormData(e.target).get('email');
+  await fetch('/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) });
+  showSignin(`If ${email} has access, a sign-in link is on its way. Check that inbox (and spam), then open the link on this device.`);
+  e.target.querySelector('input').hidden = true; e.target.querySelector('button').hidden = true;
+});
+
+async function loadList() {
+  const p = new URLSearchParams(); if (state.status) p.set('status', state.status); if (state.q) p.set('q', state.q);
+  const { rows, counts } = await call('/api/requests?' + p);
+  const open = Object.entries(counts).filter(([k]) => k !== 'spam').reduce((a, [, n]) => a + n, 0);
+  $('#tabs').innerHTML = [['', 'All open', open], ...state.meta.statuses.map(s => [s, LABEL[s], counts[s] || 0])]
+    .map(([k, l, n]) => `<button class="tab" data-s="${k}" aria-pressed="${k === state.status}">${l}<b>${n}</b></button>`).join('');
+  $('#list').innerHTML = rows.length ? rows.map(r => `<button class="item" data-id="${r.id}" aria-current="${r.id === state.id}">
+      <span class="l1"><span class="co">${esc(r.company)}</span><span class="when" title="${esc(full(r.created_at))}">${when(r.created_at)}</span></span>
+      <span class="l2">${pill(r.status)}<span>${esc(r.name)}</span>${r.company_type ? `<span>· ${esc(r.company_type)}</span>` : ''}${r.notes ? `<span>· ${r.notes} note${r.notes > 1 ? 's' : ''}</span>` : ''}</span>
+    </button>`).join('') : `<div class="empty">${state.q ? 'Nothing matches that search.' : 'No requests here yet.'}</div>`;
+}
+async function loadDetail(id) {
+  state.id = id; location.hash = id; $('#app').classList.add('open');
+  document.querySelectorAll('.item').forEach(b => b.setAttribute('aria-current', String(+b.dataset.id === id)));
+  const r = await call('/api/requests/' + id);
+  const rows = state.meta.fields.filter(f => !['name', 'company'].includes(f.key)).map(f => [f.label, f.key in r ? r[f.key] : r.data[f.key]]).filter(([, v]) => v);
+  rows.push(['Received', full(r.created_at)], ['Country (from IP)', r.country || 'unknown'], ['Sent from', r.page || '']);
+  const subject = encodeURIComponent(`Brainer Games demo for ${r.company}`);
+  $('#detail').innerHTML = `<button class="btn back" id="back">← All requests</button>
+    <h2>${esc(r.company)}</h2><div class="sub">${esc(r.name)} · <a href="mailto:${esc(r.email)}">${esc(r.email)}</a></div>
+    <div class="bar">
+      <a class="btn main" style="display:inline-flex;align-items:center;text-decoration:none" href="mailto:${esc(r.email)}?subject=${subject}">Reply by email</a>
+      <select id="status" aria-label="Status">${state.meta.statuses.map(s => `<option value="${s}"${s === r.status ? ' selected' : ''}>${LABEL[s]}</option>`).join('')}</select>
+      <button class="btn danger" id="del">Delete</button>
+    </div>
+    <div class="card"><h3>Request</h3><dl>${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${/^https?:\/\//.test(v) ? `<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a>` : esc(v)}</dd>`).join('')}</dl></div>
+    <div class="card"><h3>Notes</h3><div id="notes">${r.notes.length ? r.notes.map(n => `<div class="note"><div class="meta">${esc(n.author)} · ${esc(full(n.created_at))}</div><p>${esc(n.body)}</p></div>`).join('') : '<div class="note"><div class="meta">No notes yet.</div></div>'}</div>
+      <form class="add" id="noteForm"><textarea name="body" rows="3" placeholder="Called them, they're on SOFTSWISS; sending the Plane Crash build Monday…" required></textarea><button class="btn main" type="submit" style="align-self:flex-start">Add note</button></form></div>`;
+  $('#back').onclick = () => { $('#app').classList.remove('open'); state.id = null; history.replaceState(null, '', ' '); };
+  $('#status').onchange = async e => { await call('/api/requests/' + id, { method: 'PATCH', body: JSON.stringify({ status: e.target.value }) }); toast(`Marked ${LABEL[e.target.value]}`); loadList(); };
+  $('#del').onclick = async () => { if (!confirm(`Delete the request from ${r.company} and its notes? This can't be undone.`)) return; await call('/api/requests/' + id, { method: 'DELETE' }); toast('Deleted'); $('#detail').innerHTML = '<div class="empty">Pick a request on the left.</div>'; $('#app').classList.remove('open'); state.id = null; loadList(); };
+  $('#noteForm').onsubmit = async e => { e.preventDefault(); const body = new FormData(e.target).get('body'); await call(`/api/requests/${id}/notes`, { method: 'POST', body: JSON.stringify({ body }) }); loadDetail(id); loadList(); };
+}
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (!b) return; state.status = b.dataset.s; loadList(); });
+$('#list').addEventListener('click', e => { const b = e.target.closest('.item'); if (b) loadDetail(+b.dataset.id); });
+let qT = 0; $('#q').addEventListener('input', e => { clearTimeout(qT); qT = setTimeout(() => { state.q = e.target.value; loadList(); }, 250); });
+
+(async () => {
+  try { state.meta = await call('/api/meta'); } catch { showSignin(); return; }
+  $('#who').textContent = state.meta.me; $('#inbox').hidden = false;
+  await loadList();
+  const h = +location.hash.slice(1); if (h) loadDetail(h);
+})();
+</script>
+</body>
+</html>

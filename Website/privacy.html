@@ -11,6 +11,7 @@
 <link rel="icon" href="assets/brainer/logo/favicon.png" sizes="any">
 <link rel="preload" href="assets/fonts/firago/FiraGO-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/site.css">
+<script>try{var t=localStorage.getItem('brainer.theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body data-page="privacy">
 <header id="site-header"></header>
@@ -20,7 +21,7 @@
     <div class="page-head">
       <span class="sticker">Privacy</span>
       <h1>Privacy</h1>
-      <p class="lead">No accounts, no cookies, no analytics and no trackers. Here is exactly what this site keeps, and where.</p>
+      <p class="lead">No accounts, no analytics and no trackers. Here is exactly what this site keeps, and where.</p>
     </div>
     <article class="legal">
       <h2>What stays in your browser</h2>
@@ -32,15 +33,17 @@
         <li><code>brainer.xp</code> and <code>brainer.level</code>: your Brainer&rsquo;s brain cells and brain level, shared by the demos.</li>
         <li><code>brainer.world</code>: which world you last flew in, in Plane Crash.</li>
         <li><code>brainer.intro</code> (kept only until you close the tab): that the Brainer Games intro has already played.</li>
+        <li><code>brainer.theme</code>: light or dark mode, if you picked one with the switch in the header.</li>
       </ul>
       <p>You can delete them at any time by clearing this site&rsquo;s data in your browser settings. The demo balance is not stored.</p>
       <h2>What we do not do</h2>
       <p>We use no cookies, no analytics, no advertising and no third-party scripts or fonts. Every file on this site, fonts included, comes from this site.</p>
       <h2>The contact form</h2>
-      <p>The contact form is not connected yet, so nothing you type in it is sent or stored. We will update this page before it goes live.</p>
+      <p>When you send the demo request form, we keep what you typed in it, the page you sent it from, the country your connection comes from, your browser&rsquo;s name and a scrambled (salted and hashed) version of your IP address, which only lets us limit how many forms one network can send. We never store the IP address itself. We use these details only to reply to you and, if you ticked the box, to send you new game releases.</p>
+      <p>The form is stored with Cloudflare, which runs our form service, and a copy goes to our team by email. We keep a request for as long as we are in touch about it, and delete it when you ask: write to <a href="mailto:partners@brainer.games">partners@brainer.games</a>.</p>
       <h2>Hosting</h2>
-      <p>The site is hosted on GitHub Pages. GitHub may log visitors&rsquo; IP addresses for security, as described in the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub General Privacy Statement</a>.</p>
-      <p style="margin-top:34px" class="fine">Last updated 25 October 2026.</p>
+      <p>The site is hosted on GitHub Pages, and the form service and our email run on Cloudflare. GitHub may log visitors&rsquo; IP addresses for security, as described in the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub General Privacy Statement</a>.</p>
+      <p style="margin-top:34px" class="fine">Last updated 27 October 2026.</p>
     </article>
   </div>
 </main>

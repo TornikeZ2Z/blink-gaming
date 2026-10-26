@@ -17,6 +17,8 @@ const svg = body => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 const ICON = {
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15l13-7.5z"/></svg>',
   menu: svg('<path d="M4 7h16M4 12h16M4 17h16"/>'),
+  sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>').replace('<svg ', '<svg class="sun" '),
+  moon: svg('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>').replace('<svg ', '<svg class="moon" '),
   close: svg('<path d="M6 6l12 12M18 6 6 18"/>'),
   check: svg('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
   info: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/>'),
@@ -170,7 +172,7 @@ const cur = key => (key === page ? ' aria-current="page"' : '');
 // The logo is the Brainer's visor (assets/brainer/logo/visor.svg) and the name in FiraGO. It is drawn inline so the screen
 // can light up and the eyes blink open when a page loads; each copy gets its own gradient id.
 let logoN = 0;
-const visor = () => { const id = `vg${++logoN}`; return `<svg class="visor" viewBox="0 0 64 44" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3f7bff"/><stop offset="1" stop-color="#5a32fb"/></linearGradient></defs><rect width="64" height="44" rx="19" fill="#0a1322"/><rect class="screen" x="5" y="5" width="54" height="34" rx="14.5" fill="url(#${id})"/><path class="gloss" d="M14 10.5h36" stroke="#fff" stroke-opacity=".28" stroke-width="2.4" stroke-linecap="round"/><rect class="eye" x="18" y="16" width="8" height="12" rx="3.2" fill="#fff"/><rect class="eye" x="38" y="16" width="8" height="12" rx="3.2" fill="#fff"/></svg>`; };
+const visor = () => { const id = `vg${++logoN}`; return `<svg class="visor" viewBox="0 0 64 44" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3f7bff"/><stop offset="1" stop-color="#5a32fb"/></linearGradient></defs><rect class="off" width="64" height="44" rx="19"/><rect class="screen" width="64" height="44" rx="19" fill="url(#${id})"/><path class="gloss" d="M12 7.5h40" stroke="#fff" stroke-opacity=".3" stroke-width="2.6" stroke-linecap="round"/><rect class="eye" x="17" y="14" width="9" height="15" rx="3.6" fill="#fff"/><rect class="eye" x="38" y="14" width="9" height="15" rx="3.6" fill="#fff"/></svg>`; };
 const logo = () => `<a class="logo" href="index.html" aria-label="${esc(SITE.brand)} home">${visor()}<span class="word">Brainer</span></a>`;
 
 const header = $('#site-header');
@@ -180,6 +182,7 @@ if (header) {
     <nav class="nav" aria-label="Main">${NAV.map(n => `<a href="${n.href}"${cur(n.key)}>${n.label}</a>`).join('')}</nav>
     <div class="head-cta">
       <a class="btn btn-red btn-sm" href="contact.html">Request a demo</a>
+      <button class="icon-btn theme-btn" type="button" data-act="theme" aria-label="Switch between light and dark mode">${ICON.sun}${ICON.moon}</button>
       <button class="icon-btn menu-btn" type="button" data-act="menu" aria-label="Open menu">${ICON.menu}</button>
     </div></div>`;
 }
@@ -241,6 +244,10 @@ document.addEventListener('click', e => {
   if (!a) return;
   if (a.dataset.todo) { e.preventDefault(); toast(`The ${a.dataset.todo} page is not written yet.`); return; }
   if (a.dataset.act === 'menu') drawer.showModal();
+  if (a.dataset.act === 'theme') {   // the visitor's pick overrides their system setting from then on (each page's <head> applies it before paint)
+    const dark = (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
+    document.documentElement.dataset.theme = dark ? 'light' : 'dark'; store.set('brainer.theme', dark ? 'light' : 'dark');
+  }
 });
 // Content drawn by script lands after the browser's own jump to #section, so jump again once it is there.
 const jumpToHash = () => { const t = location.hash && document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); };
