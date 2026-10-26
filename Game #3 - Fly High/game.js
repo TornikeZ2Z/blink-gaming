@@ -128,6 +128,7 @@ function flyAway(now) {
   for (const b of bets) { if (b.st === 'live') b.st = 'lost'; if (b.st === 'lost' || b.st === 'cashed') played = true; }
   rounds.unshift({ nonce: R.nonce, seed: R.seed, hash: R.hash, client: R.client, crash: R.crash, mine: bets.filter(b => b.st === 'lost' || b.st === 'cashed').map(b => ({ i: b.i, stake: b.stake, st: b.st, at: b.at, payout: b.payout })) });
   rounds.length = Math.min(rounds.length, 30);
+  for (const b of bets) if (b.st === 'lost' || b.st === 'cashed') recordBet(b, R.crash);   // for My bets and the board
   if (played) { earnCells(cfg.brain.perRound); if (bets.some(b => b.st === 'lost')) react('shake', 'Missed it!'); }
   sound.away(); say(`Flew away at ${fx(R.crash)}.`);
   rotateSeed().then(() => { if (!$('#fairSheet').hidden) renderFair(); });   // the next round's commit, before its betting opens
@@ -457,6 +458,55 @@ async function checkFair() {
     + ok(crashOk, crashOk ? `Recomputed from the seeds, the round flies away at ${fx(c)}, as it did` : `Recomputed: ${fx(c)}, but the round flew away at ${fx(r.crash)}`);
 }
 
+/* ---------- leaderboard: demo players, with your own real results merged in ---------- */
+// The demo has no server, so the other players are made up (Tornike, 2026-10-26) and the board says "Demo data". It is
+// drawn from a seed per day, month and year, so it stays put through each; your own bets are real, kept on this device,
+// and join the board when they rank.
+const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const seedOf = str => { let h = 2166136261; for (const c of str) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
+const HANDLES = ['g***2', 'n***a', 'l***o', 'd***7', 'b***r', 's***1', 'm***e', 't***9', 'k***i', 'a***5', 'z***3', 'o***y', 'r***8', 'e***x', 'p***4', 'v***6', 'i***u', 'c***0', 'h***t', 'j***w', 'q***m', 'u***k'];
+const STAKES = [0.5, 1, 1, 2, 2, 5, 5, 10, 10, 20, 50, 100, 200];
+const SPAN = { day: [40, 900], month: [150, 4000], year: [600, 10000] };   // the cash-out multipliers each board reaches
+const periodStart = p => { const d = new Date(); return p === 'day' ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : p === 'month' ? new Date(d.getFullYear(), d.getMonth(), 1).getTime() : new Date(d.getFullYear(), 0, 1).getTime(); };
+function demoRows(period) {
+  const d = new Date(), key = period === 'day' ? `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` : period === 'month' ? `${d.getFullYear()}-${d.getMonth()}` : `${d.getFullYear()}`;
+  const rnd = mulberry(seedOf('fly-high:' + key)), [lo, hi] = SPAN[period], t0 = periodStart(period), now = Date.now(), rows = [];
+  for (let i = 0; i < 60; i++) {
+    const at = Math.floor(Math.min(cfg.maxMult, lo * Math.pow(hi / lo, Math.pow(rnd(), 1.8))) * 100) / 100;   // many near the low end, a few near the top
+    const stake = STAKES[Math.floor(rnd() * STAKES.length)];
+    rows.push({ name: HANDLES[Math.floor(rnd() * HANDLES.length)], stage: 1 + Math.floor(rnd() * 10), stake, at, win: payOf(stake, at), crash: Math.floor(at * (1 + rnd() * 0.6) * 100) / 100, t: t0 + rnd() * (now - t0) });
+  }
+  return rows;
+}
+const myBets = (() => { try { return JSON.parse(store.get('brainer.fh.bets', '[]')) || []; } catch (e) { return []; } })();   // your last 50 bets
+function recordBet(b, crash) { myBets.unshift({ t: Date.now(), stake: b.stake, at: b.st === 'cashed' ? b.at : null, win: b.st === 'cashed' ? b.payout : 0, crash }); myBets.length = Math.min(myBets.length, 50); store.set('brainer.fh.bets', JSON.stringify(myBets)); }
+const board = { tab: 'huge', period: 'day' };
+const when = (t, period) => new Date(t).toLocaleString('en-GB', period === 'day' ? { hour: '2-digit', minute: '2-digit' } : period === 'month' ? { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' } : { day: 'numeric', month: 'short' });
+function renderBoard() {
+  const { tab, period } = board, t0 = periodStart(period), me = stageOf(myLevel());
+  document.querySelectorAll('.top-tabs button').forEach(x => x.setAttribute('aria-selected', String(x.dataset.t === tab)));
+  document.querySelectorAll('#periods button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.p === period)));
+  $('#periods').hidden = tab === 'mine';
+  const row = (k, img, name, sub, amt, amtSub, cls = '') => `<li class="${cls}"><span class="rk">${k}</span><img src="assets/brainer-${img}.png" alt=""><span class="who"><b>${esc(name)}</b><span>${sub}</span></span><span class="amt${cls.includes('lost') ? ' lost' : ''}"><b>${amt}</b><span>${amtSub}</span></span></li>`;
+  let rows;
+  if (tab === 'mine') {
+    rows = myBets.length ? myBets.map((m, i) => row(i + 1, me, when(m.t, 'month'), `Bet ${money(m.stake)} · flew at ${fx(m.crash)}`, m.at ? money(m.win) : 'Lost', m.at ? `at ${fx(m.at)}` : `bet ${money(m.stake)}`, m.at ? '' : 'lost')).join('') : '<li class="empty">No bets yet. Your bets show here once a round ends.</li>';
+    $('#boardNote').textContent = 'Your last 50 bets, kept on this device only.';
+  } else {
+    let list = demoRows(period).map(r => ({ ...r, you: false }));
+    const mine = myBets.filter(m => m.at && m.t >= t0).map(m => ({ name: 'You', stage: me, stake: m.stake, at: m.at, win: m.win, crash: m.crash, t: m.t, you: true }));
+    if (tab === 'rounds') {
+      list = list.concat(rounds.map(r => ({ name: `Round ${r.nonce}`, stage: me, crash: r.crash, t: Date.now(), you: true, round: true }))).sort((a, b) => b.crash - a.crash).slice(0, 20);
+      rows = list.map((r, i) => row(i + 1, r.stage, r.round ? `${r.name}, this visit` : `Round ${(Math.floor(r.t / 1000) % 900000 + 100000)}`, when(r.t, period), fx(r.crash), 'flew away', r.you ? 'you' : '')).join('');
+    } else {
+      list = list.concat(mine).sort((a, b) => tab === 'huge' ? b.at - a.at : b.win - a.win || b.at - a.at).slice(0, 20);
+      rows = list.map((r, i) => row(i + 1, r.stage, r.name, `${when(r.t, period)} · Bet ${money(r.stake)}`, money(r.win), `at ${fx(r.at)}`, r.you ? 'you' : '')).join('');
+    }
+    $('#boardNote').textContent = 'Demo data: the other players are made up for this demo. Your own results are real and join the board when they rank.';
+  }
+  $('#board').innerHTML = rows;
+}
+
 /* ---------- sheets: brain-level picker, fairness and how to play ---------- */
 function renderPicker() {
   const L = myLevel(), st = stageOf(L), prev = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.b;
@@ -465,7 +515,7 @@ function renderPicker() {
   $('#levelsGrid').innerHTML = NAMES.map((nm, i) => `<button type="button" data-b="${i * 10 + 1}" aria-pressed="${i + 1 === st}" class="${i + 1 > st ? 'ahead' : ''}"><img src="assets/brainer-${i + 1}.png" alt=""><b>${nm}</b><span>Levels ${i * 10 + 1}–${i * 10 + 10}</span></button>`).join('');
   if (prev) { const f = $(`#levelsGrid button[aria-pressed=true]`); if (f) f.focus({ preventScroll: true }); }   // a rebuild keeps keyboard focus on the stage just picked
 }
-const sheetOpen = () => !$('#picker').hidden || !$('#tutorial').hidden || !$('#agegate').hidden || !$('#fairSheet').hidden;
+const sheetOpen = () => !$('#picker').hidden || !$('#tutorial').hidden || !$('#agegate').hidden || !$('#fairSheet').hidden || !$('#topSheet').hidden;
 let lastFocus = null;
 function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; const f = $(id).querySelector('button[aria-pressed=true], button'); if (f) f.focus({ preventScroll: true }); }   // no scroll: inside the website's frame it would scroll the parent page
 function closeSheet(id) { $(id).hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true }); }
@@ -474,6 +524,10 @@ $('#pickerClose').addEventListener('click', () => closeSheet('#picker'));
 $('#levelsGrid').addEventListener('click', e => { const b = e.target.closest('button[data-b]'); if (b) setBrainLevel(+b.dataset.b); });
 $('#pickSlider').addEventListener('input', e => setBrainLevel(+e.target.value));
 $('#help').addEventListener('click', () => openSheet('#tutorial'));
+$('#top').addEventListener('click', () => { renderBoard(); openSheet('#topSheet'); });
+$('#topClose').addEventListener('click', () => closeSheet('#topSheet'));
+document.querySelector('.top-tabs').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (b) { board.tab = b.dataset.t; renderBoard(); } });
+$('#periods').addEventListener('click', e => { const b = e.target.closest('button[data-p]'); if (b) { board.period = b.dataset.p; renderBoard(); } });
 $('#fair').addEventListener('click', () => { shown = rounds[0] || null; renderFair(); openSheet('#fairSheet'); });
 $('#hist').addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (!b) return; shown = rounds[+b.dataset.k]; renderFair(); openSheet('#fairSheet'); });
 $('#fairClose').addEventListener('click', () => closeSheet('#fairSheet'));
@@ -500,7 +554,7 @@ document.addEventListener('keydown', e => {
     if (s) { const f = [...s.querySelectorAll('button, input')].filter(b => !b.disabled && b.getClientRects().length), i = f.indexOf(document.activeElement); if (!f.length) e.preventDefault(); else if (i < 0 || (e.shiftKey ? i === 0 : i === f.length - 1)) { e.preventDefault(); f[e.shiftKey ? f.length - 1 : 0].focus({ preventScroll: true }); } }
     return;
   }
-  if (e.key === 'Escape') { for (const id of ['#picker', '#fairSheet', '#tutorial']) if (!$(id).hidden) { if (id === '#tutorial') store.set('brainer.fh.tutorial', 'seen'); closeSheet(id); } return; }
+  if (e.key === 'Escape') { for (const id of ['#picker', '#fairSheet', '#topSheet', '#tutorial']) if (!$(id).hidden) { if (id === '#tutorial') store.set('brainer.fh.tutorial', 'seen'); closeSheet(id); } return; }
   if (!booted) { if (e.code === 'Space') e.preventDefault(); return; }   // no game keys under the intro (the 18+ check comes first)
   if (sheetOpen() || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   const tag = document.activeElement && document.activeElement.tagName;
