@@ -146,7 +146,7 @@ async function play() {
   finally { starting = false; renderControls(); }
   S.balance = cents(S.balance - r.stake); round = r;
   sceneReset(performance.now()); sound.place(); sound.mood('round', 0);
-  renderBalance(); renderControls(); renderBattery(); renderNextLook();
+  renderBalance(); renderControls(); renderBattery();
 }
 function charge() {
   const r = round;
@@ -171,7 +171,7 @@ function cashOut(auto) {
 function settle() {
   lastRound = round; earnCells(cfg.brain.perRound);
   rotateSeed().then(() => { if (!$('#fairSheet').hidden) renderFair(); });
-  renderBalance(); renderControls(); renderBattery(); renderNextLook();
+  renderBalance(); renderControls(); renderBattery();
 }
 function advance(now) {
   const r = round;
@@ -186,7 +186,7 @@ function advance(now) {
     }
     const before = lookAt(r.n, r.reach); r.n++; const after = lookAt(r.n, r.reach);
     sceneSafe(now, after !== before ? after : 0); sound.zap(); sound.safe(); sound.mood('round', r.n / r.reach);
-    r.popAt = now; renderBattery(); renderNextLook();
+    r.popAt = now; renderBattery();
   }
   if (p >= 1) {
     r.status = 'ready';
@@ -425,11 +425,11 @@ const cache = {};
 const put = (id, prop, v) => { const k = id + prop; if (cache[k] === v) return; cache[k] = v; const el = document.getElementById(id); if (prop === 'text') el.textContent = v; else if (prop === 'class') el.className = v; else if (prop === 'hidden') el.hidden = v; else el.setAttribute(prop, v); };
 function updateUI(now) {
   const r = round, d = r ? r.d : LEVELS[S.level];
-  let lvl = 'LVL 1', name = LOOKS[0].name, lvlCls = 'lvl', big, bigCls = 'mult', sub = '', subCls = 'sub';
+  let lvl = 'LVL 1', name = '', lvlCls = 'lvl', big, bigCls = 'mult', sub = '', subCls = 'sub';
   if (!r || (!live() && starting)) { lvl = d.name; name = `up to ${d.reach} charges`; big = fxShort(topOf(d)); bigCls = 'mult idle'; sub = 'Top win · set your bet and press Play'; }
   else {
-    const cur = capAt(r.d, r.n, r.stake, r.rtp), lk = lookAt(r.n, r.reach);
-    lvl = `LVL ${r.n + 1}`; name = LOOKS[lk - 1].name; big = fx(cur);
+    const cur = capAt(r.d, r.n, r.stake, r.rtp);
+    lvl = `LVL ${r.n + 1}`; name = ''; big = fx(cur);   // no look names or next-look card in play (Tornike, 2026-10-27)
     if (r.status === 'ready') { const nx = capAt(r.d, r.n + 1, r.stake, r.rtp); sub = r.n < r.reach ? `Next charge: ${fx(nx)} · ${pct(r.d.safe[r.n])} safe` : ''; }
     else if (r.status === 'charging') sub = r.struck ? 'Charged!' : 'Charging…';
     else if (r.status === 'broken') { lvl = 'OVERCHARGED'; lvlCls = 'lvl bust'; name = `at LVL ${r.n + 1}`; big = 'Battery flat'; bigCls = 'mult bust'; sub = `Charge ${r.n + 1} overloaded · −${money(r.stake)}`; subCls = 'sub bad'; }
@@ -483,21 +483,6 @@ function renderBattery() {
   const across = getComputedStyle(inner).flexDirection.startsWith('row');
   if (across) { const want = cur.offsetLeft + cur.offsetWidth / 2 - box.clientWidth * 0.4; inner.style.transform = `translateX(${-clamp(want, 0, Math.max(0, inner.scrollWidth - box.clientWidth))}px)`; }
   else { const fromBottom = inner.offsetHeight - cur.offsetTop - cur.offsetHeight, want = fromBottom - box.clientHeight * 0.3; inner.style.transform = `translateY(${clamp(want, 0, Math.max(0, inner.offsetHeight - box.clientHeight))}px)`; }
-}
-function renderNextLook() {   // the next look ahead, how many charges away it is, and that gear comes on the charges between
-  const r = round, d = r ? r.d : LEVELS[S.level], reach = r ? r.reach : d.reach, stake = r ? r.stake : cfg.minBet, n = r && r.status !== 'broken' ? r.n : 0;
-  const cur = lookAt(n, reach), el = $('#nextlook');
-  let c = 0;
-  for (let i = n + 1; i <= reach; i++) if (lookAt(i, reach) > cur) { c = i; break; }
-  el.classList.toggle('top', !c);
-  if (c) {
-    const L = LOOKS[cur], away = c - n, gear = away - 1;
-    $('#nlHead').textContent = `Next look at ${fxShort(capAt(d, c, stake))}`; $('#nlImg').src = lookImg(cur + 1); $('#nlName').textContent = L.name;
-    $('#nlSub').textContent = (r && live() ? `${away} charge${away === 1 ? '' : 's'} away` : `at charge ${c}`) + (gear > 0 ? ` · ${gear} gear-up${gear === 1 ? '' : 's'} first` : '');
-  } else {
-    $('#nlHead').textContent = 'Top look'; $('#nlImg').src = lookImg(cur); $('#nlName').textContent = LOOKS[cur - 1].name;
-    $('#nlSub').textContent = 'Graduation cap and cape';
-  }
 }
 function renderBalance() { $('#balance').textContent = money(S.balance); $('.hud').classList.toggle('long', S.balance >= 1e5); }
 function renderSound() { const b = $('#sound'); b.setAttribute('aria-pressed', String(sound.on)); b.setAttribute('aria-label', sound.on ? 'Sound on, tap to mute' : 'Sound off, tap to unmute'); }
@@ -572,7 +557,7 @@ $('#levels').addEventListener('click', e => {
   const b = e.target.closest('button[data-l]'); if (!b || live()) return;
   S.level = +b.dataset.l; store.set('brainer.ch.level', String(S.level)); renderLevels(); renderControls();
   if (round && !live()) { round = null; sceneReset(performance.now()); sound.mood('idle'); }   // the last result clears: the baby is back on the pad
-  renderBattery(); renderNextLook();
+  renderBattery();
 });
 $('#go').addEventListener('click', () => { if (live()) charge(); else play(); });
 $('#cash').addEventListener('click', () => cashOut(false));
@@ -606,7 +591,7 @@ if (window.ResizeObserver) new ResizeObserver(layout).observe(stage);
 S.level = clamp(parseInt(store.get('brainer.ch.level', '1'), 10) || 0, 0, LEVELS.length - 1);
 S.client = randHex(8);
 rotateSeed().catch(() => {});   // without crypto.subtle (plain http) Play says why instead
-setStake(S.stake); renderLevels(); renderBalance(); renderControls(); renderSound(); layout(); renderBattery(); renderNextLook();
+setStake(S.stake); renderLevels(); renderBalance(); renderControls(); renderSound(); layout(); renderBattery();
 const bootT = performance.now();
 // The intro waits for what the game needs to be seen: the set, the first still and the fonts; then up to 2.5 s more
 // for the 3D Brainer, which takes over from the still whenever it arrives. A slow line never holds the player past 9 s:

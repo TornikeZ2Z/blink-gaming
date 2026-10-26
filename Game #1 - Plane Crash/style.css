@@ -286,3 +286,7 @@ button{cursor:pointer}
   .paths button{min-height:64px}
   .paths button .n{font-size:17px}
 }
+
+/* No Brainer level card on the stage (Tornike, 2026-10-27): the card and its level-up pop-up stay hidden. Rounds still
+   add brain cells for the website. */
+.pilot,.levelup{display:none!important}

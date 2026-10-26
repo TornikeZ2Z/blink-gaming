@@ -63,6 +63,7 @@ button{cursor:pointer}
 .readout .lvl i{font-style:normal;padding:2px 9px;border-radius:999px;background:var(--cyan);color:var(--navy);font-variant-numeric:tabular-nums}
 .readout .lvl.bust{border-color:rgba(255,52,72,.6)} .readout .lvl.bust i{background:#ff3448;color:#fff}
 .readout .lvl.won i{background:#33d66d}
+.readout .lvl span:empty{display:none} .readout .lvl:has(span:empty){padding-right:5px}
 .readout .mult{font-weight:800;font-size:clamp(42px,6.4vw,74px);line-height:1.02;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;text-shadow:0 4px 0 rgba(10,19,34,.35),0 0 26px rgba(10,19,34,.75),0 0 48px rgba(85,230,255,.45)}
 .readout .mult.idle{font-size:clamp(32px,4.6vw,48px)}
 .readout .mult.win{color:#7dffcf}
@@ -75,12 +76,6 @@ button{cursor:pointer}
 .readout .sub.bad{background:rgba(220,40,70,.75)}
 
 /* the next look: which Brainer the next threshold brings, and how many charges away it is */
-.nextlook{position:absolute;right:14px;top:64px;width:190px;z-index:2;display:flex;flex-direction:column;align-items:center;gap:1px;padding:10px 12px 12px;border-radius:18px;background:rgba(10,19,34,.78);backdrop-filter:blur(8px);border:1px solid var(--line);text-align:center;transition:opacity .3s}
-.nextlook small{font-size:10.5px;font-weight:800;letter-spacing:.12em;color:var(--lilac);text-transform:uppercase}
-.nextlook img{width:84px;height:84px;object-fit:contain;margin:2px 0}
-.nextlook b{font-size:16px;font-weight:800}
-.nextlook span{font-size:12px;font-weight:700;color:var(--muted)}
-.nextlook.top small{color:#ffd56b}
 .newlook{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:4;display:flex;flex-direction:column;align-items:center;padding:10px 26px 12px;border-radius:20px;background:rgba(10,19,34,.82);backdrop-filter:blur(10px);border:1px solid rgba(85,230,255,.7);box-shadow:0 0 40px rgba(85,230,255,.5);pointer-events:none;animation:newlook 1.6s ease-out forwards}
 .newlook small{font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--cyan)}
 .newlook b{font-size:24px;font-weight:800}
@@ -171,7 +166,6 @@ button{cursor:pointer}
 /* tablets and small laptops */
 @media (min-width:761px) and (max-width:1099px){
   .battery{width:190px} .cell{padding-right:40px} .cell img{width:30px;height:30px;top:3px} .cell .safe{display:none}   /* the readout says the chance */
-  .nextlook{display:none}
   .setup{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);min-height:0}   /* bet and difficulty, then Cash out and Charge */
   .setup:not(.live) #go{grid-column:1/-1}
   .setup .big{min-height:64px}
@@ -216,7 +210,6 @@ html.focus .setup:not(.live) #go{grid-column:span 2}
   .cell{height:32px;padding:0 8px;gap:5px;font-size:11px}
   .cell b{font-size:13px;margin-left:4px}
   .cell img,.cell .safe{display:none}
-  .nextlook{display:none}
   .newlook{bottom:54px;padding:5px 16px 7px} .newlook b{font-size:18px}   /* above the battery */
   .setup{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;min-height:0}
   .setup > .field{grid-column:1/-1;gap:6px}
