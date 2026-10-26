@@ -62,6 +62,24 @@ Live site: https://brainer.games (Cloudflare zone brainer.games: apex A/AAAA to 
 - **Sound, measured** (an analyser on the way to the speakers): effects peak at −3.7 to −5 dBFS, the music sits about −21 to −24 dBFS RMS idle and in a round, mute is silent within a second, and a hidden tab suspends the audio.
 - **Site card:** `Website/assets/games/multi-charge.webp`, a frame of the game (800×1000) mid-charge from pillar 4.
 
+## Space Crash (2026-10-27)
+
+- **Space Crash** (`Game #6 - Space Crash/`, published at `/space-crash/`, listed first on the site by Tornike's call) began as Plane Crash's "Aim & Break" mode; Plane Crash itself is back to its own paths game. Plane Crash's maths and fairness one to one: each row has five shield drones, each drone rolls `client:nonce:row:drone` like a path; a safe roll breaks the shield and the pod flies on, a bomb roll means it holds and the round ends. `AIM = true` in game.js marks the code that is Space Crash's own; the shared paths-mode code stays switched off.
+- **His picks**, all from two design boards (Blender renders):
+  - **Board 1** (https://claude.ai/artifact/FpwGK9KC1SD84aFJxB6eS5):
+    - The targets are shield drones, Blender stills in `assets/aim/tier1-4.webp` plus `-off` versions.
+    - The ship is the pod jet, a three.js model in `aim3d.js` with 8 built-in upgrades, one per row broken, then trim repaints.
+    - The win is a stand-up cheer: the Brainer stands up facing the player with star eyes and hands up, then the pod boosts away.
+    - The loss is a power down: lights, thrusters and the visor go dark and the pod sinks. No sad face, no explosion.
+    - Never a thumbs-up ("looks like middle finger").
+  - **Board 2** (https://claude.ai/artifact/6kWnnnKwmQ92RJSyrg9SUE):
+    - **Space A, "Nebula cathedral":** a painted backdrop, `assets/aim/space.webp`, drifting slowly.
+    - **Tougher A:** the shields toughen by row: cyan for rows 1–3, double violet for 4–7, gold with armour for 8–12, a red elite from 13. The bands are a first guess he hasn't changed. Looks only.
+- **Start:** the shared intro with the generic `SPACE CRASH` wordmark and a `t-space` theme (in the game's own style.css), the pod as the actor. Play launches the pod: it charges, kicks into a short warp (streaks), and the five drones fly in one after another.
+- **Background life:** an asteroid now and then (Blender rocks `assets/aim/rock1-5.webp`), fast, along the top or bottom edge, always behind; frequent shooting stars; twinkles. Tornike asked for fewer, faster asteroids and more shooting stars, never in front.
+- **No brain-level card:** rounds still add brain cells (`earnCells`). `?test` adds `window.pcTest.next = 'safe' | 'boom'`.
+- **Sources** (Blender scripts for the drones, the rocks and the boards) are in that session's scratchpad, not the repo; the card art `Website/assets/games/space-crash.webp` is a frame grabbed from the game canvas.
+
 ## Where things live
 
 - `Brainer 3D/`: the Blender kit. See its README.

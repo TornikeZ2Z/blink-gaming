@@ -31,8 +31,64 @@ window.BRAINER = {
     ]
   },
 
-  // Listed first: the newest game, so visitors meet it at the top of the home and games pages (Tornike, 2026-10-27).
+  // Listed first: Space Crash, by Tornike's call (2026-10-27: "place it as the first game"); Multi Charge, the other new
+  // game, follows it.
   GAMES: [
+    {
+      id: 'space-crash',
+      title: 'Space Crash',
+      status: 'demo',
+      genre: 'Instant',
+      badge: 'New',
+      round: 'round',
+      color: '#7A5CFF',
+      // A frame of the game: five shield drones ahead of the Brainer's pod jet in a violet and cyan nebula, 800x1000.
+      art: 'assets/games/space-crash.webp',
+      // Published, the game sits at /space-crash/ next to the site; in the repo it is the sibling folder.
+      src: location.pathname.includes('/Website/') ? '../Game%20%236%20-%20Space%20Crash/index.html' : 'space-crash/index.html',
+      tagline: 'Five shield drones block every row. Shoot one: break it and fly on, or cash out with your win.',
+      about: [
+        'A single-player instant game played in rows, deep in space. The Brainer flies a pod jet, and every row is blocked by five shield drones. The player picks one and fires: break its shield and the pod flies on through the pieces and the multiplier rises.',
+        'If the shield holds, the pod powers down and the bet is lost; the other drones then show which shields would have held. Cash out after any row to lock in the multiplier: the Brainer stands up in the cockpit and cheers, and the pod boosts away.',
+        'Every row broken switches on one of the pod’s built-in upgrades, from glowing thrusters to a gold spine, and the shields look tougher the deeper the round goes: cyan, then violet, gold and a red elite. Looks only: they never change the odds.'
+      ],
+      how: [
+        'Pick a difficulty and a bet in US dollars, then press Play: the pod launches and the first row of drones flies in.',
+        'At each row fire at one of the five drones. Some shields hold; every drone has the same chance, and the ladder shows what the next row pays.',
+        'Cash out whenever you like. A shield that holds ends the round and the bet is lost.'
+      ],
+      // Mirrors cfg and LEVELS in Game #6 - Space Crash/game.js, which are Plane Crash's one to one: 25 rows hide 1, 3, 5
+      // or 10 holding shields, multiplier = RTP ÷ chance of surviving, rounded down to the cent; five drones in every row,
+      // each holding on its own with that row's chance, as Plane Crash's five paths.
+      provisional: true,
+      rtp: 98,
+      minBet: 0.1,
+      maxWin: 10000,
+      words: { aBomb: 'a shield that holds', bomb: 'holding shield', bombs: 'holding shields', bombsIn: 'Holding shields in 25 rows', path: 'row', paths: 'rows', Paths: 'Rows', step: 'row', steps: 'rows', first: 'First row', make: 'break through' },
+      levels: [
+        { name: 'Easy', bombs: 1, steps: 24, first: 1.02, top: 24.5 },
+        { name: 'Medium', bombs: 3, steps: 22, first: 1.11, top: 2254 },
+        { name: 'Hard', bombs: 5, steps: 20, first: 1.22, top: 52067.4 },
+        { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.63, top: 3203384.8 }
+      ],
+      specs: [
+        ['Type', 'Instant, single player, Chicken Road style with a five-way pick'],
+        ['RTP', 'Up to 98%, the same for every player and every drone. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
+        ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 holding shields in 25 rows'],
+        ['Drones', 'Five in every row, each holding on its own with the same chance'],
+        ['Rows per round', '24, 22, 20, up to 14'],
+        ['Looks', 'The pod gains one built-in upgrade per row and the shields look tougher deeper in; they never change odds or payouts'],
+        ['Bet range', '$0.10 to $200'],
+        ['Max win', '$10,000 per round, which caps every payout: 100,000× at the $0.10 minimum bet'],
+        ['Currency', 'US dollars in the demo, local currencies per market'],
+        ['Fairness', 'Provably fair, with a client seed the player can set; every round can be checked in the game'],
+        ['Devices', 'Mobile and desktop (HTML5)'],
+        ['Languages', 'English now, Georgian in progress'],
+        ['Certification', 'Not yet tested by a lab']
+      ],
+      fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Every drone in every row rolls HMAC-SHA256(server seed, "client seed:nonce:row:drone"), and its shield holds when its roll is at or above that row’s safe chance, so whichever drone the player shoots breaks with exactly that chance. The shield button in the game re-checks the last round and redraws every drone of every row, so the player, the casino or a regulator can recompute it.',
+      demoNote: 'Demo build with play money in US dollars. The pod’s upgrades and the drones’ looks never change the odds or payouts.'
+    },
     {
       id: 'multi-charge',
       title: 'Multi Charge',
