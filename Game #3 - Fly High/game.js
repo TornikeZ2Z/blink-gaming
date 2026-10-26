@@ -18,11 +18,16 @@ const cents = v => Math.round(v * 100) / 100;   // the balance stays in whole ce
 // which lower it in some rounds: "RTP up to 98%".
 const cfg = {
   rtp: 98, minBet: 0.1, maxBet: 200, maxWin: 10000, maxMult: 10000, startBalance: 1000,
-  waitMs: 6000, endMs: 3200, rate: 0.13,   // the multiplier is e^(rate × seconds): 2× after 5.3 s, 10× after 18 s (faster, Tornike 2026-10-26)
+  waitMs: 6000, endMs: 3200,
+  // The climb speeds up the higher it goes (Tornike, 2026-10-26: "the higher the X, the faster"): ln(multiplier) =
+  // a·s + b·s², s seconds after take-off. 2× at 3.5 s, 10× at 9 s, 100× at 14.6 s, 1,000× at 19 s, 10,000× at 23 s.
+  grow: [0.161, 0.0105],
   preMs: 2000,   // the Brainer lights its jets and lifts off this long before the betting window closes, so the flight starts at speed
   brain: { perRound: 10 }   // each round you play adds the same brain cells, whatever you bet (Marketing's rule)
 };
-const multAt = t => Math.floor(Math.exp(cfg.rate * Math.max(0, t) / 1000) * 100 + 1e-7) / 100;   // t ms after take-off, rounded down to the cent
+const lnAt = t => { const s = Math.max(0, t) / 1000; return cfg.grow[0] * s + cfg.grow[1] * s * s; };   // ln of the multiplier, t ms after take-off
+const speedAt = t => cfg.grow[0] + 2 * cfg.grow[1] * Math.max(0, t) / 1000;   // how fast it climbs then, in ln units a second
+const multAt = t => Math.floor(Math.exp(lnAt(t)) * 100 + 1e-7) / 100;   // rounded down to the cent
 const payOf = (stake, m) => Math.min(Math.floor(stake * m * 100 + 1e-6) / 100, cfg.maxWin);
 const CELLS = (() => { const c = [0, 0]; for (let n = 1; n < 100; n++) c.push(c[n] + Math.round(10 + 8 * Math.pow(n, 1.4))); return c; })();
 const brainLevel = cells => { let L = 1; while (L < 100 && cells >= CELLS[L + 1]) L++; return L; };
@@ -372,7 +377,7 @@ function heightNow(now) {
   if (!R || (R.phase === 'bet' && !R.lit)) return 0;
   const pre = PRE_H * smooth(clamp((now - R.liftT0) / cfg.preMs, 0, 1));
   if (R.phase === 'bet' || R.phase === 'starting') return pre;
-  const h = PRE_H + cfg.rate * Math.max(0, (R.phase === 'end' ? R.endT0 : now) - R.t0) / 1000 / Math.log(SPACE);
+  const h = PRE_H + lnAt((R.phase === 'end' ? R.endT0 : now) - R.t0) / Math.log(SPACE);
   return R.phase === 'end' ? h - Math.max(0, (now - view.awayT0) / 1000 - 0.4) * 0.02 : h;   // drifting back down under the parachute
 }
 const STARS = Array.from({ length: 90 }, (_, i) => ({ x: hsh(i + 1), y: hsh(i + 101), r: 0.6 + hsh(i + 201) * 1.4, tw: hsh(i + 301) * TAU }));
@@ -424,13 +429,13 @@ function world(now, h, padX, k) {
   }
   ground(gy0 + h * H * PX, padX, k);
 }
-// Speed streaks: thin lines rushing down while the jets push, faster and brighter with every suit level.
+// Speed streaks: thin lines rushing down while the jets push, faster and longer as the climb speeds up (v: 0 to 1).
 const streaks = Array.from({ length: 18 }, (_, i) => ({ x: hsh(i + 50), y: hsh(i + 70) }));
-function speedLines(dt, L, h) {
+function speedLines(dt, v, h) {
   ctx.strokeStyle = h > 0.6 ? 'rgba(200,220,255,.5)' : 'rgba(255,255,255,.55)'; ctx.lineCap = 'round';
   for (const s of streaks) {
-    s.y += dt * (0.0012 + L * 0.00018); if (s.y > 1.15) { s.y = -0.15; s.x = Math.random(); }
-    ctx.globalAlpha = 0.25 + L * 0.03; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x * W, s.y * H); ctx.lineTo(s.x * W, s.y * H + H * (0.06 + L * 0.008)); ctx.stroke();
+    s.y += dt * (0.0014 + v * 0.0034); if (s.y > 1.15) { s.y = -0.15; s.x = Math.random(); }
+    ctx.globalAlpha = 0.3 + v * 0.35; ctx.lineWidth = 2 + v; ctx.beginPath(); ctx.moveTo(s.x * W, s.y * H); ctx.lineTo(s.x * W, s.y * H + H * (0.06 + v * 0.16)); ctx.stroke();
   }
   ctx.globalAlpha = 1;
 }
@@ -458,6 +463,7 @@ function draw(now) {
   view.alt = goal >= view.alt ? goal : view.alt + (goal - view.alt) * Math.min(1, dt * 0.005);   // between rounds it sinks back to the pad
   const size = clamp(Math.min(W, H) * 0.6, 180, 380), k = size / 280, X = W / 2;   // centred on every screen (Tornike, 2026-10-26)
   const lifting = R && (R.lit || R.phase !== 'bet'), pushing = lifting && R.phase !== 'end';
+  const fast = R && R.phase === 'fly' ? clamp((speedAt(now - R.t0) - cfg.grow[0]) / (2 * cfg.grow[1] * 23), 0, 1) : 0;   // 0 at take-off, 1 by 10,000×
   world(now, view.alt, X, k);
   const gy = H * 0.86 + view.alt * H * PX, standY = gy - 88 * k;
   const o = { L: 1, face: exNow(now), thrust: 1, footL: 1, footR: 1, dim: false, glitch: false, batt: '', chute: 0, arrive: null, now };
@@ -475,7 +481,7 @@ function draw(now) {
     const gq = view.gearT0 ? (now - view.gearT0) / 450 : 1;
     if (gq < 1) { o.arrive = { L: view.suit, q: gq }; pop = 1 + 0.1 * Math.sin(Math.PI * clamp(gq * 1.3, 0, 1)); }
     const sc = scareFx(now);
-    Object.assign(o, { footL: sc.footL, footR: sc.footR, glitch: sc.glitch, batt: sc.batt }); o.thrust *= sc.thrust;
+    Object.assign(o, { footL: sc.footL, footR: sc.footR, glitch: sc.glitch, batt: sc.batt }); o.thrust *= sc.thrust * (1 + 0.4 * fast);
     if (sc.face) o.face = sc.face;
     rot = sc.rot; Y += sc.dy * H;
     if (R.phase === 'end') {   // power out: the jets splutter and die, the screens go dark, it drops, the parachute pops
@@ -486,7 +492,7 @@ function draw(now) {
       Y += a < 0.4 ? 0 : a < 1 ? Math.pow((a - 0.4) / 0.6, 2) * H * 0.12 : H * 0.12 + (a - 1) * H * 0.04;
       rot = a < 0.4 ? 0 : o.chute > 0 ? (reduced ? 0 : Math.sin(a * 2.4) * 0.08) : 0.15 * (a - 0.4) / 0.6;
     }
-    if (pushing && !reduced) speedLines(dt, o.L, view.alt);
+    if (pushing && !reduced) speedLines(dt, fast, view.alt);
     if (pushing && o.L >= 3) {   // exhaust trails under the feet
       const c = GLOW[jetOf(o.L)];
       for (const dx of [-12, 12]) { const x = X + dx * k, y0 = Y + 120 * k, g = ctx.createLinearGradient(0, y0, 0, H); g.addColorStop(0, `rgba(${c},.45)`); g.addColorStop(1, `rgba(${c},0)`); ctx.fillStyle = g; ctx.fillRect(x - 5 * k, y0, 10 * k, H - y0); }
@@ -498,7 +504,8 @@ function draw(now) {
   // the gear flash: a ring bursting from the Brainer as a piece lands
   const fq = view.gearT0 ? (now - view.gearT0) / 600 : 1;
   if (fq < 1) { ctx.strokeStyle = `rgba(255,213,107,${1 - fq})`; ctx.lineWidth = 8 * (1 - fq) + 1; ctx.beginPath(); ctx.arc(X, Y, size * (0.3 + fq * 0.6), 0, TAU); ctx.stroke(); }
-  ctx.save(); ctx.translate(X, Y); ctx.rotate(rot); ctx.scale(k * pop, k * pop); ctx.translate(-100, -140);
+  const shake = reduced ? 0 : fast * 3 * k;   // a rattle at top speed
+  ctx.save(); ctx.translate(X + (hsh(Math.floor(now / 40)) - 0.5) * shake, Y + (hsh(Math.floor(now / 40) + 9) - 0.5) * shake); ctx.rotate(rot); ctx.scale(k * pop, k * pop); ctx.translate(-100, -140);
   drawBot(ctx, o);
   ctx.restore();
   view.sparks = view.sparks.filter(s => now - s.t0 < 800);
@@ -750,18 +757,20 @@ document.addEventListener('keydown', e => {
   e.preventDefault(); act(bets[0]);
 });
 
-/* ---------- test mode (?test): set the power-out point by hand ---------- */
-// For testing the demo only (Tornike, 2026-10-26); hidden unless the address has ?test. While a point is set, every round
-// from the next take-off powers out there instead of at its seeded point, and is marked as a test round.
-if (new URLSearchParams(location.search).has('test')) {
+/* ---------- test flights: set the power-out point by hand ---------- */
+// For testing the demo (Tornike, 2026-10-26): a field under the bets sets where the power runs out, and Max flight sets
+// 10,000×. While a point is set, every round from the next take-off powers out there instead of at its seeded point,
+// and is marked as a test round in the history and the fairness check.
+{
   const box = $('#test'), inp = $('#forceIn');
-  box.hidden = false;
   const setForce = () => {
     const v = parseFloat(inp.value);
     S.force = Number.isFinite(v) && v >= 1 ? clamp(Math.floor(v * 100 + 1e-7) / 100, 1, cfg.maxMult) : 0;
     inp.value = S.force ? S.force.toFixed(2) : ''; box.classList.toggle('on', !!S.force);
+    if (S.force) toast(`Test flight: the next take-off powers out at ${fx(S.force)}.`);
   };
   inp.addEventListener('change', setForce);
+  $('#forceMax').addEventListener('click', () => { inp.value = String(cfg.maxMult); setForce(); });
   $('#forceClear').addEventListener('click', () => { inp.value = ''; setForce(); });
 }
 
