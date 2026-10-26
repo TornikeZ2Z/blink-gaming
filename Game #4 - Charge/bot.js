@@ -119,7 +119,9 @@ const pickOther = (list, avoid) => { const c = list.filter(k => !avoid.includes(
 let rig = null, cape = null;
 const gear = {};   // key → { def, parts: [{ o, s }], at, gold }
 const B = { look: 1, mode: 'idle', t0: 0, act: '', actT0: 0, actMs: 0, nextAct: 0, recent: [], spin: 0, change: null, changeAt: 0, pops: [] };
-loadBrainer().then(model => {
+// the model (about 570 KB on the wire) is fetched again if a flaky line drops it: three more tries, 1.5, 3 and 6 s apart
+const fetchModel = (n = 0) => loadBrainer().catch(e => n >= 3 ? Promise.reject(e) : new Promise(r => setTimeout(r, 1500 * 2 ** n)).then(() => fetchModel(n + 1)));
+fetchModel().then(model => {
   rig = new BrainerRig(model); holder.add(rig.root);
   rig.setStage(0, true); rig.face = STAGES[0].face; rig.update(performance.now(), 0, { instant: true });
   cape = makeCape(); rig.nodes.Body.add(cape); cape.visible = false;
@@ -224,6 +226,13 @@ window.ChargeBot = {
   cash(now) { B.mode = 'cash'; B.t0 = now; B.act = Math.random() < 0.5 ? 'cheer' : 'jump'; },
   boom(now) { B.mode = 'boom'; B.t0 = now; },
   get asleep() { return B.mode === 'off'; },
+  // the 3D Brainer arrived mid-round (a slow line): it starts out exactly as the still showed it, in its look and gear
+  sync(now, look, gears, asleep) {
+    if (!rig) return;
+    setLook(look, -1e9); rig.setStage(Math.min(look, 10) - 1, true); rig.update(now, 0, { instant: true }); cape.userData.at = -1e9;
+    for (let i = 0; i < gears; i++) addGear(-1e9);
+    B.mode = asleep ? 'off' : 'idle'; B.t0 = now; B.act = ''; B.nextAct = now + 800;
+  },
   // Renders the Brainer for a stage drawn at scale k with the set's top left at (ox, oy), at pixel ratio pr; returns the
   // canvas and where to draw it, and its anchors in stage pixels (head top for the battery, antenna, chest, gear).
   frame(now, dt, k, ox, oy, pr) {

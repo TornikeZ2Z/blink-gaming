@@ -48,7 +48,7 @@ const LOOKS = [
   { name: 'Expert', acc: 'graduation cap' }, { name: 'Master', acc: 'graduation cap' }, { name: 'Master', acc: 'graduation cap and cape' }
 ];
 const lookAt = (n, reach) => n >= reach ? LOOKS.length : 1 + Math.floor(n * (LOOKS.length - 1) / reach);   // 1-11 after n of reach charges
-const lookImg = k => `assets/brainer-${k}.png`;
+const lookImg = k => `assets/look/${k}.webp`;   // 256 px pictures of the eleven looks (13 KB each)
 // Brain cells, shared by every Brainer game: quick levels at first, then slower; ten stages of ten levels.
 const CELLS = (() => { const c = [0, 0]; for (let n = 1; n < 100; n++) c.push(c[n] + Math.round(10 + 8 * Math.pow(n, 1.4))); return c; })();
 const brainLevel = cells => { let L = 1; while (L < 100 && cells >= CELLS[L + 1]) L++; return L; };
@@ -81,15 +81,18 @@ function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h
 
 /* ---------- sound ---------- */
 // Synthesised with Web Audio, so there are no files to load. Starts on the first tap; the HUD button mutes it.
+// The background music (music.js) plays under it all, very low, from the first tap; every effect ducks it a little.
 const sound = (() => {
-  let ac = null, on = store.get('brainer.sound', 'on') !== 'off';
+  let ac = null, on = store.get('brainer.sound', 'on') !== 'off', music = null, mood = ['idle', 0];
   const ctxA = () => {
-    if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A(); }
-    if (ac.state === 'suspended') ac.resume();
+    if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A(); if (window.BrainerMusic) { music = window.BrainerMusic(ac, ac.destination); music.mood(...mood); } }
+    if (ac.state === 'suspended' && !document.hidden) ac.resume();
+    if (on && music && !music.running && !document.hidden) music.start();
     return ac;
   };
   const tone = (f0, f1, dur, type, vol, delay) => {
     const a = on && ctxA(); if (!a) return;
+    if (music && !delay) music.duck();
     const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
     o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -106,7 +109,11 @@ const sound = (() => {
   };
   return {
     get on() { return on; },
-    toggle() { on = !on; store.set('brainer.sound', on ? 'on' : 'off'); if (on) ctxA(); return on; },
+    toggle() { on = !on; store.set('brainer.sound', on ? 'on' : 'off'); if (on) ctxA(); else if (music) music.stop(); return on; },
+    wake() { if (on) ctxA(); },   // browsers let a page make sound only after a tap or a key: the music starts on the first one
+    hide(hidden) { if (!ac) return; if (hidden) { if (music) music.stop(); ac.suspend(); } else if (on) ctxA(); },   // quiet while the tab is away
+    mood(m, f = 0) { mood = [m, f]; if (music) music.mood(m, f); },
+    dip() { mood = ['idle', 0]; if (music) music.dip(); },
     place() { tone(520, 780, 0.1, 'triangle', 0.09); tone(180, 360, 0.35, 'sawtooth', 0.02, 0.05); },   // the pad powers up
     hum(ms) { const s = ms / 1000; tone(70, 240, s, 'sawtooth', 0.035); tone(140, 480, s, 'square', 0.012); noise(s, 0.06, 300, 3000, 0, 'bandpass'); },   // the coils winding up
     zap() { noise(0.16, 0.08, 7000, 1500, 0, 'highpass'); tone(1600, 600, 0.14, 'triangle', 0.03); },
@@ -132,7 +139,7 @@ async function play() {
   catch (e) { S.nonce--; toast(window.isSecureContext ? 'Could not start the round. Please try again.' : 'This demo needs https (or localhost) for its provably fair draw.'); return; }
   finally { starting = false; renderControls(); }
   S.balance = cents(S.balance - r.stake); round = r;
-  sceneReset(performance.now()); sound.place();
+  sceneReset(performance.now()); sound.place(); sound.mood('round', 0);
   renderBalance(); renderControls(); renderBattery(); renderNextLook();
 }
 function charge() {
@@ -151,7 +158,7 @@ function cashOut(auto) {
   const m = capAt(r.d, r.n, r.stake, r.rtp);
   r.payout = payAt(r, r.n); r.status = 'cashed'; r.auto = auto;   // auto: the game cashed out (last charge or max win), so no charge was skipped
   S.balance = cents(S.balance + r.payout);
-  sceneCash(performance.now(), m); sound.cash();
+  sceneCash(performance.now(), m); sound.cash(); sound.mood('idle');
   if (auto) toast(r.n >= r.d.steps ? 'Last charge done, so your win was cashed out automatically.' : `Max win of ${money(cfg.maxWin)} reached, so your win was cashed out automatically.`);
   settle();
 }
@@ -168,12 +175,12 @@ function advance(now) {
   if (!r.struck && p >= STRIKE) {
     r.struck = true;
     if (r.hit) {
-      r.status = 'broken'; sceneBoom(now); sound.overcharge();
+      r.status = 'broken'; sceneBoom(now); sound.overcharge(); sound.dip();
       if (navigator.vibrate) navigator.vibrate(40);
       settle(); return;
     }
     const before = lookAt(r.n, r.reach); r.n++; const after = lookAt(r.n, r.reach);
-    sceneSafe(now, after !== before ? after : 0); sound.zap(); sound.safe();
+    sceneSafe(now, after !== before ? after : 0); sound.zap(); sound.safe(); sound.mood('round', r.n / r.reach);
     r.popAt = now; renderBattery(); renderNextLook();
   }
   if (p >= 1) {
@@ -236,11 +243,27 @@ function renderPilot() {
 const stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
 let W = 0, H = 0, DPR = 1, K = 1, OX = 0, OY = 0, last = 0;
 const load = src => { const im = new Image(); im.decoding = 'async'; im.src = src; return im; };
-const SET = load('assets/set.webp');
-const STILL = {};   // the Blender stills, loaded only if the 3D Brainer can't run
+// On a slow line the picture comes first: a 400-byte preview of the set at once, the set itself (150 KB), the Blender still
+// of the Brainer (36 KB); only then is the 3D Brainer asked for (three.js and the model, about 750 KB on the wire), and
+// until it arrives the still stands on the pad. With Data Saver on it is never fetched and the stills play the game.
+const SET = load('assets/set.webp'), PRE = load(SC.lqip);
+SET.onload = () => { view.setT = performance.now(); };
+const STILL = {};   // the Blender stills of the eleven looks, for while the 3D Brainer loads or where it can't run
 const stillOf = look => STILL[look] || (STILL[look] = load(`assets/bot/${look}-ok.webp`));
+const ready = im => im.complete && im.naturalWidth > 0;
+function stillFor(look) {   // the look's still once it's in; until then the nearest look before it that is (a new look on a slow line)
+  for (let k = look; k >= 1; k--) if (ready(stillOf(k))) { if (k !== look) stillOf(look); return k; }
+  return 0;
+}
 const bot = () => window.ChargeBot && window.ChargeBot.ready ? window.ChargeBot : null;
 const noBot = () => window.ChargeBotFailed || (window.ChargeBot && window.ChargeBot.failed);
+let botAsked = false;
+function askBot() {
+  if (botAsked || !window.loadChargeBot) return;
+  botAsked = true;
+  if (navigator.connection && navigator.connection.saveData) { window.ChargeBotFailed = true; return; }
+  window.loadChargeBot().catch(() => { window.ChargeBotFailed = true; });
+}
 function layout() {
   const b = stage.getBoundingClientRect(); W = b.width; H = b.height; DPR = Math.min(2, devicePixelRatio || 1);
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
@@ -248,19 +271,20 @@ function layout() {
   renderBattery();
 }
 const P = (x, y) => [x * K + OX, y * K + OY];   // a point of the render, on the stage
-const view = { look: 1, chargeT0: 0, strikeT: 0, struckOk: false, boomT: 0, cashT: 0, parts: [], arcs: null, arcT: 0, bx: 0, by: 0, fill: 0, flash: null, nlT: 0 };
+const view = { look: 1, gears: 0, chargeT0: 0, strikeT: 0, struckOk: false, boomT: 0, cashT: 0, parts: [], arcs: null, arcT: 0, bx: 0, by: 0, fill: 0, flash: null, nlT: 0, botIn: 0, setT: 0 };
 function banner(kind, text, gold) {   // NEW LOOK or GEAR UP, over the pad
   const el = $('#newlook'); el.querySelector('small').textContent = kind; $('#newlookName').textContent = text;
   el.classList.toggle('cape', !!gold); el.hidden = true; void el.offsetWidth; el.hidden = false;
   clearTimeout(view.nlT); view.nlT = setTimeout(() => { el.hidden = true; }, 1600);
 }
-function sceneReset(now) { view.look = 1; view.boomT = 0; view.cashT = 0; view.strikeT = 0; view.parts = []; const b = window.ChargeBot; if (b && b.ready) b.reset(now); }
+function sceneReset(now) { view.look = 1; view.gears = 0; view.boomT = 0; view.cashT = 0; view.strikeT = 0; view.parts = []; const b = window.ChargeBot; if (b && b.ready) b.reset(now); }
 function sceneCharge(now) { view.chargeT0 = now; view.strikeT = 0; const b = bot(); if (b) b.charge(now, CHARGE_MS * STRIKE); }
 function sceneSafe(now, newLook) {
   view.strikeT = now; view.struckOk = true; flash(now, '220,250,255', 0.28, 200);
   const b = bot();
+  if (!bot()) for (const k of [newLook || view.look, (newLook || view.look) + 1, (newLook || view.look) + 2]) if (k <= LOOKS.length) stillOf(k);   // the 3D Brainer isn't here yet: fetch the next stills ahead
   if (newLook) { view.look = newLook; banner('NEW LOOK', LOOKS[newLook - 1].name + (LOOKS[newLook - 1].acc ? ' · ' + LOOKS[newLook - 1].acc : ''), newLook === LOOKS.length); sound.look(); }
-  else sound.gear();
+  else { sound.gear(); view.gears++; }
   if (b) { b.onGear = g => banner(g.name.startsWith('Gold') ? 'GEAR UPGRADE' : 'GEAR UP', g.name, g.name.startsWith('Gold')); b.win(now, newLook ? { look: newLook } : { gear: true }); }
   for (let i = 0; i < 22; i++) spark(view.bx, view.by + 14 * K, 'cyan');   // energy sprinkles from the battery onto the Brainer
 }
@@ -347,7 +371,9 @@ function draw(now, dt) {
   const r = round;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.fillStyle = '#9fb7c9'; ctx.fillRect(0, 0, W, H);
-  if (SET.complete && SET.naturalWidth) ctx.drawImage(SET, OX, OY, SC.set.w * K, SC.set.h * K);
+  const setA = SET.complete && SET.naturalWidth ? clamp((now - (view.setT || 0)) / 350, 0, 1) : 0;   // the full set fades in over its preview
+  if (setA < 1 && PRE.complete && PRE.naturalWidth) { ctx.imageSmoothingQuality = 'high'; ctx.drawImage(PRE, OX, OY, SC.set.w * K, SC.set.h * K); }
+  if (setA > 0) { ctx.globalAlpha = setA; ctx.drawImage(SET, OX, OY, SC.set.w * K, SC.set.h * K); ctx.globalAlpha = 1; }
   const charging = r && r.status === 'charging', p = charging ? (now - r.t0) / CHARGE_MS : 0, asleep = !!(r && r.status === 'broken');
   // the station's glow: the coils hum while waiting and wind up on a charge; after an overload they rest a while
   const wind = charging && !r.struck ? clamp(p / STRIKE, 0, 1) : 0, after = view.strikeT && view.struckOk ? Math.max(0, 1 - (now - view.strikeT) / 450) : 0;
@@ -360,18 +386,20 @@ function draw(now, dt) {
   const padCol = cashGlow ? '90,255,170' : asleep ? '255,181,71' : '85,230,255';
   ellipseGlow(SC.set.pad, padCol, Math.max(pulse, cashGlow), 1.6); ellipseGlow(SC.set.pad2, padCol, Math.max(pulse * 0.8, cashGlow), 1.2);
   ctx.globalCompositeOperation = 'source-over';
-  // the Brainer: live in 3D, or the Blender still for its look
-  const b = bot(), f = b ? b.frame(now, dt, K, OX, OY, Math.min(DPR, 1.75)) : null;
+  // the Brainer: live in 3D; the Blender still of its look until the 3D arrives (or where it can't run), then a crossfade
+  const b = bot();
+  if (b && !view.botIn) { view.botIn = now; b.sync(now, view.look, view.gears, asleep); }   // it takes over already in this round's look and gear
+  const f = b ? b.frame(now, dt, K, OX, OY, Math.min(DPR, 1.75)) : null, fadeIn = f ? clamp((now - view.botIn) / 450, 0, 1) : 0;
   let top;
-  if (f) { ctx.drawImage(f.canvas, f.x, f.y, f.w, f.h); top = f.a.top; }
-  else {
-    const look = view.look, s = SC.sprites[`${look}-ok`], im = noBot() ? stillOf(look) : null;
-    if (s && im && im.complete && im.naturalWidth) {
+  if (fadeIn < 1) {
+    const look = stillFor(view.look) || view.look, s = SC.sprites[`${look}-ok`], im = stillOf(look);
+    if (s && ready(im)) {
       const bob = reduced ? 0 : Math.sin(now / 640) * 2.2 * K;
       ctx.save(); if (asleep) ctx.filter = 'grayscale(.5) brightness(.85)'; ctx.drawImage(im, s.x * K + OX, s.y * K + OY + bob, s.w * K, s.h * K); ctx.restore();
     }
     const a = s ? s.a : SC.sprites['1-ok'].a; top = P(a.head[0], a.head[1] - 150);
   }
+  if (f) { ctx.globalAlpha = fadeIn; ctx.drawImage(f.canvas, f.x, f.y, f.w, f.h); ctx.globalAlpha = 1; top = f.a.top; }
   // the battery floats over its head; a tall Brainer would push it into the multiplier, so then it moves beside the head
   if (now - (view.measT || 0) > 400) { view.measT = now; const rb = $('#readout').getBoundingClientRect(), sb = stage.getBoundingClientRect(); view.minY = rb.bottom - sb.top + 34 * Math.max(K, 0.6); }
   let tx = top[0], ty = top[1] - 46 * K;
@@ -412,6 +440,7 @@ function draw(now, dt) {
 }
 function loop(now) {
   const dt = Math.min(50, now - (last || now)); last = now;
+  if (!botAsked && ((SET.complete && stillOf(1).complete) || now - bootT > 12000)) askBot();   // after the picture; or anyway if a picture stalls
   if (W && H) { advance(now); draw(now, dt); updateUI(now); }
   requestAnimationFrame(loop);
 }
@@ -467,7 +496,7 @@ function renderBattery() {
     if (i === n) cls += !r ? ' now' : st === 'cashed' ? ' won' : ' now';
     if (r && i === n + 1 && st === 'broken') cls += ' boom';
     if (i === n + 1 && (!r || st === 'ready' || st === 'charging')) { cls += ' next'; extra = `<span class="safe">${pct(d.safe[n])} safe</span>`; }
-    rows.push(`<div class="${cls}" role="listitem" aria-label="Level ${i + 1}: ${fx(capAt(d, i, stake))}${newLook ? `, ${LOOKS[lk - 1].name} look` : ''}">LVL ${i + 1}${extra}<b>${fxShort(capAt(d, i, stake))}</b>${newLook ? `<img src="${lookImg(lk)}" alt="">` : ''}</div>`);
+    rows.push(`<div class="${cls}" role="listitem" aria-label="Level ${i + 1}: ${fx(capAt(d, i, stake))}${newLook ? `, ${LOOKS[lk - 1].name} look` : ''}">LVL ${i + 1}${extra}<b>${fxShort(capAt(d, i, stake))}</b>${newLook ? `<img src="${lookImg(lk)}" alt="" loading="lazy" decoding="async">` : ''}</div>`);
   }
   const bat = $('#battery');
   if (!bat.firstChild) bat.innerHTML = '<div class="cells"><div class="cells-in"></div></div>';
@@ -578,7 +607,7 @@ $('#chips').addEventListener('click', e => { const b = e.target.closest('button'
 $('#levels').addEventListener('click', e => {
   const b = e.target.closest('button[data-l]'); if (!b || live()) return;
   S.level = +b.dataset.l; store.set('brainer.ch.level', String(S.level)); renderLevels(); renderControls();
-  if (round && !live()) { round = null; sceneReset(performance.now()); }   // the last result clears: the baby is back on the pad
+  if (round && !live()) { round = null; sceneReset(performance.now()); sound.mood('idle'); }   // the last result clears: the baby is back on the pad
   renderBattery(); renderNextLook();
 });
 $('#go').addEventListener('click', () => { if (live()) charge(); else play(); });
@@ -615,13 +644,23 @@ S.client = randHex(8);
 rotateSeed().catch(() => {});   // without crypto.subtle (plain http) Play says why instead
 setStake(S.stake); renderLevels(); renderBalance(); renderControls(); renderPilot(); renderSound(); layout(); renderBattery(); renderNextLook();
 const bootT = performance.now();
-function loadProgress() {   // fonts, the set and the 3D Brainer (or word that it can't run); a slow network never holds the player past 9 s
-  if (performance.now() - bootT > 9000) return 1;
-  const art = SET.complete ? 1 : 0, font = !document.fonts || document.fonts.status === 'loaded' ? 1 : 0, b3 = window.ChargeBot ? (window.ChargeBot.ready || window.ChargeBot.failed ? 1 : 0.5) : noBot() ? 1 : 0;
-  return (art * 2 + font + b3 * 2) / 5;
+// The intro waits for what the game needs to be seen: the set, the first still and the fonts; then up to 2.5 s more
+// for the 3D Brainer, which takes over from the still whenever it arrives. A slow line never holds the player past 9 s:
+// the game starts on the set's preview and the still comes in a moment later.
+function loadProgress() {
+  const now = performance.now();
+  if (now - bootT > 9000) return 1;
+  const font = !document.fonts || document.fonts.status === 'loaded' ? 1 : 0, need = (SET.complete ? 1 : 0) + (stillOf(1).complete ? 1 : 0) + font;
+  if (need < 3) return need / 3 * 0.8;
+  if (!view.needT) view.needT = now;
+  if (view.needT - bootT > 3000) return 1;   // a slow line: no waiting for the 3D Brainer, the still plays until it comes
+  return bot() || noBot() ? 1 : Math.min(1, 0.8 + 0.2 * (now - view.needT) / 2500);
 }
 $('.brand .t1').textContent = 'Charge';
-(window.BrainerIntro ? window.BrainerIntro.start({ title: 'Charge', mark: 'CHARGE', theme: 'plane', what: 'the charging station', progress: loadProgress }) : Promise.resolve()).then(() => {
+for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);
+if ($('#boot')) $('#boot').remove();   // the page's own loading screen hands over to the intro
+document.addEventListener('visibilitychange', () => sound.hide(document.hidden));
+(window.BrainerIntro ? window.BrainerIntro.start({ title: 'Charge', mark: 'CHARGE', theme: 'plane', what: 'the charging station', progress: loadProgress, logo: 'assets/logo.webp', fallback: `assets/look/${stageOf(myLevel())}-lg.webp` }) : Promise.resolve()).then(() => {
   booted = true;
   if (store.get('brainer.age-ok', '') !== '1') openSheet('#agegate');
   else if (store.get('brainer.ch.tutorial', '') !== 'seen') openSheet('#tutorial');

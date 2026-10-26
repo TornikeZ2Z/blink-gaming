@@ -10,16 +10,26 @@
 <link rel="icon" href="assets/favicon.png">
 <link rel="preload" href="assets/fonts/FiraGO-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/set.webp" as="image">
+<link rel="preload" href="assets/bot/1-ok.webp" as="image">
+<style>/* the loading screen, in the page itself: it shows at once on a slow line, until the intro (shared/intro.js) takes over */
+.boot{position:fixed;inset:0;z-index:49;display:grid;place-content:center;justify-items:center;gap:14px;background:radial-gradient(ellipse at 50% 40%,#7d6bff 0%,#4b36fc 45%,#241a7a 100%);color:#fff;font:700 15px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.12em;text-transform:uppercase}
+.boot img{width:64px;height:64px;border-radius:16px}
+.boot i{display:flex;gap:7px}.boot i b{width:9px;height:9px;border-radius:50%;background:#55e6ff;box-shadow:0 0 10px #55e6ff;animation:bootDot 1.2s ease-in-out infinite}
+.boot i b:nth-child(2){animation-delay:.2s}.boot i b:nth-child(3){animation-delay:.4s}
+@keyframes bootDot{0%,100%{opacity:.25;transform:scale(.7)}50%{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.boot i b{animation:none;opacity:.8}}
+</style>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="../shared/focus.css">
 <link rel="stylesheet" href="../shared/intro.css">
 </head>
 <body>
+<div class="boot" id="boot" aria-hidden="true"><img src="assets/logo.webp" alt=""><span>Charge</span><i><b></b><b></b><b></b></i></div>
 <main class="app">
   <section class="stage" id="stage">
     <canvas id="cv" aria-label="Your Brainer on the charging pad"></canvas>
     <header class="hud">
-      <div class="brand"><img src="assets/logo-white.png" alt="Brainer Games" class="logo"><span class="t1">Charge</span></div>
+      <div class="brand"><img src="assets/logo.webp" alt="Brainer Games" class="logo"><span class="t1">Charge</span></div>
       <div class="hud-right">
         <button type="button" class="round" id="fair" aria-label="Provably fair: check your rounds" aria-haspopup="dialog" aria-controls="fairSheet"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button type="button" class="round" id="help" aria-label="How to play"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2" fill="currentColor"/></svg></button>
@@ -36,7 +46,7 @@
     <div class="nextlook" id="nextlook" aria-live="off"><small id="nlHead"></small><img id="nlImg" alt=""><b id="nlName"></b><span id="nlSub"></span></div>
     <div class="newlook" id="newlook" hidden><small>NEW LOOK</small><b id="newlookName"></b></div>
     <button type="button" class="pilot" id="pilot" aria-haspopup="dialog" aria-controls="picker">
-      <span class="ava"><img id="pilotImg" src="assets/brainer-1.png" alt=""><span class="lvnum" id="lvnum">1</span></span>
+      <span class="ava"><img id="pilotImg" src="assets/look/1.webp" alt=""><span class="lvnum" id="lvnum">1</span></span>
       <span class="pinfo">
         <span class="plv"><span id="plv">Brain level 1</span><span class="chg">Change</span></span>
         <span class="bar" aria-hidden="true"><i id="pbar"></i></span>
@@ -62,7 +72,7 @@
     </div>
     <div class="sheet" id="tutorial" role="dialog" aria-modal="true" aria-labelledby="tutTitle" hidden>
       <div class="sheet-card tut">
-        <img src="assets/brainer-1.png" alt="" class="tut-robot">
+        <img src="assets/look/1.webp" alt="" class="tut-robot">
         <b id="tutTitle">How to play</b>
         <ol>
           <li><b>Pick a difficulty and your bet</b>, then press Play. Your Brainer starts on the charging pad at Level 1, 1.00×.</li>
@@ -111,11 +121,12 @@
 </main>
 <div class="toast" id="toast" role="status"></div>
 <script type="importmap">{"imports":{"three":"../shared/vendor/three.module.min.js"}}</script>
-<script type="module">import('./bot.js').catch(() => { window.ChargeBotFailed = true; });   // without WebGL or import maps the Blender stills stand in</script>
+<script type="module">window.loadChargeBot = () => import('./bot.js');   // game.js asks for the 3D Brainer once the set is in; without modules, import maps or WebGL the Blender stills stand in</script>
 <script nomodule>window.ChargeBotFailed = true;</script>
 <script src="assets/scene.js"></script>
 <script src="../shared/intro.js"></script>
 <script src="../shared/focus.js"></script>
+<script src="music.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
