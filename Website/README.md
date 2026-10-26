@@ -17,16 +17,16 @@ Then open http://localhost:5174/Website/. In Claude Code the `website` entry in 
 | File | What it is |
 |---|---|
 | `index.html` | Home: core message with the live 3D Brainer, the six selling points, Brain cells (the ten robot levels, with the visitor's own Brainer marked once they have played), games, the three steps to go live, fairness sample, call to request a demo. The hero numbers sum up the live games in `data.js` |
-| `games.html` | Every game from the catalogue |
+| `games.html` | Every game as a tile, with genre filters once there is more than one genre |
 | `game.html?g=<id>` | One game: playable demo with full screen (the page's own button, and the game's: its `brainer:focus` message hides the site header and game bar and gives the frame the whole window, which is the only full screen iPhone has), how to play, the odds (Plane Crash: difficulties with bombs, paths, first and top multipliers; FogRush: every tile type with its chance and multiplier), fairness and specs |
-| `operators.html` | Skins, promo tools, player-facing qualities, compliance status, integration routes |
+| `operators.html` | Brain levels (the full ladder, `#brain`), promo tools, player-facing qualities, compliance status, integration routes |
 | `fairness.html` | How provably fair works, the exact scheme of both games (seeds, nonce, rolls, payouts) and a working SHA-256 checker |
 | `contact.html` | Demo request form (not connected yet; says so and keeps what was typed) |
 | `responsible-gaming.html`, `terms.html`, `privacy.html` | Short legal pages for the demo stage |
 
-The home hero's 3D Brainer is the game team's component `shared/brainer-showcase.js` (model `shared/models/brainer.glb`, three.js from `shared/vendor/`), mounted by `assets/js/hero-3d.js`: its screen switches on, it grows through the ten stages (Baby to Master), and visitors pick stages and faces, switch it off and on and turn it. An inline script in `index.html` points the `three` import map and the component at `shared/` when published or `../shared/` in the repo. If the browser later stops allowing WebGL (phones keep only a few contexts across all the site's tabs), the showcase rebuilds a dropped context or, failing that, swaps in the stage's still from `assets/brainer/robots/`; without WebGL from the start, the still in the markup shows instead. `window.brainer3d` exposes `setStage`, `setFace` and `setPower` for other parts of the page.
+The home page is a casino-style lobby (Tornike's pick C, 2026-10-27): games come first. A featured carousel shows one slide per playable game, newest first as `data.js` lists them, moving on every 6 s unless the pointer or focus is on it or the visitor prefers reduced motion. Under it, rows of game tiles swipe sideways; a genre gets its own row once it has three games. The brain levels are a short teaser that links to `operators.html#brain`. `assets/js/hero-3d.js` (the 3D Brainer showcase) is no longer mounted on any page.
 
-Header, footer, menu drawer and the 18+ check are drawn by `assets/js/site.js` on every page. Any element with `data-games` fills itself with game cards, `data-ladder` with the ten Brainer stages and `data-tiers` with the five level colours.
+Header, footer, menu drawer and the 18+ check are drawn by `assets/js/site.js` on every page. The lobby fills itself from the catalogue: `data-feature` (the carousel), `data-row` (a swipe row: `all`, `new` or a genre), `data-genre-rows`, `data-grid` (the games page), `data-brain-strip` (the ten looks); `data-ladder` with the ten Brainer stages and `data-tiers` with the five level colours.
 
 ## Brand assets
 
@@ -54,6 +54,8 @@ python -m fontTools.subset FiraGO-Medium.woff2 --unicodes="U+0000-00FF,U+0100-01
 - Brain cells and the brain level live in `localStorage` keys `brainer.xp` and `brainer.level` on the site's origin, so the website and every game served from it share one level.
 - RTP wording (Tornike's decision, 2026-10-26): the RTP is "up to 98%", never "98% for every player" or "whatever the route or the cash-out". Where a page explains it, it says the return is 98% before two things lower it in some rounds: payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early. Short labels say "RTP up to 98%" or "Up to 98% RTP".
 - The fairness page states each game's scheme exactly: the game commits first (the next round's server seed hash shows in the game's fairness sheet before the player chooses the client seed), the player can set the client seed there (1 to 64 characters counted as code points, trimmed, or "New random"; it counts from the next round and is kept for the session), the nonce is the round number, and each roll is HMAC-SHA256, first 52 bits, of "client seed:nonce:step:path" in Plane Crash (bomb when the roll is at or above the step's survival chance) or "client seed:nonce:column:row" in FogRush (bomb under 0.08, then plain or a chest by `outcome()`'s shares; start tile always plain). Payouts round down to the cent and stop at the $10,000 max win. If a game changes any of it, the page changes with it.
-- Promo tools are marked "on the roadmap"; player protection settings, Georgian and the lab certificate are marked in progress. Skins exist as a service, not a self-serve tool.
+- Promo tools are marked "on the roadmap"; player protection settings, Georgian and the lab certificate are marked in progress. We don't offer colour skins for operators (Tornike, 2026-10-27), so no page promises one.
 - The contact form checks its fields but sends nothing until a form backend is chosen.
 - Every page is `noindex` until launch.
+
+Logo (Tornike's pick, 2026-10-27): the Brainer's visor, `assets/brainer/logo/visor.svg`, with the name set in FiraGO ExtraBold. `site.js` draws it inline so its screen lights up from black and the eyes blink open on load; `favicon.svg` is the same mark for the tab (the old `favicon.png` stays as a fallback). The brand book's B logo PNGs stay in `assets/brainer/logo/` but no page uses them.

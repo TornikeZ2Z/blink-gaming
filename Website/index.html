@@ -5,80 +5,57 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>Brainer Games · Instant games for casinos</title>
-<meta name="description" content="Brainer Games makes instant games casinos can make their own: your brand on the game, promos you run yourself, every round provably fair.">
+<meta name="description" content="Brainer Games makes instant games for casinos: crash, mines and charge games with playable demos, one Brainer character across every title, and every round provably fair.">
 <meta name="theme-color" content="#532aff">
-<link rel="icon" href="assets/brainer/logo/favicon.png">
+<link rel="icon" href="assets/brainer/logo/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/brainer/logo/favicon.png" sizes="any">
 <link rel="preload" href="assets/fonts/firago/FiraGO-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/site.css">
-<script>
-// The hero's 3D Brainer comes from the games' shared folder: /shared/ when published, ../shared/ in the repo. The import
-// map has to exist before the first module script, so it is written here; its addresses must start with ./ or ../.
-window.BRAINER_SHARED = location.pathname.includes('/Website/') ? '../shared/' : './shared/';
-(m => { m.type = 'importmap'; m.textContent = JSON.stringify({ imports: { three: BRAINER_SHARED + 'vendor/three.module.min.js' } }); document.currentScript.after(m); })(document.createElement('script'));
-</script>
 </head>
 <body data-page="home">
 <header id="site-header"></header>
 
 <main>
-  <section class="hero">
+  <section class="lobby-top" aria-label="Featured games">
     <div class="wrap">
-      <div class="hero-panel">
-        <div>
-          <span class="sticker on-grad">Game studio for casinos</span>
-          <h1>Instant games your casino can make its own</h1>
-          <p class="lead">Every round provably fair, and one Brainer character follows each player across all our games.</p>
-          <div class="ctas">
-            <a class="btn btn-white btn-lg" href="games.html"><span data-icon="play"></span>Play the demos</a>
-            <a class="btn btn-ghost btn-lg" href="operators.html">For operators</a>
-          </div>
-          <div class="hero-stats" data-hero-stats></div>
-        </div>
-        <div class="brainer3d" id="brainer3d">
-          <img class="still" src="assets/brainer/robots/10.webp" alt="The Brainer, the character that grows with every player" hidden>
-        </div>
-      </div>
+      <div class="feature" data-feature></div>
     </div>
   </section>
 
-  <section class="section band" aria-labelledby="whyTitle" style="margin-top:clamp(56px,5vw,100px)">
+  <section class="section lobby" aria-labelledby="gamesTitle">
     <div class="wrap">
-      <div class="section-head"><div><span class="eyebrow">Why Brainer</span><h2 id="whyTitle">Built for the casino, not only the player</h2><p>What your content, CRM and compliance teams get with every Brainer game.</p></div></div>
+      <div class="section-head"><div><span class="eyebrow">Our games</span><h2 id="gamesTitle">Play any of them now</h2><p>Every demo runs in your browser with play money, on a phone or a desktop.</p></div><a class="btn" href="games.html">All games</a></div>
+      <div class="row-block" data-row-wrap><h3 class="row-title">All games</h3><div class="row" data-row="all"></div></div>
+      <div data-genre-rows></div>
+    </div>
+  </section>
+
+  <section class="section band" aria-labelledby="whyTitle">
+    <div class="wrap">
+      <div class="section-head"><div><span class="eyebrow">For operators</span><h2 id="whyTitle">Built for the casino, not only the player</h2><p>What your content, CRM and compliance teams get with every Brainer game.</p></div><a class="btn" href="operators.html">For operators</a></div>
+      <div class="hero-stats on-light" data-hero-stats></div>
       <div class="points">
-        <article class="point"><span class="ic"><span data-icon="palette"></span></span><h3>Your brand on it</h3><p>A skin in your colours, logo and name, so the game looks made for your lobby.</p></article>
-        <article class="point"><span class="ic"><span data-icon="gift"></span></span><h3>Promos you run yourself</h3><p>Free bets and tournaments you switch on from your back office, with no ticket to us. On the roadmap for launch.</p></article>
         <article class="point"><span class="ic"><span data-icon="shield"></span></span><h3>Provably fair</h3><p>Every round is fixed before the bet. Players can re-check it right in the game, and so can your compliance team.</p></article>
         <article class="point"><span class="ic"><span data-icon="bolt"></span></span><h3>Made for phones</h3><p>One build for phone and desktop browsers, played with taps or the keyboard. No app to install.</p></article>
+        <article class="point"><span class="ic"><span data-icon="gift"></span></span><h3>Promos you run yourself</h3><p>Free bets and tournaments you switch on from your back office, with no ticket to us. On the roadmap for launch.</p></article>
         <article class="point"><span class="ic"><span data-icon="globe"></span></span><h3>Local</h3><p>The language and currency of each launch market. English today, Georgian in progress.</p></article>
+        <article class="point"><span class="ic"><span data-icon="plug"></span></span><h3>Easy to add</h3><p>Through your aggregator or a direct integration, once the game is certified.</p></article>
         <article class="point"><span class="ic"><span data-icon="chat"></span></span><h3>A studio that answers</h3><p>A named contact, and changes in days, not quarters.</p></article>
       </div>
     </div>
   </section>
 
-  <section class="section" id="brain" aria-labelledby="brainTitle">
+  <section class="section" aria-labelledby="brainTitle">
     <div class="wrap">
-      <div class="section-head"><div><span class="eyebrow">Brain cells</span><h2 id="brainTitle">One Brainer follows each player across every game</h2><p>Every finished round earns the same 10 brain cells, whatever the game, bet or difficulty, so progress never asks for bigger bets. The Brainer grows through 100 brain levels in ten stages, with a new look every ten levels, and unlocks new worlds in Plane Crash along the way. Brain levels never change the odds or payouts: every player gets the same game, with an RTP of up to 98%.</p></div></div>
-      <div class="ladder" data-ladder></div>
-      <div class="tiers" data-tiers></div>
-      <p class="aside-note">Brain level 10 takes about 80 rounds and brain level 100 about 20,000, counting every finished round. If you have played a demo on this site, your own Brainer&rsquo;s stage is marked above.</p>
-    </div>
-  </section>
-
-  <section class="section band" id="games" aria-labelledby="gamesTitle">
-    <div class="wrap">
-      <div class="section-head"><div><span class="eyebrow">Our games</span><h2 id="gamesTitle">Play it before you talk to us</h2><p>Try the demo, check the numbers, then tell us about your lobby.</p></div><a class="btn" href="games.html">All games</a></div>
-      <div class="games" data-games></div>
-    </div>
-  </section>
-
-  <section class="section" aria-labelledby="howTitle">
-    <div class="wrap">
-      <div class="section-head"><div><span class="eyebrow">Getting our games</span><h2 id="howTitle">From demo to your lobby in three steps</h2></div></div>
-      <ol class="steps3">
-        <li><h3>Play the demos</h3><p>Try the games the way your players will, on a phone or a desktop.</p></li>
-        <li><h3>Pick your route</h3><p>Through an aggregator or a direct integration, once the game is certified.</p></li>
-        <li><h3>Make it yours</h3><p>Send your colours and logo, and we skin the game for your lobby.</p></li>
-      </ol>
+      <div class="brain-strip">
+        <div>
+          <span class="eyebrow">One character, every game</span>
+          <h2 id="brainTitle">The Brainer follows each player from game to game</h2>
+          <p>Every finished round earns brain cells, and the Brainer grows through 100 levels in ten looks. Levels change how it looks, never the odds.</p>
+          <a class="btn btn-sun" href="operators.html#brain">How brain levels work</a>
+        </div>
+        <div class="faces" data-brain-strip aria-hidden="true"></div>
+      </div>
     </div>
   </section>
 
@@ -87,7 +64,7 @@ window.BRAINER_SHARED = location.pathname.includes('/Website/') ? '../shared/' :
       <div>
         <span class="eyebrow">Provably fair</span>
         <h2 id="fairTitle">Every round can be checked</h2>
-        <p class="lead" style="margin-top:16px">Each round is fixed before the bet: its server seed&rsquo;s hash is shown first, and the player can set their own client seed. Afterwards the seed is revealed, so anyone can recompute every bomb.</p>
+        <p class="lead" style="margin-top:16px">Each round is fixed before the bet: its server seed&rsquo;s hash is shown first, and the player can set their own client seed. Afterwards the seed is revealed, so anyone can recompute the round.</p>
         <div class="ctas"><a class="btn btn-sun" href="fairness.html">How the check works</a></div>
       </div>
       <div class="receipt" aria-label="Sample round">
@@ -101,7 +78,7 @@ window.BRAINER_SHARED = location.pathname.includes('/Website/') ? '../shared/' :
   <section class="section" aria-labelledby="ctaTitle" style="padding-bottom:0">
     <div class="wrap">
       <div class="cta-panel">
-        <div><h2 id="ctaTitle">Want Plane Crash in your lobby?</h2><p>Tell us where you operate and we will set up a demo in your colours.</p></div>
+        <div><h2 id="ctaTitle">Want our games in your lobby?</h2><p>Tell us where you operate, and we will set up a demo and walk you through the numbers.</p></div>
         <a class="btn btn-lg" href="contact.html">Request a demo</a>
       </div>
     </div>
@@ -111,6 +88,5 @@ window.BRAINER_SHARED = location.pathname.includes('/Website/') ? '../shared/' :
 <footer id="site-footer"></footer>
 <script src="assets/js/data.js"></script>
 <script src="assets/js/site.js"></script>
-<script type="module" src="assets/js/hero-3d.js"></script>
 </body>
 </html>

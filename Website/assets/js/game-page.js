@@ -30,7 +30,7 @@ const pct = v => `${+v.toFixed(3)}%`;
 // Why the RTP is "up to": the return before rounding and the max win, said the same way for both games.
 const lower = g => `the return is ${g.rtp}% before two things lower it in some ${g.round}s: payouts round down to the cent, and the $${g.maxWin.toLocaleString('en-US')} max win ends long or high-bet ${g.round}s early`;
 function odds(g) {
-  const note = g.levelsNote ? `<p class="note">${ICON.info}<span>${esc(g.levelsNote)} <a href="index.html#brain">How brain levels work</a></span></p>` : '';
+  const note = g.levelsNote ? `<p class="note">${ICON.info}<span>${esc(g.levelsNote)} <a href="operators.html#brain">How brain levels work</a></span></p>` : '';
   const w = wordsOf(g), cut = (g.levels || []).filter(l => l.reach).map(l => `a ${l.name} ${g.round} never goes past ${w.path} ${l.reach}`);
   if (g.levels) return `<section id="levels"><h2>Difficulties</h2>
         <p>Harder difficulties have fewer ${w.steps} and a bigger chance of ${w.aBomb} at each one, so the multipliers climb faster. The chance of ${w.aBomb} also rises with every ${w.step} you ${w.make}. Each multiplier is ${g.rtp / 100} divided by the chance of getting that far, so ${lower(g)}. At the $${g.minBet.toFixed(2)} minimum bet that cap is ${fx(g.maxWin / g.minBet)}${cut.length ? `, so ${cut.join(' and ')}` : ''}.</p>

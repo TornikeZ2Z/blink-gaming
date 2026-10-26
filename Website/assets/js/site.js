@@ -1,13 +1,11 @@
-/* Shared chrome for every page: header, footer, menu drawer, 18+ check, toasts, icons, game cards and the brain-cell ladder.
-   Brand words, the robots and the catalogue come from data.js. The logo is the brand book's drawn wordmark (SITE.logo). */
+/* Shared chrome for every page: header, footer, menu drawer, 18+ check, toasts, icons, the games lobby (featured carousel,
+   swipe rows, the games grid) and the brain-cell ladder. Brand words, the robots and the catalogue come from data.js. */
 (() => {
 'use strict';
 const { SITE, GAMES, BRAIN } = window.BRAINER;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-// Multipliers to the cent, as the game's ladder rounds them (52,067.40×, never rounded up).
-const fx = m => m.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '×';
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* storage blocked: the page still works, it just forgets */ } }
@@ -45,52 +43,100 @@ const ICON = {
 };
 $$('[data-icon]').forEach(el => { el.outerHTML = ICON[el.dataset.icon] || ''; });
 
-/* ---------- game cards: any [data-games] list fills itself from the catalogue ---------- */
-// How often a new tile holds a chest, as "1 in N": the bomb chance first, then the chest's share of safe tiles.
-const oneIn = (g, c) => Math.round(1 / ((1 - g.bomb / 100) * c.chance / 100)).toLocaleString('en-US');
+/* ---------- the lobby: games come first, as tiles, rows and a featured carousel, all filled from the catalogue ---------- */
 // What a difficulty can really pay, as the game shows it before a bet: the ladder's top, or the max win at the minimum
 // bet when that is lower (Hardcore: 100,000×). A difficulty the max win cuts short lists the paths it can `reach`.
 const topOf = (g, l) => g.maxWin && g.minBet ? Math.min(l.top, Math.floor(g.maxWin / g.minBet * 100 + 1e-7) / 100) : l.top;
 const pathsOf = l => l.reach ? `up to ${l.reach}` : String(l.steps);
 // A ladder game's own words: Plane Crash's bombs and paths unless the game names its own in `words` (Charge: overloads and charges).
 const wordsOf = g => Object.assign({ aBomb: 'a bomb', bomb: 'bomb', bombs: 'bombs', bombsIn: 'Bombs in 25 tiles', path: 'path', paths: 'paths', Paths: 'Paths', step: 'step', steps: 'steps', first: 'First step', make: 'fly' }, g.words || {});
-// The strip under a game's blurb: top multipliers per difficulty for a ladder game, the chests for a map game.
-function oddsStrip(g) {
-  const cap = g.maxWin ? ` A ${g.round} pays at most $${g.maxWin.toLocaleString('en-US')}${g.minBet ? `, which is ${fx(g.maxWin / g.minBet)} at the $${g.minBet.toFixed(2)} minimum bet` : ''}.` : '';
-  const w = wordsOf(g);
-  if (g.levels && g.levels.every(l => l.top)) return `<div class="diffs" aria-label="Top multiplier per difficulty">${g.levels.map(l => `<div><span>${esc(l.name)}</span><b>${fx(topOf(g, l))}</b><small>${l.bombs} ${l.bombs === 1 ? w.bomb : w.bombs} · ${pathsOf(l)} ${w.paths}</small></div>`).join('')}</div><p class="diffs-note">Top multiplier a ${g.round} can pay.${cap}</p>`;
-  if (g.chests) return `<div class="diffs five" aria-label="Chest multipliers and how often a new tile holds one">${g.chests.map(c => `<div><span>${esc(c.name)}</span><b>×${c.x}</b><small>1 in ${oneIn(g, c)} tiles</small></div>`).join('')}</div><p class="diffs-note">How often a new tile holds each chest; ${g.bomb}% hold a bomb.${cap}</p>`;
-  return '';
-}
-function gameCard(g) {
-  const soon = g.status === 'soon', href = `game.html?g=${encodeURIComponent(g.id)}`;
-  const art = g.art ? `<img src="${g.art}" alt="" loading="lazy" decoding="async">` : '<span class="ph">?</span>';
-  const shape = g.levels ? `${g.levels.length} difficulties` : g.grid ? `${g.grid} × ${g.grid} map` : '';
-  const more = soon ? '' : `
-      <div class="chips"><span class="chip">RTP up to <b>${g.rtp}%</b></span>${shape ? `<span class="chip">${shape}</span>` : ''}<span class="chip">Provably fair</span></div>
-      ${oddsStrip(g)}
-      <div class="ctas"><a class="btn btn-ink" href="${href}">${ICON.play}Play the demo</a><a class="btn" href="${href}#specs">Specs</a></div>`;
-  return `<article class="game${soon ? ' is-soon' : ''}">
-    ${soon ? `<span class="art" style="--art:${g.color}">${art}</span>` : `<a class="art" href="${href}" style="--art:${g.color}" tabindex="-1" aria-hidden="true">${art}</a>`}
-    <div>
-      <span class="sticker${soon ? ' paper' : ''}">${esc(g.badge)}</span>
-      <h3>${esc(g.title)}</h3>
-      <p>${esc(g.tagline)}</p>${more}
-    </div></article>`;
-}
-$$('[data-games]').forEach(el => { el.innerHTML = GAMES.map(gameCard).join(''); });
-
-/* ---------- hero numbers: [data-hero-stats] sums up the live games, so they never drift from data.js ---------- */
 const live = GAMES.filter(x => x.status !== 'soon');
+const hrefOf = g => `game.html?g=${encodeURIComponent(g.id)}`;
+const artOf = (g, lazy = true) => g.art ? `<img src="${g.art}" alt=""${lazy ? ' loading="lazy"' : ''} decoding="async">` : '<span class="ph">?</span>';
+// The badge shown on a tile: "New" stays, "Game #3" is a catalogue number the visitor doesn't need.
+const isNew = g => /new/i.test(g.badge || '');
+// One portrait tile: the game's art, its name and genre over it, "New" in the corner. A game that isn't out yet is not a link.
+function tile(g) {
+  const soon = g.status === 'soon', tag = soon ? 'div' : 'a';
+  return `<${tag} class="tile${soon ? ' is-soon' : ''}"${soon ? '' : ` href="${hrefOf(g)}"`} style="--art:${g.color}">
+    <span class="tile-art">${artOf(g)}</span>
+    ${soon ? '<span class="flag paper">Coming soon</span>' : isNew(g) ? '<span class="flag">New</span>' : ''}
+    <span class="tile-info"><b>${esc(g.title)}</b><small>${esc(g.genre || '')}</small></span>
+    ${soon ? '' : `<span class="tile-play" aria-hidden="true">${ICON.play}</span>`}
+  </${tag}>`;
+}
+// A row you swipe sideways, with arrows on wide screens. [data-row] takes "all", "new" or a genre name.
+function row(el) {
+  const key = el.dataset.row, list = key === 'all' ? GAMES : key === 'new' ? GAMES.filter(isNew) : GAMES.filter(g => (g.genre || '').toLowerCase() === key.toLowerCase());
+  const min = +(el.dataset.min || 1);
+  if (list.length < min) { el.closest('[data-row-wrap]')?.remove(); return; }
+  el.innerHTML = `<div class="row-track" tabindex="-1">${list.map(tile).join('')}</div>
+    <button class="row-arrow prev" type="button" aria-label="Scroll left">${ICON.arrowLeft}</button>
+    <button class="row-arrow next" type="button" aria-label="Scroll right">${ICON.arrowRight}</button>`;
+  const track = $('.row-track', el), prev = $('.prev', el), next = $('.next', el);
+  const sync = () => { prev.hidden = track.scrollLeft < 8; next.hidden = track.scrollLeft + track.clientWidth > track.scrollWidth - 8; };
+  prev.addEventListener('click', () => track.scrollBy({ left: -track.clientWidth * 0.8, behavior: 'smooth' }));
+  next.addEventListener('click', () => track.scrollBy({ left: track.clientWidth * 0.8, behavior: 'smooth' }));
+  track.addEventListener('scroll', sync, { passive: true }); addEventListener('resize', sync); sync();
+}
+$$('[data-row]').forEach(row);
+// The genre rows on the home page come from the catalogue: a genre gets its own row once it has three games, with no HTML to write.
+$$('[data-genre-rows]').forEach(el => {
+  const genres = [...new Set(live.map(g => g.genre).filter(Boolean))];
+  el.outerHTML = genres.map(gn => `<div class="row-block" data-row-wrap><h3 class="row-title">${esc(gn)} games</h3><div class="row" data-row="${esc(gn)}" data-min="3"></div></div>`).join('');
+  $$('[data-row]:not(:has(.row-track))').forEach(row);
+});
+// The games page: every game as a tile, with genre filters once there is more than one genre.
+$$('[data-grid]').forEach(el => {
+  const genres = [...new Set(GAMES.map(g => g.genre).filter(Boolean))];
+  const chips = genres.length > 1 ? `<div class="filters" role="group" aria-label="Filter by genre">${['All', ...genres].map((gn, i) => `<button type="button" class="filter" aria-pressed="${i === 0}" data-genre="${esc(gn)}">${esc(gn)}</button>`).join('')}</div>` : '';
+  el.innerHTML = `${chips}<div class="grid">${GAMES.map(g => tile(g).replace('class="tile', `data-genre="${esc(g.genre || '')}" class="tile`)).join('')}</div>`;
+  el.addEventListener('click', e => {
+    const b = e.target.closest('.filter'); if (!b) return;
+    $$('.filter', el).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    $$('.grid .tile', el).forEach(t => { t.hidden = b.dataset.genre !== 'All' && t.dataset.genre !== b.dataset.genre; });
+  });
+});
+// The home page's featured carousel: one slide per playable game, newest first as data.js lists them. It moves on by itself
+// every 6 s, and stops while the pointer or focus is on it, the tab is hidden, or the visitor prefers reduced motion.
+$$('[data-feature]').forEach(el => {
+  if (!live.length) { el.remove(); return; }
+  el.innerHTML = `<div class="feat-track">${live.map((g, i) => `<article class="feat" style="--art:${g.color}" aria-roledescription="slide" aria-label="${i + 1} of ${live.length}: ${esc(g.title)}">
+      <div class="feat-text">
+        <span class="sticker on-dark">${isNew(g) ? 'New game' : esc(g.genre || 'Game')}</span>
+        <h2>${esc(g.title)}</h2>
+        <p>${esc(g.tagline)}</p>
+        <div class="ctas"><a class="btn btn-white btn-lg" href="${hrefOf(g)}">${ICON.play}Play the demo</a><a class="btn btn-ghost btn-lg" href="${hrefOf(g)}#specs">Specs</a></div>
+      </div>
+      <a class="feat-art" href="${hrefOf(g)}" tabindex="-1" aria-hidden="true">${artOf(g, i > 0)}</a>
+    </article>`).join('')}</div>
+    ${live.length > 1 ? `<div class="feat-nav"><button class="feat-btn" type="button" data-step="-1" aria-label="Previous game">${ICON.arrowLeft}</button>
+      <div class="dots">${live.map((g, i) => `<button type="button" class="dot" data-i="${i}" aria-label="Show ${esc(g.title)}"></button>`).join('')}</div>
+      <button class="feat-btn" type="button" data-step="1" aria-label="Next game">${ICON.arrowRight}</button></div>` : ''}`;
+  const track = $('.feat-track', el), dots = $$('.dot', el);
+  let cur = 0, hold = false;
+  const go = i => { cur = (i + live.length) % live.length; track.scrollTo({ left: cur * track.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); };
+  const mark = () => { cur = Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); dots.forEach((d, i) => d.setAttribute('aria-current', String(i === cur))); };
+  track.addEventListener('scroll', mark, { passive: true }); mark();
+  el.addEventListener('click', e => { const b = e.target.closest('[data-step],[data-i]'); if (!b) return; go(b.dataset.i != null ? +b.dataset.i : cur + +b.dataset.step); });
+  for (const [ev, v] of [['pointerenter', true], ['pointerleave', false], ['focusin', true], ['focusout', false]]) el.addEventListener(ev, () => { hold = v; });
+  if (live.length > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) setInterval(() => { if (!hold && !document.hidden) go(cur + 1); }, 6000);
+  addEventListener('resize', () => track.scrollTo({ left: cur * track.clientWidth }));
+});
+
+/* ---------- studio numbers: [data-hero-stats] sums up the live games, so they never drift from data.js ---------- */
 $$('[data-hero-stats]').forEach(el => {
   if (!live.length) { el.remove(); return; }
-  const stats = [[`Up to ${Math.max(...live.map(x => x.rtp))}%`, 'RTP'], [String(live.length), live.length === 1 ? 'Playable demo' : 'Playable demos'], [String(BRAIN.levels), 'Brain levels'], ['Every round', 'Provably fair']];
+  const stats = [[String(live.length), live.length === 1 ? 'Playable demo' : 'Playable demos'], [`Up to ${Math.max(...live.map(x => x.rtp))}%`, 'RTP'], ['Every round', 'Provably fair'], ['Phone and desktop', 'One build, no app']];
   el.innerHTML = stats.map(([v, l]) => `<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('');
+});
+// The brain-level teaser on the home page: the ten looks in one line, small, linking to the full ladder on the operators page.
+$$('[data-brain-strip]').forEach(el => {
+  el.innerHTML = Array.from({ length: BRAIN.stages }, (_, i) => `<img src="${BRAIN.robot(i + 1)}" alt="" loading="lazy" decoding="async" style="--tier:${BRAIN.tiers[Math.floor(i / 2)].css}">`).join('');
 });
 
 /* ---------- brain-level ladder: [data-ladder] gets the ten stages (one robot look per ten levels), [data-tiers] the five colour tiers ---------- */
-const per = BRAIN.levels / BRAIN.stages, tierOf = n => BRAIN.tiers[Math.floor((n - 1) / 2)];
-// The demo keeps the visitor's brain level (1-100) under this key on the same site, so their own stage can be marked.
+const per = BRAIN.levels / BRAIN.stages, tierOf = n => BRAIN.tiers[Math.floor((n - 1) / 2)];// The demo keeps the visitor's brain level (1-100) under this key on the same site, so their own stage can be marked.
 const myLevel = parseInt(store.get('brainer.level'), 10), mine = myLevel >= 1 ? Math.min(BRAIN.stages, Math.ceil(myLevel / per)) : 0;
 $$('[data-ladder]').forEach(el => {
   el.innerHTML = Array.from({ length: BRAIN.stages }, (_, i) => i + 1).map(n => {
@@ -116,18 +162,21 @@ function toast(msg) {
 /* ---------- header, footer, drawer ---------- */
 const NAV = [
   { key: 'games', href: 'games.html', label: 'Games' },
-  { key: 'brain', href: 'index.html#brain', label: 'Brain cells' },
   { key: 'operators', href: 'operators.html', label: 'For operators' },
   { key: 'fair', href: 'fairness.html', label: 'Fairness' },
   { key: 'contact', href: 'contact.html', label: 'Contact' }
 ];
 const cur = key => (key === page ? ' aria-current="page"' : '');
-const logo = `<a class="logo" href="index.html" aria-label="${esc(SITE.brand)} home"><img src="${SITE.logo}" alt="" width="154" height="36"></a>`;
+// The logo is the Brainer's visor (assets/brainer/logo/visor.svg) and the name in FiraGO. It is drawn inline so the screen
+// can light up and the eyes blink open when a page loads; each copy gets its own gradient id.
+let logoN = 0;
+const visor = () => { const id = `vg${++logoN}`; return `<svg class="visor" viewBox="0 0 64 44" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3f7bff"/><stop offset="1" stop-color="#5a32fb"/></linearGradient></defs><rect width="64" height="44" rx="19" fill="#0a1322"/><rect class="screen" x="5" y="5" width="54" height="34" rx="14.5" fill="url(#${id})"/><path class="gloss" d="M14 10.5h36" stroke="#fff" stroke-opacity=".28" stroke-width="2.4" stroke-linecap="round"/><rect class="eye" x="18" y="16" width="8" height="12" rx="3.2" fill="#fff"/><rect class="eye" x="38" y="16" width="8" height="12" rx="3.2" fill="#fff"/></svg>`; };
+const logo = () => `<a class="logo" href="index.html" aria-label="${esc(SITE.brand)} home">${visor()}<span class="word">Brainer</span></a>`;
 
 const header = $('#site-header');
 if (header) {
   header.className = 'site-header';
-  header.innerHTML = `<div class="wrap">${logo}
+  header.innerHTML = `<div class="wrap">${logo()}
     <nav class="nav" aria-label="Main">${NAV.map(n => `<a href="${n.href}"${cur(n.key)}>${n.label}</a>`).join('')}</nav>
     <div class="head-cta">
       <a class="btn btn-red btn-sm" href="contact.html">Request a demo</a>
@@ -140,7 +189,7 @@ if (footer) {
   footer.className = 'site-footer';
   footer.innerHTML = `<div class="wrap">
     <div class="foot-top">
-      <div class="foot-brand">${logo}<p>Instant games your casino can make its own. Every round provably fair.</p></div>
+      <div class="foot-brand">${logo()}<p>Instant games for casinos and their players. Every round provably fair.</p></div>
       <div class="foot-col"><h4>Studio</h4><ul>${NAV.map(n => `<li><a href="${n.href}">${n.label}</a></li>`).join('')}</ul></div>
       <div class="foot-col"><h4>Legal</h4><ul><li><a href="responsible-gaming.html"${cur('rg')}>Responsible gaming</a></li><li><a href="terms.html"${cur('terms')}>Terms</a></li><li><a href="privacy.html"${cur('privacy')}>Privacy</a></li></ul></div>
     </div>
@@ -151,7 +200,7 @@ if (footer) {
 
 document.body.insertAdjacentHTML('beforeend', `
   <dialog class="drawer" id="drawer" aria-label="Menu">
-    <div class="drawer-head">${logo}<button class="icon-btn" type="button" data-close aria-label="Close menu">${ICON.close}</button></div>
+    <div class="drawer-head">${logo()}<button class="icon-btn" type="button" data-close aria-label="Close menu">${ICON.close}</button></div>
     <nav>${NAV.map(n => `<a href="${n.href}"${cur(n.key)}>${n.label}</a>`).join('')}</nav>
     <a class="btn btn-red btn-lg" href="contact.html">Request a demo</a>
   </dialog>

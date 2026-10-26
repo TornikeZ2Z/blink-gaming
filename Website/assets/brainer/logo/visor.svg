@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 44" width="64" height="44">
+  <!-- The Brainer's visor: the dark shell, the lit LED screen and two LED eyes (Tornike's pick, logo 2, 2026-10-27). -->
+  <defs>
+    <linearGradient id="s" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3f7bff"/>
+      <stop offset="1" stop-color="#5a32fb"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="44" rx="19" fill="#0a1322"/>
+  <rect x="5" y="5" width="54" height="34" rx="14.5" fill="url(#s)"/>
+  <path d="M14 10.5h36" stroke="#fff" stroke-opacity=".28" stroke-width="2.4" stroke-linecap="round"/>
+  <rect x="18" y="16" width="8" height="12" rx="3.2" fill="#fff"/>
+  <rect x="38" y="16" width="8" height="12" rx="3.2" fill="#fff"/>
+</svg>
