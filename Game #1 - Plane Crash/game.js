@@ -455,13 +455,38 @@ function rerouteRoad() {
 // Where a parachute lands in each world: the road, the avenue, or the cloud tops under the camera.
 const landOn = { fields: zw => ({ u: roadAt(zw), alt: G_H }), city: () => ({ u: 0, alt: G_H }), clouds: () => ({ u: view.camX - view.fieldX, alt: G_H - 0.35 }) };
 
-/* The meadow: the Brainer world's patchwork farmland (the palette of the Blender world), hedges and round trees, a river
-   and a country road, clouds drifting below the plane with their shadows on the fields. The plane parks at an airfield
-   (a runway, the hangar with the B, the tower), and now and then FogRush's foggy valley passes below. */
-const FIELDS = ['#b5ec5c', '#ffd95c', '#8ee070', '#d4f07a', '#5fcb5a', '#ffc07a', '#74db5e', '#86e36b', '#c9ee6e', '#ffe08a'];
+/* The valley (Tornike's pick, 2026-10-26): a sky and horizon rendered in Blender (physical sky, golden hour, real
+   clouds), and below it the valley's farmland, woods and lakes, a top-down Blender render laid onto the ground in
+   perspective so it streams under the plane. On it: the country road (where the parachute lands), the airfield's
+   asphalt runway where the plane parks, a plain hangar and the tower, and the drifting clouds' shadows. */
 const AIRFIELD = { hangar: new Image(), tower: new Image() };
 AIRFIELD.hangar.src = 'assets/airfield-hangar.png'; AIRFIELD.tower.src = 'assets/airfield-tower.png';
 let airfield = null;   // where the plane last parked: { zw, u } on the ground
+const VALLEY_SKY = new Image(), VALLEY_GROUND = new Image(), SKY_HORIZON = 0.553;   // the horizon's row in the sky render, as a fraction of its height
+VALLEY_SKY.onload = () => { if (worldKey === 'fields') paintSky(); };
+VALLEY_SKY.src = 'assets/valley-sky.webp'; VALLEY_GROUND.src = 'assets/valley-ground.webp';
+let groundPat = null, groundFar = null;   // the farmland as a seamless pattern (mirrored 2 × 2), and a softened copy for the far rows
+VALLEY_GROUND.onload = () => {
+  const w = VALLEY_GROUND.naturalWidth, h = VALLEY_GROUND.naturalHeight, tile = sprite(w * 2, h * 2, g => {
+    for (const [sx, sy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) { g.save(); g.translate(sx < 0 ? w * 2 : 0, sy < 0 ? h * 2 : 0); g.scale(sx, sy); g.drawImage(VALLEY_GROUND, 0, 0); g.restore(); }
+  });
+  const soft = sprite(w / 2, h / 2, g => g.drawImage(tile, 0, 0, w / 2, h / 2));   // a quarter-size copy: far rows sample it, so the fields don't shimmer
+  groundPat = Object.assign(ctx.createPattern(tile, 'repeat'), { tw: w * 2, th: h * 2 });
+  groundFar = Object.assign(ctx.createPattern(soft, 'repeat'), { tw: w / 2, th: h / 2 });
+};
+const TEX_U = 64;   // world units one mirrored tile spans: its fields come out about as big as the old patchwork's
+// The ground, one thin band per screen row (finer near the horizon): each band shows the texture's row at that band's
+// depth, stretched across the screen as the perspective there needs (as a mode 7 floor).
+function groundTexture() {
+  if (!groundPat) { ctx.fillStyle = '#7fa94f'; ctx.fillRect(0, HY, W, H - HY); return; }
+  const cx = view.camX - view.fieldX;
+  for (let y = Math.ceil(HY) + 1; y < H;) {
+    const bh = y - HY < 40 ? 1 : y - HY < 140 ? 2 : 3, z = G_H * F / (y + bh / 2 - HY), far = z > 26, pat = far ? groundFar : groundPat;
+    const a = z / F * pat.tw / TEX_U, b = (cx - W / 2 * z / F) / TEX_U * pat.tw, ty = (z + view.scroll) / TEX_U * pat.th;
+    pat.setTransform(new DOMMatrix([1 / a, 0, 0, bh, -b / a, y - ty * bh]));   // texture x = a·x + b along the band; the band shows texture row ty
+    ctx.fillStyle = pat; ctx.fillRect(0, y, W, bh); y += bh;
+  }
+}
 const tint = document.createElement('canvas'), tg = tint.getContext('2d');
 // A sprite standing on the ground at (u, z), wUnits wide. It is drawn after the horizon haze and takes the haze its
 // feet stand in evenly ([colour, depth] as passed to haze()), so the haze never cuts a hard line across it.
@@ -478,97 +503,42 @@ function standing(img, u, z, wUnits, hz) {
   tg.globalCompositeOperation = 'source-atop'; tg.fillStyle = hz[0].replace(/[\d.]+\)$/, k.toFixed(3) + ')'); tg.fillRect(0, 0, tw, th);
   ctx.drawImage(tint, 0, 0, tw, th, x - w / 2, y - h, w, h);
 }
-const VALLEY = 230, VN = 7, VP = 0.62;   // a foggy valley every VALLEY units of the flight, VN x VN plots VP apart
-function valleyAt(zw) {   // the valley whose plots cover depth zw, if any: its centre and side of the road
-  const k = Math.round((zw - (airfield ? airfield.zw : 0) - 45) / VALLEY);
-  if (k < 0) return null;
-  const zc = (airfield ? airfield.zw : 0) + 45 + k * VALLEY;
-  return Math.abs(zw - zc) <= VN * VP / 2 + 0.6 ? { zc, side: k % 2 ? -1 : 1, k } : null;
-}
 function groundFields() {
-  const D = 3.2, CW = 3.2, cx = view.camX - view.fieldX;
-  ctx.fillStyle = '#86dc68'; ctx.fillRect(0, HY, W, H - HY);
-  const river = zw => 9 + 5 * Math.sin(zw * 0.04) + 2.2 * Math.sin(zw * 0.13 + 1), road = roadAt, HAZE = ['rgba(238,241,255,.95)', 0.22], tall = [];
+  const D = 3.2, road = roadAt, HAZE = ['rgba(226,232,246,.92)', 0.2], tall = [];
+  groundTexture();
   forRows(D, 64, (row, z0, z1) => {
     if (groundY(z1) > H) return;
-    const g2 = row >> 1, span = 1 + Math.floor(hash(g2, 3) * 3);   // fields are two rows deep and one to three cells wide
-    const hs = halfSpan(z0), c0 = Math.floor((cx - hs) / CW), c1 = Math.ceil((cx + hs) / CW), zm = (z0 + z1) / 2, near = zm < 28;
-    const edges = [], stripes = [], trees = [];
-    for (let c = c0; c <= c1;) {
-      const fc = Math.floor(c / span), ce = (fc + 1) * span, ua = c * CW, ub = ce * CW;
-      poly([gpt(ua, z0), gpt(ub, z0), gpt(ub, z1), gpt(ua, z1)], FIELDS[Math.floor(hash(fc * 7 + span, g2) * FIELDS.length)]);
-      if (near && hash(fc, g2 * 7 + 1) < 0.55) stripes.push([ua, ub]);
-      if (near && hash(fc + 3, g2) < 0.22) trees.push([(ua + ub) / 2 + (hash(fc, row) - 0.5) * CW, z0 + D * 0.5]);
-      edges.push(ub); c = ce;
-    }
-    const lw = Math.max(1, 0.14 * F / zm);
-    ctx.beginPath();
-    for (const u of edges) { const [xa, ya] = gpt(u, z0), [xb, yb] = gpt(u, z1); ctx.moveTo(xa, ya); ctx.lineTo(xb, yb); }
-    if (row % 2 === 0) { const [xa, ya] = gpt(cx - hs, z0), [xb] = gpt(cx + hs, z0); ctx.moveTo(xa, ya); ctx.lineTo(xb, ya); }
-    ctx.lineWidth = lw; ctx.strokeStyle = 'rgba(74,124,50,.5)'; ctx.stroke();   // hedges
-    if (stripes.length) {
-      ctx.beginPath();
-      for (const [ua, ub] of stripes) for (let i = 1; i < 4; i++) { const z = z0 + D * i / 4, [xa, y] = gpt(ua, z), [xb] = gpt(ub, z); ctx.moveTo(xa, y); ctx.lineTo(xb, y); }
-      ctx.lineWidth = Math.max(0.7, 0.05 * F / zm); ctx.strokeStyle = 'rgba(60,70,30,.14)'; ctx.stroke();   // crop rows
-    }
-    const r0 = river(z0 + view.scroll), r1 = river(z1 + view.scroll), w = 0.75;
-    poly([gpt(r0 - w - 0.35, z0), gpt(r0 + w + 0.35, z0), gpt(r1 + w + 0.35, z1), gpt(r1 - w - 0.35, z1)], '#dfcf9c');
-    poly([gpt(r0 - w, z0), gpt(r0 + w, z0), gpt(r1 + w, z1), gpt(r1 - w, z1)], mix('#7ab6ef', '#b9d7fb', clamp(zm / 60, 0, 1)));
-    poly([gpt(r0 - w * 0.55, z0), gpt(r0 - w * 0.25, z0), gpt(r1 - w * 0.25, z1), gpt(r1 - w * 0.55, z1)], 'rgba(255,255,255,.28)');
+    const zm = (z0 + z1) / 2, near = zm < 28;
     const d0 = road(z0 + view.scroll), d1 = road(z1 + view.scroll);
-    poly([gpt(d0 - 0.6, z0), gpt(d0 + 0.6, z0), gpt(d1 + 0.6, z1), gpt(d1 - 0.6, z1)], '#e6dfcf');
-    if (near) { const za = z0 + D * 0.15, zb = z0 + D * 0.55, ra = road(za + view.scroll), rb = road(zb + view.scroll); ctx.beginPath(); ctx.moveTo(...gpt(ra, za)); ctx.lineTo(...gpt(rb, zb)); ctx.lineWidth = Math.max(1, 0.07 * F / zm); ctx.strokeStyle = '#ffffff'; ctx.stroke(); }
-    if (airfield) {   // the airfield: the road widens into a lit runway where the plane parks; the hangar and tower beside it
+    poly([gpt(d0 - 0.55, z0), gpt(d0 + 0.55, z0), gpt(d1 + 0.55, z1), gpt(d1 - 0.55, z1)], 'rgba(214,198,160,.95)');   // the gravel country road
+    if (airfield) {   // the airfield: the road widens into an asphalt runway where the plane parks; the hangar and tower beside it
       const a = airfield, w0 = z0 + view.scroll, w1 = z1 + view.scroll;
       if (w1 > a.zw - 5 && w0 < a.zw + 40) {
         const za = Math.max(z0, a.zw - 5 - view.scroll), zb = Math.min(z1, a.zw + 40 - view.scroll);
-        poly([gpt(d0 - 1.3, za), gpt(d0 + 1.3, za), gpt(d1 + 1.3, zb), gpt(d1 - 1.3, zb)], '#dcd8f0');
-        if (row % 2 === 0) { const [x, y] = gpt(d0, z0 + D * 0.3), [x2, y2] = gpt(d0, z0 + D * 0.8); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.lineWidth = Math.max(1, 0.12 * F / zm); ctx.strokeStyle = '#ffffff'; ctx.stroke(); }
-        for (const sd of [-1, 1]) { const [x, y] = gpt(d0 + sd * 1.42, z0), r = Math.max(1, 0.07 * F / zm); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fillStyle = '#9ef6ff'; ctx.fill(); }   // runway lights
+        poly([gpt(d0 - 1.3, za), gpt(d0 + 1.3, za), gpt(d1 + 1.3, zb), gpt(d1 - 1.3, zb)], '#44474f');
+        if (row % 2 === 0) { const [x, y] = gpt(d0, z0 + D * 0.3), [x2, y2] = gpt(d0, z0 + D * 0.8); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.lineWidth = Math.max(1, 0.12 * F / zm); ctx.strokeStyle = '#f2f2f2'; ctx.stroke(); }
+        for (const sd of [-1, 1]) { const [x, y] = gpt(d0 + sd * 1.42, z0), r = Math.max(1, 0.06 * F / zm); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fillStyle = '#bff8ff'; ctx.fill(); }   // runway lights
       }
-      for (const [img, du, dz, wu] of [[AIRFIELD.tower, 3.2, 8, 1.3], [AIRFIELD.hangar, -3.6, 3.2, 3.0]]) {
+      for (const [img, du, dz, wu] of [[AIRFIELD.tower, 3.2, 8, 1.3], [AIRFIELD.hangar, -3.8, 3.2, 3.4]]) {
         const zh = a.zw + dz - view.scroll; if (zh >= z0 && zh < z1) tall.push([img, a.u + du, zh, wu]);   // drawn after the haze
       }
     }
-    const vz = valleyAt(zm + view.scroll);
-    if (vz) {   // FogRush's valley: a dirt floor, grass plots, fog over most of them
-      const uc = road(vz.zc) + vz.side * 6.5, half = VN * VP / 2, za = Math.max(z0, vz.zc - half - 0.3 - view.scroll), zb = Math.min(z1, vz.zc + half + 0.3 - view.scroll);
-      if (zb > za) {
-        poly([gpt(uc - half - 0.3, za), gpt(uc + half + 0.3, za), gpt(uc + half + 0.3, zb), gpt(uc - half - 0.3, zb)], '#e8d6b5');
-        for (let j = 0; j < VN; j++) {
-          const pz = vz.zc - half + (j + 0.5) * VP - view.scroll; if (pz < z0 || pz >= z1) continue;
-          for (let i = 0; i < VN; i++) {
-            const pu = uc - half + (i + 0.5) * VP, q = VP * 0.42;
-            poly([gpt(pu - q, pz - q), gpt(pu + q, pz - q), gpt(pu + q, pz + q), gpt(pu - q, pz + q)], (i + j) % 2 ? '#86e36b' : '#74db5e');
-            const clear = (i === 3 && j <= 4) || (j === 4 && i >= 3 && i <= 5);   // the trail someone has cleared so far
-            if (!clear && cloudImg) { const [x, y] = gpt(pu, pz), wv = VP * 1.5 * F / pz; ctx.drawImage(cloudImg, x - wv / 2, y - wv * 0.42, wv, wv * 0.567); }
-          }
-        }
-      }
-    }
-    if (row % 2 === 0) for (const u of edges) if (hash(u * 13, row) < 0.45) trees.push([u, z0]);   // trees where hedges meet
-    if (zm < 40) for (const [u, z] of trees) {
-      const zz = Math.max(2, z), rv = river(zz + view.scroll), rd = road(zz + view.scroll);
-      if (Math.abs(u - rv) < 1.6 || Math.abs(u - rd) < 1.1) continue;
-      const [x, y] = gpt(u, zz), r = 0.48 * F / zz;
-      if (x < -r || x > W + r) continue;
-      if (vz && Math.abs(u - (road(vz.zc) + vz.side * 6.5)) < VN * VP / 2 + 0.8) continue;   // none in the valley
-      if (airfield && Math.abs(zz + view.scroll - airfield.zw - 5) < 9 && Math.abs(u - airfield.u) < 6) continue;   // nor on the airfield
-      ell(x + r * 0.55, y + r * 0.05, r * 0.95, r * 0.32); ctx.fillStyle = 'rgba(40,60,20,.25)'; ctx.fill();
-      ell(x, y - r * 0.8, r, r * 0.95); ctx.fillStyle = '#2fb850'; ctx.fill();   // round trees, as in the Blender world
-      ell(x - r * 0.3, y - r * 1.05, r * 0.55, r * 0.5); ctx.fillStyle = '#5fd26a'; ctx.fill();
-    }
+    if (near && row % 2 === 0) { const za = z0 + D * 0.15, zb = z0 + D * 0.55, ra = road(za + view.scroll), rb = road(zb + view.scroll); ctx.beginPath(); ctx.moveTo(...gpt(ra, za)); ctx.lineTo(...gpt(rb, zb)); ctx.lineWidth = Math.max(1, 0.05 * F / zm); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.stroke(); }
   });
-  for (const c of clouds) {   // cloud shadows on the fields
+  for (const c of clouds) {   // the drifting clouds' shadows on the land
     if (c.alt < 0.5 || c.z < 1.5) continue;
     const rx = c.s * 1.25 * F / c.z, x = projX(c.x, c.z), y = groundY(c.z), ry = rx * Math.min(1, G_H / c.z);
     if (x + rx < 0 || x - rx > W || y - ry > H) continue;
-    ctx.globalAlpha = clamp((60 - c.z) / 14, 0, 1); ell(x, y, rx, ry); ctx.fillStyle = 'rgba(40,40,110,.12)'; ctx.fill(); ctx.globalAlpha = 1;
+    ctx.globalAlpha = clamp((60 - c.z) / 14, 0, 1); ell(x, y, rx, ry); ctx.fillStyle = 'rgba(20,30,60,.16)'; ctx.fill(); ctx.globalAlpha = 1;
   }
   haze(...HAZE);
   for (const t of tall) standing(...t, HAZE);   // far to near, as the rows were
 }
 function skyFields(g) {
+  if (VALLEY_SKY.complete && VALLEY_SKY.naturalWidth) {   // the rendered sky, scaled so its horizon lands on the game's (HY)
+    const iw = VALLEY_SKY.naturalWidth, ih = VALLEY_SKY.naturalHeight, k = Math.max(W / iw, (HY + 2) / (SKY_HORIZON * ih));
+    g.drawImage(VALLEY_SKY, (W - iw * k) / 2, HY - SKY_HORIZON * ih * k, iw * k, ih * k); return;
+  }
   skyBase(g, [[0, '#5b4af6'], [0.5, '#8f88ff'], [0.85, '#cdd0ff'], [1, '#eef1ff']]);
   skySun(g, W * 0.8, HY * 0.34, clamp(H * 0.045, 16, 30), 'rgba(255,240,250,.7)', '#fffaf2');
   skyHills(g, '#cfccf7', H * 0.05, 0.004, 1);

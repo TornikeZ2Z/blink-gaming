@@ -216,7 +216,7 @@ function exNow(now) {
 /* ---------- the scene: the meadow world, the climb and the plane ---------- */
 const stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
 let W = 0, H = 0, dpr = 1, HY = 0;
-const view = { gx: 0, speed: 0, flyT0: 0, awayT0: 0, wins: [] };
+const view = { gx: 0, speed: 0, flyT0: 0, awayT0: 0, wins: [], park: null };
 const clouds = Array.from({ length: 9 }, (_, i) => ({ x: (i * 0.137 % 1), y: 0.08 + (i * 0.29 % 0.5), s: 0.6 + (i * 0.43 % 0.8), p: 0.3 + (i * 0.17 % 0.7) }));
 const TAU = Math.PI * 2;
 const hsh = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };   // a fixed scatter for trees and houses
@@ -281,10 +281,48 @@ function countryside(now, gx) {
   const rx = W * 0.02 - gx; if (rx + W > 0) { runway(rx, HY, W * 0.9); hangar(rx + W * 0.6, HY - 4, Math.min(170, W * 0.24)); }   // the airfield slides away once the plane is up
   for (let i = 0; i < 18; i++) tree(wrapX(i * 80 + hsh(i + 3) * 40 - gx * 1.1, W + 120) - 60, HY + H * 0.22 + hsh(i + 11) * (H - HY) * 0.55, (12 + hsh(i) * 9) * k, '#2fb850', '#5fd26a');
 }
+/* ---------- the climb's world: five altitude backdrops rendered in Blender, crossfaded as the multiplier rises ---------- */
+// Altitude follows the multiplier (Tornike's pick, 2026-10-26): the runway at 1.00×, over the fields by 1.6×, in the
+// clouds by 3.5×, above them by 12× and the edge of space from 120×. Each step slides the old view down and fades the
+// next in from above, and soft clouds stream past, thickest in the cloud layer, so the plane always feels it climbs.
+// The backdrops come from Brainer 3D/blender (concepts: the valley look, views ground, low, clouds, above, space).
+const SKY = ['ground', 'low', 'clouds', 'above', 'space'].map(n => { const im = new Image(); im.src = `assets/sky/${n}.webp`; return im; });
+const ALT = [1, 1.6, 3.5, 12, 120];
+const altOf = m => { if (m <= ALT[0]) return 0; for (let i = 1; i < ALT.length; i++) if (m < ALT[i]) return i - 1 + Math.log(m / ALT[i - 1]) / Math.log(ALT[i] / ALT[i - 1]); return ALT.length - 1; };
+const PARK = { x: 0.26, y: 0.73 };   // where the plane stands on the runway in the ground backdrop, as fractions of the image
+const smooth = f => f * f * (3 - 2 * f);
+function cover(im, ox, oy, a, fx = 0.5, sx = 0.5) {   // the image filling the stage, a little over-sized so it can drift; image x fx sits at stage x sx where the crop allows
+  if (!im.complete || !im.naturalWidth || a <= 0.002) return null;
+  const k = Math.max(W * 1.06 / im.naturalWidth, H * 1.42 / im.naturalHeight), w = im.naturalWidth * k, h = im.naturalHeight * k, x = clamp(W * sx - w * fx, W - w, 0) + ox, y = (H - h) / 2 + oy;   // tall enough to slide 0.2 of the stage either way with no gap
+  ctx.globalAlpha = a; ctx.drawImage(im, x, y, w, h); ctx.globalAlpha = 1;
+  return { x, y, w, h };
+}
+let alt = 0, lastSky = 0;
+const passing = Array.from({ length: 12 }, (_, i) => ({ x: (i * 0.37) % 1, y: (i * 0.61) % 1.3 - 0.15, s: 0.6 + (i * 0.29) % 0.9, v: 0.7 + (i * 0.53) % 0.8 }));
+function sky(now) {
+  const dt = Math.min(50, now - (lastSky || now)); lastSky = now;
+  const goal = R && (R.phase === 'fly' || R.phase === 'end') ? altOf(R.phase === 'end' ? R.crash : R.m) : 0;
+  alt += (goal - alt) * Math.min(1, dt * (goal < alt ? 0.004 : 0.006));   // eases to the multiplier's height; between rounds back down to the runway
+  const i = Math.min(SKY.length - 2, Math.floor(alt)), e = smooth(clamp(alt - i, 0, 1)), drift = reduced ? 0 : Math.sin(now / 9000) * W * 0.02;
+  ctx.fillStyle = '#6f5cff'; ctx.fillRect(0, 0, W, H);
+  const base = i === 0 ? cover(SKY[0], drift, e * H * 0.2, 1, 0.3, 0.38) : cover(SKY[i], drift, e * H * 0.2, 1);   // the runway view keeps the runway in frame on narrow screens
+  cover(SKY[i + 1], drift, -(1 - e) * H * 0.2, e);
+  if (!base) { countryside(now, view.gx); view.park = { x: W * 0.08 + 80, y: HY - 6 }; return; }   // until the backdrops have loaded
+  view.park = i === 0 ? { x: base.x + base.w * PARK.x, y: base.y + base.h * PARK.y } : { x: base.x + base.w * PARK.x, y: H + H * 0.4 };   // the runway falls away below as it climbs
+  // soft clouds streaming past the plane, thickest in the cloud layer
+  const thick = clamp(1 - Math.abs(alt - 1.9) / 1.3, 0, 1) * (R && R.phase === 'fly' ? 1 : 0.35);
+  if (thick > 0.02 && !reduced) for (const c of passing) {
+    c.y += dt * 0.00035 * c.v * (0.4 + view.speed); c.x -= dt * 0.00008 * c.v * view.speed;
+    if (c.y > 1.2) { c.y = -0.25; c.x = Math.random() * 1.1; }
+    if (c.x < -0.2) c.x += 1.3;
+    const r = c.s * H * 0.22, x = c.x * W, y = c.y * H, g = ctx.createRadialGradient(x, y, r * 0.1, x, y, r);
+    g.addColorStop(0, `rgba(255,255,255,${0.55 * thick})`); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+}
 // Where the plane is: it climbs along the curve from the runway to the upper right, then holds there with a gentle bob
 // while the world streams past (as Aviator's does). p is 0 to 1 over the first 7 seconds.
 function tipAt(t) {
-  const ox = W * 0.08, oy = HY - 6, p = clamp(t / 7000, 0, 1), e = easeOut(p);
+  const pk = view.park || { x: W * 0.08, y: HY - 6 }, ox = pk.x, oy = pk.y, p = clamp(t / 7000, 0, 1), e = easeOut(p);
   const x = lerp(ox, W * (W < 600 ? 0.62 : 0.78), e), y = lerp(oy, H * (W < 600 ? 0.5 : 0.3), e * e);   // clear of the multiplier: further right on wide screens, lower on phones
   const bob = p >= 1 && !reduced ? Math.sin(t / 700) * H * 0.02 : 0;
   return { ox, oy, x, y: y + bob, p };
@@ -294,20 +332,20 @@ function draw(now) {
   const t = R && (R.phase === 'fly' || R.phase === 'end') ? (R.phase === 'end' ? R.endT0 : now) - R.t0 : 0;
   const goal = R && R.phase === 'fly' ? 1 : R && R.phase === 'end' ? 0.6 : 0;
   view.speed += (goal - view.speed) * 0.04; view.gx += view.speed * (reduced ? 1.2 : 3.2);
-  countryside(now, view.gx);
+  sky(now);
   // the climb: a filled curve from the runway to the plane, like Aviator's
   const tp = tipAt(t), away = R && R.phase === 'end' ? clamp((now - view.awayT0) / 900, 0, 1) : 0;
   if (R && (R.phase === 'fly' || R.phase === 'end')) {
     const cx = lerp(tp.ox, tp.x, 0.62), cy = tp.oy;
     ctx.globalAlpha = 1 - away * 0.7;
-    const fill = ctx.createLinearGradient(0, tp.y, 0, tp.oy); fill.addColorStop(0, 'rgba(132,71,251,.55)'); fill.addColorStop(1, 'rgba(75,54,252,.12)');
+    const fill = ctx.createLinearGradient(0, tp.y, 0, tp.oy); fill.addColorStop(0, 'rgba(132,71,251,.3)'); fill.addColorStop(0.6, 'rgba(75,54,252,.06)'); fill.addColorStop(1, 'rgba(75,54,252,0)');   // light over the photographic sky
     ctx.beginPath(); ctx.moveTo(tp.ox, tp.oy); ctx.quadraticCurveTo(cx, cy, tp.x, tp.y); ctx.lineTo(tp.x, tp.oy); ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
     ctx.beginPath(); ctx.moveTo(tp.ox, tp.oy); ctx.quadraticCurveTo(cx, cy, tp.x, tp.y); ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.strokeStyle = '#ffc147'; ctx.stroke();
     ctx.globalAlpha = 1;
   }
   // the plane: parked on the runway while bets are open, at the curve's tip in flight, off to the upper right when it flies away
   const size = clamp(Math.min(W, H) * 0.42, 150, 300);
-  let px = R && (R.phase === 'fly' || R.phase === 'end') ? tp.x : tp.ox + size * 0.52, py = R && (R.phase === 'fly' || R.phase === 'end') ? tp.y : tp.oy - size * 0.12;
+  let px = R && (R.phase === 'fly' || R.phase === 'end') ? tp.x : tp.ox, py = R && (R.phase === 'fly' || R.phase === 'end') ? tp.y : tp.oy - size * 0.1;
   if (away) { const a = away * away; px += a * W * 0.8; py -= a * H * 0.7; }
   const climb = R && R.phase === 'fly' ? clamp(1 - tp.p, 0, 1) * 0.35 + 0.08 : away ? 0.45 : 0;
   init3D();

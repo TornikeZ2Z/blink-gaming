@@ -257,8 +257,8 @@ button{cursor:pointer}
 .hist button:hover{background:rgba(10,19,34,.85)}
 .pilot{top:auto;bottom:14px}
 .readout{top:38%;transform:translate(-50%,-50%);width:min(520px,90%)}
-.readout .label{font-size:13px}
-.readout .mult{font-size:clamp(52px,9vw,96px);text-shadow:0 4px 0 rgba(75,54,252,.55),0 0 22px rgba(10,19,34,.45),0 8px 26px rgba(10,19,34,.35)}   /* a dark glow: white clouds drift behind it */
+.readout .label{font-size:13px;background:rgba(10,19,34,.7)}
+.readout .mult{font-size:clamp(52px,9vw,96px);text-shadow:0 4px 0 rgba(75,54,252,.6),0 0 26px rgba(10,19,34,.6),0 0 60px rgba(10,19,34,.35)}   /* a dark glow: white clouds drift behind it */
 .readout .mult.flew{color:#ff7a93;font-size:clamp(44px,7.4vw,80px)}
 .wait{display:block;width:min(260px,70%);height:6px;margin-top:10px;border-radius:6px;background:rgba(10,19,34,.45);overflow:hidden}
 .wait i{display:block;height:100%;width:100%;background:var(--grad);border-radius:6px;transform-origin:left center}

@@ -48,7 +48,7 @@ window.BRAINER = {
       about: [
         'A single-player crash game played in steps. At every step the player picks one of five paths while bombs fall on some of them. Every safe path raises the multiplier, and the next one is always shown before the pick.',
         'Bail out with the parachute at any step to lock in the multiplier. Take a bomb and the flight is over. Flights are instant: no betting windows and no waiting for other players.',
-        'The Brainer and its plane are 3D. Each flight starts parked on the airfield’s runway and takes off over the meadow; after a jump the Brainer floats down on its parachute and lands on the meadow’s country road.'
+        'The Brainer and its plane are 3D, over a valley rendered with real light and clouds. Each flight starts parked on the airfield’s runway and takes off over the farmland; after a jump the Brainer floats down on its parachute and lands on the valley’s country road.'
       ],
       how: [
         'Pick a difficulty and a bet in US dollars, then press Play.',
@@ -103,7 +103,7 @@ window.BRAINER = {
       about: [
         'A crash game in the style of Aviator. Rounds run one after another: a short betting window, then take-off, and the multiplier climbs from 1.00× until the plane flies away at a point fixed before take-off.',
         'Cash out at any moment in flight to win the bet times the multiplier. If the plane flies away first, the bet is lost. Two bets can ride the same round, each with its own auto bet and auto cash-out.',
-        'The Brainer flies its 3D plane up from the airfield’s runway over the meadow, the same world as Plane Crash.'
+        'The Brainer flies its 3D plane up from the valley’s runway, and the higher the multiplier, the higher it climbs: over the fields, through the clouds, above them, and from about 120× to the edge of space.'
       ],
       how: [
         'Set a bet in US dollars and press Bet before take-off. Use the second panel for a second bet.',
