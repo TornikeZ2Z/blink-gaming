@@ -217,23 +217,74 @@ const stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
 let W = 0, H = 0, dpr = 1, HY = 0;
 const view = { gx: 0, speed: 0, flyT0: 0, awayT0: 0, wins: [] };
 const clouds = Array.from({ length: 9 }, (_, i) => ({ x: (i * 0.137 % 1), y: 0.08 + (i * 0.29 % 0.5), s: 0.6 + (i * 0.43 % 0.8), p: 0.3 + (i * 0.17 % 0.7) }));
-const FIELDS = ['#b5ec5c', '#ffd95c', '#8ee070', '#d4f07a', '#5fcb5a', '#ffc07a', '#74db5e', '#c9ee6e'];
-const HANGAR = new Image(); HANGAR.src = 'assets/airfield-hangar.png';
+const TAU = Math.PI * 2;
+const hsh = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };   // a fixed scatter for trees and houses
+const wrapX = (x, span) => ((x % span) + span) % span;
+const lin = (y0, y1, stops) => { const l = ctx.createLinearGradient(0, y0, 0, y1); stops.forEach(([o, c]) => l.addColorStop(o, c)); return l; };
 function layout() {
   W = stage.clientWidth; H = stage.clientHeight; dpr = Math.min(2, devicePixelRatio || 1);
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); HY = H * 0.74;
 }
 new ResizeObserver(layout).observe(stage);
-function cloud(x, y, s, a) {
-  ctx.globalAlpha = a; ctx.fillStyle = '#ffffff';
-  for (const [dx, dy, r] of [[0, 0, 1], [-0.9, 0.25, 0.7], [0.95, 0.2, 0.75], [0.35, -0.35, 0.7]]) { ctx.beginPath(); ctx.arc(x + dx * 26 * s, y + dy * 26 * s, r * 26 * s, 0, 7); ctx.fill(); }
-  ctx.globalAlpha = 1;
+// The countryside (Tornike's pick, 2026-10-26): layered rolling hills, round trees, a village with windmills, and a
+// plain barrel hangar in brand stripes beside the runway (no letters). Nearer layers stream past faster.
+function puff(x, y, s) {   // a cartoon cumulus: lit top, soft violet base
+  ctx.fillStyle = '#d9d3ff'; for (const [dx, dy, r] of [[-1, 0.3, 0.75], [0, 0.35, 0.9], [1, 0.3, 0.75]]) { ctx.beginPath(); ctx.arc(x + dx * 30 * s, y + dy * 30 * s, r * 30 * s, 0, TAU); ctx.fill(); }
+  ctx.fillStyle = '#ffffff'; for (const [dx, dy, r] of [[-0.95, 0.1, 0.7], [0, -0.25, 1], [0.95, 0.05, 0.72], [0.45, -0.55, 0.62]]) { ctx.beginPath(); ctx.arc(x + dx * 30 * s, y + dy * 30 * s, r * 30 * s, 0, TAU); ctx.fill(); }
+}
+function hills(y0, amp, f, ph, col) {
+  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, H);
+  for (let x = 0; x <= W + 10; x += 10) ctx.lineTo(x, y0 - amp * (0.6 + 0.4 * Math.sin((x + ph) * f) * Math.cos((x + ph) * f * 0.37)));
+  ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+}
+function tree(x, y, r, dark, light) {
+  ctx.fillStyle = 'rgba(40,60,30,.18)'; ctx.beginPath(); ctx.ellipse(x + r * 0.3, y + r * 0.15, r, r * 0.3, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#6b4a2e'; ctx.fillRect(x - r * 0.12, y - r * 0.6, r * 0.24, r * 0.7);
+  ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(x, y - r * 1.1, r, 0, TAU); ctx.fill();
+  ctx.fillStyle = light; ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 1.35, r * 0.5, 0, TAU); ctx.fill();
+}
+function house(x, y, w, roof) {
+  const h = w * 0.7; ctx.fillStyle = '#fff6ee'; ctx.fillRect(x - w / 2, y - h, w, h);
+  ctx.fillStyle = roof; ctx.beginPath(); ctx.moveTo(x - w * 0.62, y - h); ctx.lineTo(x, y - h - w * 0.55); ctx.lineTo(x + w * 0.62, y - h); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ffe9a8'; ctx.fillRect(x - w * 0.22, y - h * 0.62, w * 0.18, w * 0.18); ctx.fillRect(x + w * 0.06, y - h * 0.62, w * 0.18, w * 0.18);
+}
+function windmill(x, y, s, now) {
+  ctx.fillStyle = '#fff6ee'; ctx.beginPath(); ctx.moveTo(x - 9 * s, y); ctx.lineTo(x - 5 * s, y - 46 * s); ctx.lineTo(x + 5 * s, y - 46 * s); ctx.lineTo(x + 9 * s, y); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#8447fb'; ctx.beginPath(); ctx.arc(x, y - 46 * s, 7 * s, Math.PI, 0); ctx.fill();
+  ctx.save(); ctx.translate(x, y - 44 * s); ctx.rotate(reduced ? 0.4 : now / 900); ctx.fillStyle = '#ffffff'; for (let i = 0; i < 4; i++) { ctx.rotate(TAU / 4); ctx.fillRect(-3 * s, 0, 6 * s, 30 * s); } ctx.restore();
+  ctx.fillStyle = '#5a3ffc'; ctx.beginPath(); ctx.arc(x, y - 44 * s, 3 * s, 0, TAU); ctx.fill();
+}
+function hangar(x, y, w) {   // a barrel hangar in the brand's violet stripe, door open; no letters
+  const h = w * 0.55; ctx.fillStyle = '#f4f2ff'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - h * 0.4); ctx.quadraticCurveTo(x + w / 2, y - h * 1.45, x + w, y - h * 0.4); ctx.lineTo(x + w, y); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#8447fb'; ctx.fillRect(x, y - h * 0.42, w, h * 0.1); ctx.fillStyle = '#2b2452'; ctx.fillRect(x + w * 0.3, y - h * 0.32, w * 0.4, h * 0.32);
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; for (let i = 1; i < 4; i++) ctx.fillRect(x + w * 0.3 + w * 0.1 * i, y - h * 0.32, 2, h * 0.32);
+}
+function runway(x, y, w) {
+  ctx.fillStyle = '#e7e4f6'; ctx.fillRect(x, y - 5, w, 16); ctx.fillStyle = '#8447fb'; ctx.fillRect(x, y + 9, w, 3);
+  ctx.fillStyle = '#ffffff'; for (let k = x + 18; k < x + w - 20; k += 46) ctx.fillRect(k, y + 2, 22, 2.5);
+  ctx.fillStyle = '#7ff3ff'; for (let k = x + 6; k < x + w; k += 34) { ctx.beginPath(); ctx.arc(k, y - 6, 2.2, 0, TAU); ctx.fill(); }
+}
+function countryside(now, gx) {
+  ctx.fillStyle = lin(0, HY, [[0, '#6f5cff'], [0.5, '#a49cff'], [0.85, '#ffd9e8'], [1, '#fff1df']]); ctx.fillRect(0, 0, W, HY + 2);
+  const sr = Math.min(W, H) * 0.045, sx = W * 0.8, sy = HY * 0.42, sg = ctx.createRadialGradient(sx, sy, sr * 0.2, sx, sy, sr * 3);
+  sg.addColorStop(0, '#fffaf0'); sg.addColorStop(0.25, 'rgba(255,214,170,.55)'); sg.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = sg; ctx.fillRect(sx - sr * 3, sy - sr * 3, sr * 6, sr * 6);
+  ctx.fillStyle = '#fffaf0'; ctx.beginPath(); ctx.arc(sx, sy, sr, 0, TAU); ctx.fill();
+  const k = W < 600 ? 0.7 : 1;
+  for (let i = 0; i < 6; i++) puff(wrapX(i * 260 - gx * 0.12, W + 300) - 150, HY * (0.16 + 0.12 * (i % 3)), (0.8 + 0.25 * (i % 2)) * k);
+  hills(HY - H * 0.02, H * 0.05, 0.004, gx * 0.15, '#b9c7f2');
+  hills(HY + H * 0.02, H * 0.05, 0.006, gx * 0.3 + 400, '#9fdc86');
+  for (let i = 0; i < 9; i++) { const x = wrapX(i * 190 - gx * 0.3, W + 200) - 100, y = HY; if (i % 3 === 0) windmill(x, y, Math.min(1.1, W / 900), now); else if (i % 3 === 1) house(x, y + 2, (18 + 4 * (i % 2)) * k, ['#ff7a93', '#8447fb', '#ffb347'][i % 3]); }
+  hills(HY + H * 0.1, H * 0.05, 0.009, gx * 0.6 + 900, '#7fd36a');
+  for (let i = 0; i < 14; i++) tree(wrapX(i * 110 + hsh(i) * 60 - gx * 0.6, W + 160) - 80, HY + H * 0.1 + hsh(i + 7) * H * 0.04, (9 + hsh(i) * 7) * k, '#3fbf5a', '#6ad36d');
+  ctx.fillStyle = lin(HY + H * 0.12, H, [[0, '#6fcb5c'], [1, '#56b84a']]); ctx.fillRect(0, HY + H * 0.12, W, H);
+  const rx = W * 0.02 - gx; if (rx + W > 0) { runway(rx, HY, W * 0.9); hangar(rx + W * 0.6, HY - 4, Math.min(170, W * 0.24)); }   // the airfield slides away once the plane is up
+  for (let i = 0; i < 18; i++) tree(wrapX(i * 80 + hsh(i + 3) * 40 - gx * 1.1, W + 120) - 60, HY + H * 0.22 + hsh(i + 11) * (H - HY) * 0.55, (12 + hsh(i) * 9) * k, '#2fb850', '#5fd26a');
 }
 // Where the plane is: it climbs along the curve from the runway to the upper right, then holds there with a gentle bob
 // while the world streams past (as Aviator's does). p is 0 to 1 over the first 7 seconds.
 function tipAt(t) {
   const ox = W * 0.08, oy = HY - 6, p = clamp(t / 7000, 0, 1), e = easeOut(p);
-  const x = lerp(ox, W * (W < 600 ? 0.66 : 0.72), e), y = lerp(oy, H * (W < 600 ? 0.36 : 0.3), e * e);
+  const x = lerp(ox, W * (W < 600 ? 0.62 : 0.78), e), y = lerp(oy, H * (W < 600 ? 0.5 : 0.3), e * e);   // clear of the multiplier: further right on wide screens, lower on phones
   const bob = p >= 1 && !reduced ? Math.sin(t / 700) * H * 0.02 : 0;
   return { ox, oy, x, y: y + bob, p };
 }
@@ -242,28 +293,7 @@ function draw(now) {
   const t = R && (R.phase === 'fly' || R.phase === 'end') ? (R.phase === 'end' ? R.endT0 : now) - R.t0 : 0;
   const goal = R && R.phase === 'fly' ? 1 : R && R.phase === 'end' ? 0.6 : 0;
   view.speed += (goal - view.speed) * 0.04; view.gx += view.speed * (reduced ? 1.2 : 3.2);
-  // sky, sun and far hills
-  const sky = ctx.createLinearGradient(0, 0, 0, HY); sky.addColorStop(0, '#5b4af6'); sky.addColorStop(0.55, '#8f88ff'); sky.addColorStop(1, '#dfe2ff');
-  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, HY + 1);
-  const sun = ctx.createRadialGradient(W * 0.82, HY * 0.3, 4, W * 0.82, HY * 0.3, 70); sun.addColorStop(0, 'rgba(255,250,235,1)'); sun.addColorStop(0.35, 'rgba(255,240,250,.75)'); sun.addColorStop(1, 'rgba(255,240,250,0)');
-  ctx.fillStyle = sun; ctx.fillRect(W * 0.82 - 70, HY * 0.3 - 70, 140, 140);
-  for (const c of clouds) { const x = ((c.x * (W + 200) - view.gx * c.p * 0.6) % (W + 200) + W + 200) % (W + 200) - 100; cloud(x, c.y * HY, c.s * (W < 600 ? 0.7 : 1), 0.85); }
-  ctx.fillStyle = '#c3c6f7'; ctx.beginPath(); ctx.moveTo(0, HY + 1);
-  for (let x = 0; x <= W + 8; x += 8) ctx.lineTo(x, HY - 12 - 9 * Math.sin((x + view.gx * 0.15) * 0.012) - 5 * Math.sin((x + view.gx * 0.15) * 0.031));
-  ctx.lineTo(W, HY + 1); ctx.fill();
-  // the meadow: patchwork fields streaming left, then the runway the plane took off from
-  ctx.fillStyle = '#86dc68'; ctx.fillRect(0, HY, W, H - HY);
-  const fw = 150, off = view.gx % fw, base = Math.floor(view.gx / fw);
-  for (let k = -1; k * fw - off < W + fw; k++) {
-    const i = base + k, x = k * fw - off;
-    for (let r = 0; r < 3; r++) { const y0 = HY + (H - HY) * [0, 0.22, 0.55][r], y1 = HY + (H - HY) * [0.22, 0.55, 1][r]; ctx.fillStyle = FIELDS[((i * 7 + r * 3) % FIELDS.length + FIELDS.length) % FIELDS.length]; ctx.fillRect(x + 2, y0 + 2, fw - 4, y1 - y0 - 3); }
-  }
-  const rx = W * 0.02 - view.gx * 1.0;   // the runway and hangar slide away once the plane is up
-  if (rx + W * 0.9 > 0) {
-    ctx.fillStyle = '#dcd8f0'; ctx.fillRect(rx, HY - 4, W * 0.9, 14);
-    ctx.fillStyle = '#ffffff'; for (let x = rx + 16; x < rx + W * 0.9 - 20; x += 46) ctx.fillRect(x, HY + 2, 22, 2);
-    if (HANGAR.complete && HANGAR.naturalWidth) { const hw = Math.min(150, W * 0.22), hh = hw * HANGAR.naturalHeight / HANGAR.naturalWidth; ctx.drawImage(HANGAR, rx + W * 0.62, HY - hh + 4, hw, hh); }
-  }
+  countryside(now, view.gx);
   // the climb: a filled curve from the runway to the plane, like Aviator's
   const tp = tipAt(t), away = R && R.phase === 'end' ? clamp((now - view.awayT0) / 900, 0, 1) : 0;
   if (R && (R.phase === 'fly' || R.phase === 'end')) {

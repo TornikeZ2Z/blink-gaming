@@ -35,7 +35,7 @@ Live site: https://brainer.games (Cloudflare zone brainer.games: apex A/AAAA to 
 
 - **Fly High** (working title, `Game #3 - Fly High/`, published at `/fly-high/`, Game #2 on the site) is Aviator one to one with the Brainer and its world: rounds run on their own (a 6 s betting window, take-off, the multiplier e^(0.09 × seconds), a 3.2 s pause after it flies away); two bet panels, each with Bet, Cancel, Cash out, auto bet and auto cash-out; a history of the last rounds. It flies away at 0.98 ÷ (1 − u) rounded down to the cent (1.00× to 10,000×), from HMAC-SHA256(server seed, "client seed:nonce"), so every cash-out point returns 98% before rounding and the $10,000 max win. Same shell, client-seed sheet, 18+ check, intro (wordmark `fly`) and 3D plane as Plane Crash. No list of other players: invented players would nudge. Its card is a frame of the game mid-climb (`Brainer 3D/renders/cards/fly-high.png`).
 - **FogRush is hidden** from the site (`hidden: true` in `Website/assets/js/data.js`) and from the deploy (`.github/workflows/pages.yml`). Its code and today's fixes stay in `Game #2 - FogRush/`; set the flag back and restore the copy step to bring it back.
-- **Tornike does not like the world's look yet,** including the "B" on the hangar. A world redesign is next; show him options before building.
+- **World: countryside (Tornike's pick from three mockups, 2026-10-26).** Fly High paints it in 2D (`countryside()` in its game.js): layered rolling hills, round trees, a village with windmills, a plain barrel hangar in the violet stripe, no letters anywhere. Plane Crash still has the old patchwork meadow and the "B" hangar sprite; move it to the countryside next.
 
 ## Where things live
 

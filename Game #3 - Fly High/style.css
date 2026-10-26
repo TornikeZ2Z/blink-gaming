@@ -293,7 +293,7 @@ button{cursor:pointer}
 @media (max-width:760px){
   .bets{grid-template-columns:1fr;gap:10px}
   .pilot{bottom:10px}
-  .readout{top:42%}
+  .readout{top:26%}
   .hist{top:54px;left:10px;right:10px}
 }
 @media (max-width:480px){ .bet-main{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:8px} .bet .bet-row{grid-template-columns:34px minmax(0,1fr) 34px;gap:4px} .bet .step{height:42px;font-size:20px} .bet .money-in input{height:42px} }   /* the amount needs the room: 200.00 in full at 320 px */
