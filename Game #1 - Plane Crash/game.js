@@ -129,14 +129,14 @@ async function play() {
   const d = LEVELS[S.level];
   if (S.stake < cfg.minBet || S.stake > cfg.maxBet) { toast(`Bet between ${money(cfg.minBet)} and ${money(cfg.maxBet)}.`); return; }
   if (S.stake > S.balance) { toast('Not enough demo balance for this bet. Lower it or press Reset.'); return; }
-  starting = true; renderControls(); flushLevelUp();
+  starting = true; renderControls();
   const r = { stake: S.stake, d, n: 0, rtp: cfg.rtp, reach: reachAt(d, S.stake), client: S.client, nonce: S.nonce++, status: 'choose', payout: 0, pick: -1, picks: [] };   // the client seed in effect as it starts
   try { await commit; r.seed = S.seed; r.hash = S.hash; r.bombs = await drawBombs(r.seed, r.client, r.nonce, d); }
   catch (e) { S.nonce--; toast(window.isSecureContext ? 'Could not start the flight. Please try again.' : 'This demo needs https (or localhost) for its provably fair draw.'); return; }   // e.g. no crypto.subtle on plain http
   finally { starting = false; renderControls(); }
   S.balance = cents(S.balance - r.stake); round = r;
   sceneStart(d);
-  $('#pilot').classList.remove('sooty'); react('hop', "Let's fly!"); feel('wink', 900); sound.takeoff();
+  feel('wink', 900); sound.takeoff();
   renderBalance(); renderControls(); renderLadder();
 }
 function choose(k) {
@@ -144,7 +144,7 @@ function choose(k) {
   if (!r || r.status !== 'choose' || k < 0 || k >= cfg.paths || sheetOpen()) return;
   r.pick = k; r.picks[r.n] = k; r.status = 'flying'; r.t0 = performance.now(); r.hit = r.bombs[r.n][k]; r.struck = false;
   sceneFly(k, r.bombs[r.n], r.t0);
-  react('shake', 'Gulp…'); sound.pick();
+  sound.pick();
   renderControls();
 }
 function jump(auto) {
@@ -154,7 +154,7 @@ function jump(auto) {
   r.payout = payAt(r, r.n); r.status = 'cashed'; r.auto = auto;   // auto: the game jumped (last path or max win), so no step was skipped
   S.balance = cents(S.balance + r.payout);
   sceneJump(performance.now(), m);
-  react('pop', m >= 100 ? 'Whoa!!' : m >= 10 ? 'Big win!' : 'Wheee!'); if (m >= 10) feel('amazed', 1700); sound.jump();
+  if (m >= 10) feel('amazed', 1700); sound.jump();
   if (auto) toast(r.n >= r.d.steps ? 'Last path cleared, so your Brainer jumped automatically.' : `Max win of ${money(cfg.maxWin)} reached, so your Brainer jumped automatically.`);
   settle();
 }
@@ -166,7 +166,7 @@ function advance(now) {
   if (!r.struck && p >= IMPACT) {
     r.struck = true; sceneImpact(now);
     if (r.hit) {
-      r.status = 'crashed'; holdLevelUp(); sceneCrash(now); $('#pilot').classList.add('sooty'); react('shake', 'Ouch!'); feel('shock', 450); sound.boom();
+      r.status = 'crashed'; sceneCrash(now); feel('shock', 450); sound.boom();
       if (navigator.vibrate) navigator.vibrate(120);
       settle(); return;
     }
@@ -174,74 +174,18 @@ function advance(now) {
   }
   if (p >= 1) {
     r.n++; r.status = 'choose'; r.pick = -1; r.popAt = now;
-    scenePassed(now); react('hop', 'Phew!'); feel('phew', 1000);
+    scenePassed(now); feel('phew', 1000);
     if (r.n >= r.d.steps || r.stake * multAt(r.d, r.n, r.rtp) >= cfg.maxWin) jump(true);
     renderControls(); renderLadder();
   }
 }
 
-/* ---------- brain cells and levels ---------- */
-let luT = 0, luWait = 0, bubT = 0, pendingLevel = 0, levelFrom = 0, luShown = null;
+/* ---------- brain cells: still earned for the website, never shown here (no level card, Tornike 2026-10-27) ---------- */
 function earnCells(k) {
   const saved = parseFloat(store.get('brainer.xp', ''));
   if (saved >= 0) S.cells = saved;   // another Brainer game open in another tab may have added cells since this one loaded
-  const before = myLevel();
   S.cells = Math.round((S.cells + k) * 10) / 10;
   store.set('brainer.xp', String(S.cells)); store.set('brainer.level', String(myLevel()));   // the website reads brainer.level
-  earnFloat(k); renderPilot();
-  if (myLevel() > before) { if (!pendingLevel) levelFrom = before; pendingLevel = myLevel(); }   // celebrated once the flight's result has played out
-}
-function flushLevelUp() {
-  if (!pendingLevel) return;
-  if (iris) { clearTimeout(luWait); luWait = setTimeout(flushLevelUp, 120); return; }   // wait until the crash card has closed, whoever asks
-  const L = pendingLevel, from = levelFrom, el = $('#levelup'); pendingLevel = 0;
-  const newStage = stageOf(L) > stageOf(from), opened = UNLOCKS.filter(u => u.at > from && u.at <= L);
-  plane.brain = L; renderLevels();
-  $('#luImg').src = brainerURL(L, 'love'); $('#luTitle').textContent = `Brain level ${L}`; feel('love', 1900);
-  $('#luSub').textContent = opened.length ? `${opened.map(u => u.name).join(' and ')} world unlocked` : newStage ? `New look: stage ${stageOf(L)} of 10` : L - from > 1 ? `Up ${L - from} levels` : 'Your Brainer grew new brain cells';
-  el.classList.toggle('lu-big', newStage || opened.length > 0);   // not .big: that is the big-button class
-  el.style.animationDuration = newStage ? '3.6s' : '';   // fades out exactly when the timer below ends, so a crash only holds a banner still on screen
-  el.hidden = true; void el.offsetWidth; el.hidden = false; luShown = { L, from };
-  clearTimeout(luT); luT = setTimeout(() => { el.hidden = true; luShown = null; }, newStage ? 3600 : 2800);
-  sound.level();
-  if (newStage && !reduced) burst(W - 140 * PS, 110, 36, ['#ffc147', '#33d66d', '#8447fb', '#ffffff'], 0.45);
-}
-// A crash cuts a level-up banner short (it would sit on the crash card); it shows again once the card has closed.
-function holdLevelUp() {
-  if (!luShown) return;
-  clearTimeout(luT); $('#levelup').hidden = true;
-  if (!pendingLevel) { pendingLevel = luShown.L; levelFrom = luShown.from; }
-  luShown = null;
-}
-function setBrainLevel(L) {   // demo picker: jump straight to a brain level
-  S.cells = CELLS[L]; store.set('brainer.xp', String(S.cells)); store.set('brainer.level', String(L));
-  pendingLevel = 0; plane.brain = L; renderPilot(); renderLevels(); renderPicker();
-  react('pop', `Level ${L}!`);
-}
-function earnFloat(k) {
-  if (reduced || W < 10) return;
-  const sr = stage.getBoundingClientRect(), pr = $('#pilot .ava').getBoundingClientRect();
-  const el = document.createElement('span'); el.className = 'earn';
-  el.innerHTML = `<i></i>+${k < 10 ? k.toFixed(1) : Math.round(k).toLocaleString('en-US')} brain cells`;
-  const x0 = W / 2 - 60, y0 = H * 0.3;   // starts under the result and flies into the portrait
-  el.style.left = x0 + 'px'; el.style.top = y0 + 'px';
-  stage.appendChild(el);
-  const dx = pr.left - sr.left + pr.width / 2 - x0, dy = pr.top - sr.top + pr.height / 2 - y0;
-  el.animate([{ transform: 'translate(0,0) scale(1)', opacity: 0 }, { transform: 'translate(0,-24px) scale(1)', opacity: 1, offset: 0.25 }, { transform: `translate(${dx}px,${dy}px) scale(.5)`, opacity: 0.2 }], { duration: 1100, easing: 'cubic-bezier(.5,0,.3,1)' }).onfinish = () => { el.remove(); const p = $('#pilot'); p.classList.remove('r-gain'); void p.offsetWidth; p.classList.add('r-gain'); };
-  view.glowT = performance.now();
-}
-function renderPilot() {
-  const L = myLevel(), next = L < 100 ? CELLS[L + 1] : null, have = S.cells - CELLS[L], cells = Math.floor(S.cells);
-  $('#lvnum').textContent = L; $('#plv').textContent = `Brain level ${L}`;
-  $('#pilot').setAttribute('aria-label', `Brain level ${L}, ${cells.toLocaleString('en-US')} brain cells. Open your Brainer.`);
-  $('#pbar').style.width = (next == null ? 100 : Math.round(have / (next - CELLS[L]) * 100)) + '%';
-  $('#pnote').textContent = next == null ? `${cells.toLocaleString('en-US')} brain cells · top level` : `${Math.floor(have).toLocaleString('en-US')} / ${(next - CELLS[L]).toLocaleString('en-US')} cells to level ${L + 1}`;
-}
-function react(kind, text) {
-  const p = $('#pilot'), b = $('#bubble');
-  p.classList.remove('r-hop', 'r-shake', 'r-pop'); void p.offsetWidth; p.classList.add('r-' + kind);
-  b.textContent = text; b.hidden = true; void b.offsetWidth; b.hidden = false;
-  clearTimeout(bubT); bubT = setTimeout(() => { b.hidden = true; }, 1300);
 }
 
 /* ---------- scene ---------- */
@@ -356,26 +300,6 @@ function moodNow(now) {
   return mood;
 }
 const lookNow = now => round && round.status === 'choose' ? (view.hover >= 0 ? (view.hover - 2) / 2 : Math.sin(now / 1700) * 0.5) : round && round.status === 'flying' ? (view.pick - 2) / 2 : Math.sin(now / 2300) * 0.4;
-const pcv = $('#pilotCv'), pcx = pcv.getContext('2d');
-function drawPilot(now) {   // the live portrait in the HUD
-  const w = pcv.clientWidth, h = pcv.clientHeight;
-  if (!w) return;
-  const d = Math.min(2, window.devicePixelRatio || 1), cw = Math.round(w * d), ch = Math.round(h * d);
-  if (pcv.width !== cw || pcv.height !== ch) { pcv.width = cw; pcv.height = ch; }
-  pcx.setTransform(d, 0, 0, d, 0, 0); pcx.clearRect(0, 0, w, h);
-  const m = moodNow(now);
-  if (has3D()) { blit3D(pcx, 'B', w / 2, h / 2, w * 1.12); pcx.save(); pcx.translate(0, 0); pcx.scale(w / 500, h / 500); faceAround(pcx, fxOf(m.ex), now); pcx.restore(); }
-  else drawBrainer(pcx, w / 2, h / 2 + (reduced ? 0 : Math.sin(now / 600) * 1.2), w, myLevel(), m.ex, now);
-}
-function brainerURL(L, ex) {
-  const c = document.createElement('canvas'); c.width = c.height = 200; const g = c.getContext('2d'), now = performance.now();
-  if (has3D()) {   // a fresh render of the front view, copied straight away
-    const snap = b3.snap || (b3.snap = new window.Brainer3D.Brainer(L));   // its own Brainer, so the live one keeps its pose
-    snap.setLevel(L); for (let i = 0; i < 30; i++) snap.update(now + i * 16, ex, { reduced });
-    b3.stage.draw(snap, b3.wA, 0, b3.B, b3.B, 'hero'); blit3D(g, 'B', 100, 100, 210);
-  } else drawBrainer(g, 100, 100, 200, L, ex, now);
-  return c.toDataURL();
-}
 
 const ZP = 2.2, Z_WAIT = 9, Z_FAR = 40, G_CRUISE = 5;   // depths: plane, waiting gates, new gates; ground drop in the air
 let G_H = G_CRUISE;   // the ground's drop below the camera: low while the plane is parked on the runway, G_CRUISE in flight
@@ -763,14 +687,13 @@ function chuteState(now) {
   const tl = t - 3000, hop = tl < 520 ? Math.sin(tl / 520 * Math.PI) * 10 * PS : 0;
   return { x: Lx, y: Ly - hop, h: hEnd, open, fold: easeOut(clamp(tl / 700, 0, 1)), landed: true };   // touchdown, a little hop, the canopy folds
 }
-// Back to the start screen after a flight: the plane flies back in with the Brainer aboard, and any level-up is shown.
+// Back to the start screen after a flight: the plane flies back in with the Brainer aboard.
 function resetToStart(now) {
   outro = null; chute = null; round = null; park();
   if (iris) iris.out = iris.out || now;
   plane.state = 'enter'; plane.t0 = now; plane.brain = myLevel();
   recenter(); setTrack(LEVELS[S.level], 0, cfg.rtp);
-  $('#pilot').classList.remove('sooty');
-  renderControls(); renderLadder(); renderLevels(); flushLevelUp();   // after a crash it waits for the crash card to close
+  renderControls(); renderLadder(); renderLevels();
 }
 function burst(x, y, n, cols, sp) {
   for (let i = 0; i < n; i++) { const a = Math.random() * 7, v = sp * (0.4 + Math.random()); parts.push({ type: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.1, g: 0.0009, life: 0, max: 600 + Math.random() * 500, r: 3 + Math.random() * 4, c: cols[i % cols.length] }); }
@@ -1173,7 +1096,7 @@ function draw(now) {
 
 function loop(now) {
   const dt = Math.min(50, now - (last || now)); last = now;
-  if (W && H) { advance(now); update(now, dt); render3D(now); draw(now); updateUI(now); drawPilot(now); }
+  if (W && H) { advance(now); update(now, dt); render3D(now); draw(now); updateUI(now); }
   requestAnimationFrame(loop);
 }
 
@@ -1218,15 +1141,6 @@ function renderLevels() {   // built once, as the tops never change; after that 
 }
 function renderPaths() {
   $('#paths').innerHTML = PATHS.map(([nm, deg], k) => `<button type="button" data-p="${k}" aria-label="Path ${k + 1}, ${nm}"><span class="n"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g transform="rotate(${deg} 12 12)"><path d="M12 20V5M6 11l6-6 6 6" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></svg>${k + 1}</span><span class="nm">${nm}</span></button>`).join('');
-}
-function renderPicker() {   // your Brainer: level, progress, the ten looks, and the worlds it has unlocked
-  const L = myLevel(), st = stageOf(L), f = document.activeElement;
-  const keep = f && f.closest('#levelsGrid, #worldsPick') ? (f.dataset.b ? `#levelsGrid [data-b="${f.dataset.b}"]` : `#worldsPick [data-w="${f.dataset.w}"]`) : '';   // the button just pressed, rebuilt below
-  $('#pickLevel').textContent = L; $('#pickSlider').value = L;
-  $('#pickNote').textContent = L < 100 ? `${Math.floor(S.cells - CELLS[L]).toLocaleString('en-US')} of ${(CELLS[L + 1] - CELLS[L]).toLocaleString('en-US')} brain cells to level ${L + 1}` : 'Top level reached';
-  $('#levelsGrid').innerHTML = Array.from({ length: 10 }, (_, i) => `<button type="button" data-b="${i * 10 + 1}" aria-pressed="${i + 1 === st}"${i + 1 > st ? ' class="ahead"' : ''}><img src="assets/brainer-${i + 1}.png" alt=""><b>Stage ${i + 1}</b><span>Levels ${i * 10 + 1}–${i * 10 + 10}</span></button>`).join('');
-  $('#worldsPick').innerHTML = [['fields', WORLDS.fields.name, 1], ...UNLOCKS.map(u => [u.world, u.name, u.at])].map(([k, n, at]) => `<button type="button" data-w="${k}" aria-pressed="${k === worldKey}"${L < at ? ' disabled' : ''}><b>${n}</b><span>${L < at ? `Level ${at}` : k === worldKey ? 'Flying here' : 'Unlocked'}</span></button>`).join('');
-  if (keep && $(keep)) $(keep).focus({ preventScroll: true });   // focus stays on it, so its new state is read out (no scroll: the website's frame)
 }
 function renderLadder() {
   const r = round, d = r ? r.d : LEVELS[S.level], rtp = cfg.rtp, n = r && r.status !== 'crashed' ? r.n : 0, live = inFlight();
@@ -1281,16 +1195,11 @@ async function checkFair() {
     + `<p class="sheet-note">Red: a bomb on that path. White ring: the path you picked.${shown > played ? ' The faded row is the next step you skipped by jumping.' : ''}</p>`;
 }
 
-/* ---------- sheets: brain-level picker, fairness and how to play ---------- */
-const sheetOpen = () => !$('#picker').hidden || !$('#tutorial').hidden || !$('#agegate').hidden || !$('#fairSheet').hidden;
+/* ---------- sheets: fairness and how to play ---------- */
+const sheetOpen = () => !$('#tutorial').hidden || !$('#agegate').hidden || !$('#fairSheet').hidden;
 let lastFocus = null;
 function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; const f = $(id).querySelector('button[aria-pressed=true], button'); if (f) f.focus({ preventScroll: true }); }   // no scroll: inside the website's frame it would scroll the parent page
 function closeSheet(id) { $(id).hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
-$('#pilot').addEventListener('click', () => { renderPicker(); openSheet('#picker'); });
-$('#pickerClose').addEventListener('click', () => closeSheet('#picker'));
-$('#levelsGrid').addEventListener('click', e => { const b = e.target.closest('button[data-b]'); if (b) setBrainLevel(+b.dataset.b); });
-$('#pickSlider').addEventListener('input', e => setBrainLevel(+e.target.value));
-$('#worldsPick').addEventListener('click', e => { const b = e.target.closest('button[data-w]'); if (!b || b.disabled) return; setWorld(b.dataset.w); store.set('brainer.world', worldKey); renderPicker(); });
 $('#help').addEventListener('click', () => openSheet('#tutorial'));
 $('#fair').addEventListener('click', () => { renderFair(); openSheet('#fairSheet'); });
 $('#fairClose').addEventListener('click', () => closeSheet('#fairSheet'));
@@ -1317,8 +1226,7 @@ $('#levels').addEventListener('click', e => {
   round = null; outro = null; chute = null; wipe = null; recenter(); setTrack(LEVELS[S.level], 0, cfg.rtp); plane.brain = myLevel(); park();
   if (iris) iris.out = now;
   if (plane.state !== 'cruise') { plane.state = 'enter'; plane.t0 = now; }
-  $('#pilot').classList.remove('sooty');
-  renderLadder(); flushLevelUp();   // the result it cleared held a level-up back; it waits for the crash card to close
+  renderLadder();
 });
 $('#play').addEventListener('click', play);
 $('#paths').addEventListener('click', e => { const b = e.target.closest('button[data-p]'); if (b) { choose(+b.dataset.p); ptrFocus = true; } });   // focus stays on a picked path, which leaves Space to the game: Space jumps, never flies that path again
@@ -1337,7 +1245,7 @@ document.addEventListener('keydown', e => {
     if (s) { const f = [...s.querySelectorAll('button, input')].filter(b => !b.disabled && b.getClientRects().length), i = f.indexOf(document.activeElement); if (!f.length) e.preventDefault(); else if (i < 0 || (e.shiftKey ? i === 0 : i === f.length - 1)) { e.preventDefault(); f[e.shiftKey ? f.length - 1 : 0].focus({ preventScroll: true }); } }
     return;
   }
-  if (e.key === 'Escape') { if (!$('#picker').hidden) closeSheet('#picker'); if (!$('#fairSheet').hidden) closeSheet('#fairSheet'); if (!$('#tutorial').hidden) { store.set('brainer.pc.tutorial', 'seen'); closeSheet('#tutorial'); } return; }
+  if (e.key === 'Escape') { if (!$('#fairSheet').hidden) closeSheet('#fairSheet'); if (!$('#tutorial').hidden) { store.set('brainer.pc.tutorial', 'seen'); closeSheet('#tutorial'); } return; }
   if (!booted) { if (e.code === 'Space') e.preventDefault(); return; }   // no game keys under the intro (the 18+ check comes first); Space only skips it, with no page scroll
   if (sheetOpen()) return;
   const tag = document.activeElement && document.activeElement.tagName;
@@ -1366,7 +1274,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Tab') ptrFocus = fals
 }
 S.client = randHex(8);
 rotateSeed().catch(() => {});   // without crypto.subtle (plain http) Play says why instead
-setStake(S.stake); renderLevels(); renderPaths(); renderBalance(); renderControls(); renderPilot(); renderSound();
+setStake(S.stake); renderLevels(); renderPaths(); renderBalance(); renderControls(); renderSound();
 layout(); plane.brain = myLevel(); setTrack(LEVELS[S.level], 0, cfg.rtp); park(); renderLadder();
 // The Brainer intro plays first (logo motion and loading); the 18+ check and the tutorial follow it.
 const bootT = performance.now();
