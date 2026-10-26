@@ -147,15 +147,15 @@ window.BRAINER = {
       art: 'assets/games/charge.webp',
       // Published, the game sits at /charge/ next to the site; in the repo it is the sibling folder.
       src: location.pathname.includes('/Website/') ? '../Game%20%234%20-%20Charge/index.html' : 'charge/index.html',
-      tagline: 'Charge your Brainer to level it up and raise the multiplier. Overcharge it and it breaks down.',
+      tagline: 'Charge your Brainer to level it up and raise the multiplier. Overcharge its battery and it dozes off.',
       about: [
         'A single-player instant game played in steps, in the style of Chicken Road. The Brainer starts every round at Level 1 on a charging pad between two coils, on a hilltop over the valley. Each charge either levels it up and raises the multiplier, or overcharges it.',
-        'Cash out after any charge to lock in the multiplier. An overcharged Brainer breaks down, its visor glitching red and smoke rising from its head, and the bet is lost.',
-        'The Brainer grows with the multiplier: eleven looks from the baby at 1.00×, through the scarf, the cap and the bow tie, to the master in graduation cap and cape at 1,000×. Easy grows it slowly; Hardcore races through the looks.'
+        'Cash out after any charge to lock in the multiplier. The coils charge a battery that floats over the Brainer’s head: if a charge overloads, the battery overfills and pops, the Brainer gets dizzy and dozes off, and the bet is lost.',
+        'Every safe charge changes the Brainer. Its eleven looks are spread over the charges a round can reach, from the baby to the master in graduation cap and cape on the last one, and each charge in between snaps on a random piece of gear: power bands, gloves, headphones, energy wings and more. The Brainer is live 3D and never stands still while it waits for the next charge.'
       ],
       how: [
         'Pick a difficulty and a bet in US dollars, then press Play.',
-        'Press Charge. A safe charge levels your Brainer up and raises the multiplier; the battery shows what each level pays and the chance the next charge is safe.',
+        'Press Charge. A safe charge levels your Brainer up and raises the multiplier; the ladder shows what each level pays and the chance the next charge is safe.',
         'Cash out whenever you like. If a charge overloads, the round is over.'
       ],
       // Mirrors cfg and LEVELS in Game #4 - Charge/game.js: Plane Crash's ladder (25 charges hide 1, 3, 5 or 10 overloads,
@@ -177,7 +177,7 @@ window.BRAINER = {
         ['Brain levels', '100 in ten looks; the same 10 brain cells for every finished round. They never change odds or payouts'],
         ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 overloads in 25 charges'],
         ['Charges per round', '24, 22, 20, up to 14'],
-        ['Looks', 'Eleven, set by the multiplier: from 1.2× to the caped master at 1,000×. They never change odds or payouts'],
+        ['Looks', 'Eleven, spread over the charges a round can reach, and a random piece of gear on every charge between. They never change odds or payouts'],
         ['Bet range', '$0.10 to $200'],
         ['Max win', '$10,000 per round, which caps every payout: 100,000× at the $0.10 minimum bet'],
         ['Currency', 'US dollars in the demo, local currencies per market'],
