@@ -1,7 +1,7 @@
 /* FogRush by Brainer Games. The player's 3D Brainer walks a 25 x 25 map of grass plots in a valley hidden under fog. Every
    new tile clears its clouds: most are plain and nudge the multiplier up, some hold a chest (x1.3 to x25), 8% hold a
-   bomb that ends the round. Tiles already cleared are safe to cross. Cash out any time. RTP 98% for any way of
-   playing, provably fair, play money in US dollars. */
+   bomb that ends the round. Tiles already cleared are safe to cross. Cash out any time. RTP up to 98%, provably fair,
+   play money in US dollars. */
 import * as THREE from 'three';
 import { RoomEnvironment } from '../shared/vendor/RoomEnvironment.js';
 import { RoundedBoxGeometry } from '../shared/vendor/RoundedBoxGeometry.js';
@@ -22,8 +22,9 @@ const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return
 /* ---------- config & math ---------- */
 // Each new tile is a bomb with chance `bomb`; otherwise plain or a chest by the weights below. A safe tile multiplies the
 // multiplier by BASE x the chest's factor (1 for plain). BASE is set so every step is fair on average:
-// (1 - bomb) x BASE x E[factor] = 1. The 98% RTP is applied once, at the start, like Chicken Road's. The expected
-// payout is 98% of the bet whichever way the player walks or whenever they cash out.
+// (1 - bomb) x BASE x E[factor] = 1. The 98% RTP is applied once, at the start, like Chicken Road's. So the return is
+// 98% before two things lower it in some rounds: payouts round down to the cent, and the $10,000 max win ends long or
+// high-bet rounds early. Hence "RTP up to 98%".
 const cfg = {
   rtp: 98, bomb: 0.08, grid: 25, minBet: 0.1, maxBet: 200, maxWin: 10000, startBalance: 1000, stepMs: 280,
   chests: [
@@ -48,6 +49,8 @@ function outcome(u) {
   return cfg.chests.length;
 }
 const multOf = r => Math.floor(r.m * 100 + 1e-7) / 100;   // shown and paid, rounded down to the cent
+const payOf = r => Math.min(Math.floor(r.stake * multOf(r) * 100 + 1e-6) / 100, cfg.maxWin);   // the payout, to the cent too, so the balance adds up to the wins shown
+const capM = (r, m) => Math.min(m, Math.floor(cfg.maxWin / r.stake * 100) / 100);   // a multiplier as it pays: the max win caps it
 const DIRS = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
 
 // Brain levels, shared with every Brainer game: 100 levels in 10 stages, cosmetic only, the same cells every round.
@@ -126,7 +129,7 @@ function makeRenderer() {
   r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
   r.setClearColor(0x000000, 0);
   r.domElement.className = 'world'; listen(r.domElement);
-  scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture;
+  const pm = new THREE.PMREMGenerator(r), room = new RoomEnvironment(); scene.environment = pm.fromScene(room, 0.04).texture; pm.dispose(); room.dispose();   // baked once: free the generator's 6 MB of targets
   return r;
 }
 let gl = null, renderer = null;   // if the browser drops the world's context (too many open on a phone), it is rebuilt in place
@@ -335,7 +338,7 @@ function stepParticles(dt) {
 
 // chests: wood with metal trim in the tier's colour; royal and mythic ones get a coloured body and a gem
 function chest(x, y, tier, now) {
-  const c = cfg.chests[tier - 1], g = new THREE.Group(), h = TOP + tileH(x, y);
+  const c = cfg.chests[tier - 1], g = new THREE.Group(), h = TOP + tileH(x, y), r0 = round;
   g.position.set(wx(x) - 0.9, h, wz(y) + 0.72); g.rotation.y = 0.35; g.userData.k = 0.85; roundBits.add(g);   // front left of the Brainer, where the camera sees it
   const wood = new THREE.MeshStandardMaterial({ color: c.body, roughness: tier >= 4 ? 0.35 : 0.7, metalness: tier >= 4 ? 0.2 : 0 }), trim = new THREE.MeshPhysicalMaterial({ color: c.trim, metalness: 0.75, roughness: 0.25 });
   const box = new THREE.Mesh(new RoundedBoxGeometry(1.0, 0.56, 0.7, 2, 0.06), wood); box.position.y = 0.3; box.castShadow = true; g.add(box);
@@ -351,13 +354,14 @@ function chest(x, y, tier, now) {
   g.scale.setScalar(0.01);
   tween(420, p => g.scale.setScalar(Math.max(0.01, easeBack(p) * 0.85)));
   setTimeout(() => {
+    if (round !== r0) return;   // the next round has begun (a quick skip with reduced motion): its valley stays clean
     tween(500, p => { hinge.rotation.x = -1.9 * easeBack(p); glow.intensity = (tier >= 4 ? 14 : 7) * Math.sin(Math.min(1, p) * Math.PI / 2); });
     spray(g.position.clone().add(new THREE.Vector3(0, 0.7, 0)), 6 + tier * 5, 1.4 + tier * 0.25, 4 + tier * 0.5);
     const lb = label(`×${c.f}`, tier >= 4 ? '#ffe07a' : '#ffd56b', 0.75 + tier * 0.12); lb.position.set(g.position.x, h + 1.8, g.position.z); scene.add(lb);
-    tween(1500, p => { lb.position.y = h + 1.8 + p * 1.2; lb.material.opacity = p < 0.7 ? 1 : (1 - p) / 0.3; lb.scale.set((0.75 + tier * 0.12) * 3.2 * (0.6 + 0.4 * easeBack(Math.min(1, p * 4))), (0.75 + tier * 0.12) * (0.6 + 0.4 * easeBack(Math.min(1, p * 4))), 1); }, () => scene.remove(lb));
+    tween(1500, p => { lb.position.y = h + 1.8 + p * 1.2; lb.material.opacity = p < 0.7 ? 1 : (1 - p) / 0.3; lb.scale.set((0.75 + tier * 0.12) * 3.2 * (0.6 + 0.4 * easeBack(Math.min(1, p * 4))), (0.75 + tier * 0.12) * (0.6 + 0.4 * easeBack(Math.min(1, p * 4))), 1); }, () => drop(lb));
     if (tier >= 4) {   // royal and mythic: a beam of light, confetti and a flash
       const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.9, 14, 24, 1, true), new THREE.MeshBasicMaterial({ color: 0xffe07a, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); beam.position.set(g.position.x, h + 7, g.position.z); scene.add(beam);
-      tween(1800, p => { beam.material.opacity = 0.4 * Math.sin(p * Math.PI); beam.scale.set(1 + p * 0.4, 1, 1 + p * 0.4); }, () => scene.remove(beam));
+      tween(1800, p => { beam.material.opacity = 0.4 * Math.sin(p * Math.PI); beam.scale.set(1 + p * 0.4, 1, 1 + p * 0.4); }, () => drop(beam));
       rain(g.position, tier === 5 ? 200 : 120); flash('255,236,170');
     }
   }, 380);
@@ -365,8 +369,18 @@ function chest(x, y, tier, now) {
 
 // bombs: a cartoon bomb pops out of the cloud with its fuse fizzing, then blows; the Brainer is thrown and lands sooty
 const fireTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 2, 64, 64, 64); gr.addColorStop(0, '#fffbe6'); gr.addColorStop(0.3, '#ffd45a'); gr.addColorStop(0.65, '#ff7a3d'); gr.addColorStop(1, 'rgba(237,43,75,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); })();
+// what a round made goes with it: three.js keeps a geometry's buffers and a texture until they're disposed. The pieces
+// every round shares stay, and so do materials: they hold no GPU memory, and disposing one recompiles its shader next round.
+const keep = new Set([flowerGeo, stoneGeo, coins.geometry, soft, fireTex]);
+function drop(o) {
+  o.removeFromParent();
+  o.traverse(m => {
+    if (m.geometry && !m.isSprite && !keep.has(m.geometry)) m.geometry.dispose();
+    if (m.material && m.material.map && !keep.has(m.material.map)) m.material.map.dispose();
+  });
+}
 function bombAt(x, y) {
-  const h = TOP + tileH(x, y), pos = new THREE.Vector3(wx(x) - 0.85, h, wz(y) + 0.72), g = new THREE.Group(); g.position.copy(pos); roundBits.add(g);
+  const r0 = round, h = TOP + tileH(x, y), pos = new THREE.Vector3(wx(x) - 0.85, h, wz(y) + 0.72), g = new THREE.Group(); g.position.copy(pos); roundBits.add(g);
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 32, 24), new THREE.MeshPhysicalMaterial({ color: 0x1a1640, roughness: 0.25, clearcoat: 1 })); body.position.y = 0.45; body.castShadow = true; g.add(body);
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.14, 16), new THREE.MeshStandardMaterial({ color: 0x3a3f58 })); cap.position.y = 0.9; g.add(cap);
   const fuse = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.03, 8, 16, Math.PI * 0.8), new THREE.MeshStandardMaterial({ color: 0xc9a06a })); fuse.position.set(0.14, 0.98, 0); fuse.rotation.z = Math.PI * 0.1; g.add(fuse);
@@ -374,15 +388,16 @@ function bombAt(x, y) {
   g.scale.setScalar(0.01); tween(300, p => g.scale.setScalar(Math.max(0.01, easeBack(p))));
   tween(520, p => { spark.scale.setScalar(0.3 + Math.random() * 0.25); body.scale.setScalar(1 + p * 0.12 * Math.abs(Math.sin(p * 30))); });
   sound.fuse();
-  setTimeout(() => {   // the blast
-    roundBits.remove(g); sound.boom(); flash('255,240,245'); shake = reduced ? 0 : 0.5;
+  setTimeout(() => {   // the blast, unless the next round has already begun
+    if (round !== r0) return;
+    drop(g); sound.boom(); flash('255,240,245'); shake = reduced ? 0 : 0.5;
     if (navigator.vibrate) navigator.vibrate(120);
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.6, 0.9, 48), new THREE.MeshBasicMaterial({ color: 0xfff0d0, transparent: true, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.set(pos.x, h + 0.08, pos.z); scene.add(ring);
-    tween(700, p => { ring.scale.setScalar(1 + p * 5); ring.material.opacity = 0.8 * (1 - p); }, () => scene.remove(ring));
+    tween(700, p => { ring.scale.setScalar(1 + p * 5); ring.material.opacity = 0.8 * (1 - p); }, () => drop(ring));
     for (let i = 0; i < 9; i++) {
       const fire = i < 5, sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: fire ? fireTex : soft, color: fire ? 0xffffff : 0x6b6585, transparent: true, depthWrite: false, blending: fire ? THREE.AdditiveBlending : THREE.NormalBlending }));
       const a = i * 1.3, d = fire ? 0.3 : 0.6; sp.position.set(pos.x + Math.cos(a) * d, h + 0.7 + (fire ? 0 : 0.4), pos.z + Math.sin(a) * d); scene.add(sp);
-      tween(fire ? 650 : 1400, p => { const s = (fire ? 1.6 : 1.2) + p * (fire ? 2.4 : 2.6); sp.scale.set(s, s, 1); sp.position.y += fire ? 0.004 : 0.012; sp.material.opacity = fire ? 1 - p : 0.75 * (1 - p); }, () => scene.remove(sp));
+      tween(fire ? 650 : 1400, p => { const s = (fire ? 1.6 : 1.2) + p * (fire ? 2.4 : 2.6); sp.scale.set(s, s, 1); sp.position.y += fire ? 0.004 : 0.012; sp.material.opacity = fire ? 1 - p : 0.75 * (1 - p); }, () => drop(sp));
     }
     const crater = new THREE.Mesh(new THREE.CircleGeometry(0.85, 32), new THREE.MeshBasicMaterial({ map: soft, color: 0x2a2236, transparent: true, opacity: 0.75, depthWrite: false })); crater.rotation.x = -Math.PI / 2; crater.position.set(pos.x, h + 0.012, pos.z); roundBits.add(crater);
     walker.fly = { t0: performance.now(), from: holder.position.clone(), to: new THREE.Vector3(wx(x) + 0.55, TOP + tileH(x, y), wz(y) - 0.25) };
@@ -428,13 +443,16 @@ function moodNow(now) {
 
 /* ---------- round flow ---------- */
 async function play() {
-  if (round || starting || sheetOpen()) return;
+  if (booting || round || starting || sheetOpen()) return;   // booting: a tap through the leaving intro would bet before the 18+ check
   if (S.stake < cfg.minBet || S.stake > cfg.maxBet) { toast(`Bet between ${money(cfg.minBet)} and ${money(cfg.maxBet)}.`); return; }
   if (S.stake > S.balance) { toast('Not enough demo balance for this bet. Lower it or press Reset.'); return; }
   starting = true; flushLevelUp(); renderControls();
   const r = { stake: S.stake, auto: S.auto, seed: S.seed, hash: S.hash, client: S.client, nonce: S.nonce++, status: 'explore', m: cfg.rtp / 100, tiles: 0, chests: 0, found: [0, 0, 0, 0, 0], path: [[C, C]], seen: new Set([idx(C, C)]), payout: 0 };
-  try { r.map = await drawMap(r.seed, r.client, r.nonce); } finally { starting = false; }
-  S.balance -= r.stake; round = r;
+  try { r.map = await drawMap(r.seed, r.client, r.nonce); }
+  catch (e) { S.nonce--; toast(window.isSecureContext ? 'Could not start the round. Please try again.' : 'This demo needs https (or localhost) for its provably fair draw.'); return; }
+  finally { starting = false; renderControls(); }
+  S.balance = Math.round((S.balance - r.stake) * 100) / 100; round = r;
+  if (!$('#fairSheet').hidden) renderFair();   // opened while the map was drawn: it now shows this round, its seed locked
   react('hop', "Let's explore!"); feel('wink', 900); sound.start();
   renderAll();
 }
@@ -451,7 +469,7 @@ function move(dir) {
 }
 function land(x, y, fresh) {
   const r = round; walker.x = x; walker.y = y; r.path.push([x, y]);
-  if (!fresh) return;
+  if (!fresh) { if (r.cashAfter) cashOut(false); return; }
   r.seen.add(idx(x, y)); paintGrass(x, y, true);
   for (const [dx, dy] of Object.values(DIRS)) { const ax = x + dx, ay = y + dy; if (ax >= 0 && ay >= 0 && ax < N && ay < N && !r.seen.has(idx(ax, ay))) setCloud(ax, ay, 0.68); }
   const out = r.map[idx(x, y)], now = performance.now();
@@ -464,6 +482,7 @@ function land(x, y, fresh) {
   const pay = r.stake * multOf(r);
   if (pay >= cfg.maxWin) { cashOut(true, 'max'); return; }
   if (r.auto && multOf(r) >= r.auto) { cashOut(true, 'auto'); return; }
+  if (r.cashAfter) { cashOut(false); return; }   // asked for mid-hop: this tile was safe, so it cashes out now
   renderAll();
 }
 function sparkle(x, y) {
@@ -471,14 +490,16 @@ function sparkle(x, y) {
   for (let i = 0; i < 6; i++) {
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: soft, color: i % 2 ? 0xffffff : 0xb4ef84, transparent: true, depthWrite: false })); const a = i / 6 * 6.28;
     sp.position.set(wx(x) + Math.cos(a) * 0.6, h + 0.3, wz(y) + Math.sin(a) * 0.6); sp.scale.setScalar(0.25); scene.add(sp);
-    tween(700, p => { sp.position.y = h + 0.3 + p * 1.1; sp.material.opacity = 1 - p; }, () => scene.remove(sp));
+    tween(700, p => { sp.position.y = h + 0.3 + p * 1.1; sp.material.opacity = 1 - p; }, () => drop(sp));
   }
 }
 function cashOut(auto, why) {
   const r = round;
-  if (!r || r.status !== 'explore' || r.tiles < 1 || walker.hop) return;
+  if (!r || r.status !== 'explore') return;
+  if (walker.hop) { if (!auto) { r.cashAfter = true; held.clear(); } return; }   // mid-hop: the step is committed, so it cashes out when it lands
+  if (r.tiles < 1) return;
   const m = multOf(r);
-  r.payout = Math.min(r.stake * m, cfg.maxWin); r.status = 'cashed'; S.balance += r.payout;
+  r.payout = payOf(r); r.status = 'cashed'; S.balance = Math.round((S.balance + r.payout) * 100) / 100;
   sound.cash(); react('pop', m >= 10 ? 'Whoa!!' : 'Yay!'); feel(m >= 10 ? 'amazed' : 'happy', 1500);
   spray(holder.position.clone().add(new THREE.Vector3(0, 1.4, 0)), m >= 10 ? 40 : 24, 1.8, 5);
   if (m >= 10) rain(holder.position, m >= 100 ? 200 : 130);
@@ -488,7 +509,7 @@ function cashOut(auto, why) {
 function bust(x, y) {
   const r = round; r.status = 'bust';
   bombAt(x, y);
-  $('#pilot').classList.add('sooty'); setTimeout(() => react('shake', 'Ouch!'), 560);
+  $('#pilot').classList.add('sooty'); setTimeout(() => { if (round === r) react('shake', 'Ouch!'); }, 560);
   settle(3900);
 }
 let resetT = 0;
@@ -507,10 +528,10 @@ function nextRound() {
   const c = $('#curtain'); c.classList.remove('roll'); void c.offsetWidth; c.classList.add('roll');
   clearTimeout(curtainT);
   curtainT = setTimeout(() => {
-    round = null; roundBits.clear(); coinP = []; confP = [];
+    round = null; [...roundBits.children].forEach(drop); coinP = []; confP = [];
     walker.x = walker.y = C; walker.hop = walker.fly = null; walker.faceTo = 0.15; placeWalker();
     resetClouds(); $('#pilot').classList.remove('sooty'); mood.set = '';
-    renderAll(); flushLevelUp();
+    me.setLevel(myLevel()); renderAll(); flushLevelUp();   // cells another tab added can change the level too
   }, reduced ? 50 : 650);
   setTimeout(() => c.classList.remove('roll'), reduced ? 100 : 1500);
 }
@@ -518,6 +539,8 @@ function nextRound() {
 /* ---------- brain cells and levels ---------- */
 let luT = 0, bubT = 0, pendingLevel = 0, levelFrom = 0;
 function earnCells(k) {
+  const saved = parseFloat(store.get('brainer.xp', ''));   // another Brainer game open in another tab may have added cells since
+  if (saved >= 0) S.cells = saved;
   const before = myLevel();
   S.cells = Math.round((S.cells + k) * 10) / 10;
   store.set('brainer.xp', String(S.cells)); store.set('brainer.level', String(myLevel()));
@@ -531,7 +554,7 @@ function flushLevelUp() {
   me.setLevel(L);
   $('#luImg').src = brainerURL(L, 'love'); $('#luTitle').textContent = `Brain level ${L}`; feel('love', 1900);
   $('#luSub').textContent = newStage ? `New look: stage ${stageOf(L)} of 10` : L - from > 1 ? `Up ${L - from} levels` : 'Your Brainer grew new brain cells';
-  el.classList.toggle('big', newStage); el.hidden = true; void el.offsetWidth; el.hidden = false;
+  el.classList.toggle('lu-big', newStage); el.hidden = true; void el.offsetWidth; el.hidden = false;
   clearTimeout(luT); luT = setTimeout(() => { el.hidden = true; }, newStage ? 3600 : 2800);
   sound.level();
 }
@@ -552,9 +575,35 @@ function earnFloat(k) {
 let last = 0, W = 0, H = 0;
 function layout() {
   W = stage.clientWidth; H = stage.clientHeight; if (!W || !H) return;
-  renderer.setSize(W, H, false); cam.aspect = W / H; cam.fov = W / H < 0.95 ? 50 : 40; cam.updateProjectionMatrix();
+  renderer.setSize(W, H, false); cam.aspect = W / H; cam.fov = W / H < 0.95 ? 50 : 40;
+  // The readout covers the top of the stage. Where there is room under it, the picture drops until the tallest Brainer
+  // (stage 10: its head at 0.22 of the height, the feet of any stage above 0.65) stands below the readout, and pulls
+  // back where it would not fit above the ladder. A short landscape stage has no room under it: there the card sits at
+  // the right (style.css), and the Brainer is centred between the Brainer card and it. Any other stage under 480 px
+  // (a phone, the site's game page in an in-app browser, full screen there) gets the slim one-line readout.
+  cam.zoom = 1; cam.clearViewOffset();
+  const land = matchMedia('(orientation: landscape) and (max-height: 500px)').matches;   // the same query as style.css's
+  // By the stage's own height (the framed page and full screen too), as a round leaves it: in full screen the round's pad
+  // is taller than the bet row, so #explore is measured out of the flow, or the readout would change as Play is pressed.
+  let roundH = H; const su = $('#setup'), ex = $('#explore');
+  if (!land && !su.hidden && document.documentElement.classList.contains('focus')) {
+    ex.style.cssText = `position:absolute;visibility:hidden;width:${su.offsetWidth}px`; ex.hidden = false;
+    roundH = H - Math.max(0, ex.offsetHeight - su.offsetHeight); ex.hidden = true; ex.style.cssText = '';
+  }
+  stage.classList.toggle('slim', !land && roundH < 480);
+  const ro = $('#readout'), top = ro.offsetTop + ro.offsetHeight + 10, fit = (H - 40 - top) / (0.43 * H);   // 10: a round's bigger multiplier; 40: the ladder
+  if (land) {
+    const pl = $('#pilot'), l = pl.offsetLeft + pl.offsetWidth, r = ro.offsetLeft;
+    cam.setViewOffset(W, H, W / 2 - (l + r) / 2, 0, W, H);
+  } else if (fit >= 0.75) {
+    cam.zoom = Math.min(1, fit);
+    const lift = top - H * (0.5 - 0.28 * cam.zoom);
+    if (lift > 0) cam.setViewOffset(W, H, 0, -lift, W, H);
+  }
+  cam.updateProjectionMatrix();
 }
 new ResizeObserver(layout).observe(stage);
+if (document.fonts) document.fonts.ready.then(layout);   // the readout's height, in its own font
 const camAt = new THREE.Vector3(), camGoal = new THREE.Vector3();
 function update(now, dt) {
   tweens = tweens.filter(t => { const p = clamp((now - t.t0) / t.dur, 0, 1); t.fn(p); if (p >= 1) { if (t.done) t.done(); return false; } return true; });
@@ -610,28 +659,54 @@ let frames = 0;
 // by physical key, so WASD and C work on any layout (a Georgian keyboard sends "დ" for D)
 const KEYS = { ArrowUp: 'N', ArrowDown: 'S', ArrowLeft: 'W', ArrowRight: 'E', KeyW: 'N', KeyS: 'S', KeyA: 'W', KeyD: 'E' };
 const held = new Set();
-let hoverDir = '';
-setInterval(() => { if (held.size && exploring() && !walker.hop) move([...held].pop()); }, 40);   // hold a direction to keep walking
+let hoverDir = '', booting = true, ptrFocus = false;   // booting: until the intro has gone; ptrFocus: the focused button was clicked, not tabbed to
+setInterval(() => {   // hold a direction to keep walking; only the press itself bumps at the valley's edge
+  if (!held.size || !exploring() || walker.hop) return;
+  const d = [...held].pop(), [dx, dy] = DIRS[d], nx = walker.x + dx, ny = walker.y + dy;
+  if (nx >= 0 && ny >= 0 && nx < N && ny < N) move(d);
+}, 40);
+document.addEventListener('pointerdown', () => { ptrFocus = true; }, true);
 document.addEventListener('keydown', e => {
   lastInput = performance.now();
-  if (e.key === 'Escape') { for (const id of ['#picker', '#fairSheet', '#tutorial']) if (!$(id).hidden) closeSheet(id); return; }
+  if (e.key === 'Tab') {   // keep focus inside the open sheet; the last one in the page is the one on top
+    ptrFocus = false;
+    const s = [...document.querySelectorAll('.sheet')].filter(x => !x.hidden).pop();
+    if (s) { const f = [...s.querySelectorAll('button, input')].filter(b => !b.disabled && b.getClientRects().length); const i = f.indexOf(document.activeElement); if (!f.length) e.preventDefault(); else if (i < 0 || (e.shiftKey ? i === 0 : i === f.length - 1)) { e.preventDefault(); f[e.shiftKey ? f.length - 1 : 0].focus({ preventScroll: true }); } }
+    return;
+  }
+  if (e.repeat && (e.key === 'Enter' || e.code === 'Space') && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName)) { e.preventDefault(); return; }   // a held key's auto-repeat never bets, nor answers a sheet that opened under it
+  if (booting) { if (!e.ctrlKey && !e.metaKey && !e.altKey && (e.code === 'Space' || KEYS[e.code] || KEYS[e.key])) e.preventDefault(); return; }   // the key that skips the intro must not start a round before the 18+ check, nor scroll the page; browser shortcuts still work
+  if (e.key === 'Escape') { if (!$('#tutorial').hidden) store.set('brainer.fr.tutorial', 'seen'); for (const id of ['#picker', '#fairSheet', '#tutorial']) if (!$(id).hidden) closeSheet(id); return; }   // as Let's explore and a backdrop tap do
   if (sheetOpen()) return;
   const tag = document.activeElement && document.activeElement.tagName;
   if (tag === 'INPUT' || tag === 'SELECT') return;
-  if (KEYS[e.code]) { e.preventDefault(); if (!e.repeat) { held.add(KEYS[e.code]); move(KEYS[e.code]); } return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;   // leave browser shortcuts (Ctrl/Cmd+D, +C, Alt+Arrow) alone
+  const d = KEYS[e.code] || KEYS[e.key];   // e.key too: the numpad's arrows with NumLock off
+  if (d) { e.preventDefault(); if (!e.repeat) { held.add(d); move(d); } return; }
   if (e.code === 'KeyC') { cashOut(false); return; }
-  if (e.key === 'Enter' || (e.code === 'Space' && tag !== 'BUTTON')) { e.preventDefault(); if (exploring()) cashOut(false); else if (round) nextRound(); else play(); }
+  // a button reached with Tab takes its own Enter or Space; after a click they play, as the footer says
+  if ((e.key === 'Enter' || e.code === 'Space') && (tag !== 'BUTTON' || ptrFocus)) { e.preventDefault(); if (exploring()) cashOut(false); else if (round) nextRound(); else play(); }
 });
-document.addEventListener('keyup', e => { if (KEYS[e.code]) held.delete(KEYS[e.code]); });
+document.addEventListener('keyup', e => { const d = KEYS[e.code] || KEYS[e.key]; if (d) held.delete(d); });
 addEventListener('blur', () => held.clear());
 const pad = $('#pad');
 pad.addEventListener('pointerdown', e => { const b = e.target.closest('button[data-d]'); if (!b) return; e.preventDefault(); b.setPointerCapture(e.pointerId); b.classList.add('on'); held.add(b.dataset.d); move(b.dataset.d); });
 for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) pad.addEventListener(ev, e => { const b = e.target.closest('button[data-d]'); if (!b) return; b.classList.remove('on'); held.delete(b.dataset.d); });
-// tap or click a tile next to the Brainer to step onto it
+pad.addEventListener('click', e => { const b = e.target.closest('button[data-d]'); if (b && e.detail === 0) move(b.dataset.d); });   // the keyboard or a screen reader: one step (a tap already moved on pointerdown)
+// tap or click a tile next to the Brainer to step onto it, or the chevron floating over it
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), groundP = new THREE.Plane(new THREE.Vector3(0, 1, 0), -TOP), hit = new THREE.Vector3();
 function dirAt(e) {
-  const b = renderer.domElement.getBoundingClientRect(); ndc.set((e.clientX - b.left) / b.width * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1);
-  ray.setFromCamera(ndc, cam); if (!ray.ray.intersectPlane(groundP, hit)) return '';
+  const b = renderer.domElement.getBoundingClientRect(), px = e.clientX - b.left, py = e.clientY - b.top;
+  const onMe = (x, y) => { ndc.set(x / b.width * 2 - 1, -(y / b.height) * 2 + 1); ray.setFromCamera(ndc, cam); return ray.intersectObject(me.root, true).some(h => { for (let o = h.object; o; o = o.parent) if (!o.visible) return false; return true; }); };   // the raycaster hits hidden meshes too
+  if (onMe(px, py)) return '';   // a tap on the Brainer itself is not a move
+  let best = '', bd = 44 * 44;   // the chevrons float well above their tiles, so they're matched on screen: within about 44 px of one picks it
+  for (const c of chevs) if (c.visible) {
+    V.copy(c.position).project(cam); const cx = (V.x + 1) / 2 * b.width; let cy = (1 - V.y) / 2 * b.height;
+    for (let k = 0; k < 25 && onMe(cx, cy); k++) cy -= 4;   // one behind the Brainer (from stage 5 its head hides N's) is matched just above the head
+    const dx = cx - px, dy = cy - py, d2 = dx * dx + dy * dy; if (d2 < bd) { bd = d2; best = c.userData.d; }
+  }
+  if (best) return best;
+  ndc.set(px / b.width * 2 - 1, -(py / b.height) * 2 + 1); ray.setFromCamera(ndc, cam); if (!ray.ray.intersectPlane(groundP, hit)) return '';
   const tx = Math.round(hit.x / T + C), ty = Math.round(hit.z / T + C);
   return Object.keys(DIRS).find(d => walker.x + DIRS[d][0] === tx && walker.y + DIRS[d][1] === ty) || '';
 }
@@ -647,10 +722,11 @@ function setStake(v) { S.stake = clampStake(v); $('#amt').value = S.stake.toFixe
 $('#amt').addEventListener('change', () => setStake(parseFloat($('#amt').value)));
 $('#dec').addEventListener('click', () => setStake(S.stake - (S.stake > 10 ? 1 : 0.5)));
 $('#inc').addEventListener('click', () => setStake(S.stake + (S.stake >= 10 ? 1 : 0.5)));
-$('#chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const c = b.dataset.chip; setStake(c === 'min' ? cfg.minBet : c === 'max' ? Math.min(cfg.maxBet, Math.floor(S.balance * 100) / 100) : c === 'half' ? S.stake / 2 : S.stake * 2); });
+$('#chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const c = b.dataset.chip; setStake(c === 'min' ? cfg.minBet : c === 'max' ? Math.min(cfg.maxBet, Math.floor(S.balance * 100 + 1e-6) / 100) : c === 'half' ? S.stake / 2 : S.stake * 2); });
 $('#auto').addEventListener('click', e => { const b = e.target.closest('button[data-a]'); if (!b) return; S.auto = +b.dataset.a; store.set('brainer.fr.auto', String(S.auto)); renderAll(); });
 $('#play').addEventListener('click', play);
 $('#cash').addEventListener('click', () => cashOut(false));
+$('#cash').addEventListener('pointerdown', e => { if (!e.isPrimary) cashOut(false); });   // a second finger while one holds the pad: phones send it no click
 $('#sound').addEventListener('click', () => { sound.toggle(); renderSound(); });
 $('#refill').addEventListener('click', () => { if (round) { toast('Finish this round first.'); return; } S.balance = cfg.startBalance; renderAll(); toast(`Demo balance reset to ${money(cfg.startBalance)}.`); });
 
@@ -660,30 +736,33 @@ function say(text, ms) { sayText = text; clearTimeout(sayT); sayT = setTimeout((
 function bumpMult() { const el = $('#mult'); el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
 const CHEST_COL = ['#e8b25c', '#d9e1f2', '#ffc147', '#8447fb', '#14a596'];
 function renderAll() {
-  const r = round, m = r ? multOf(r) : 1;
+  const r = round, m = r ? multOf(r) : 1, had = document.activeElement,
+    kept = !!(had && had.closest && had.closest('#setup, #explore') && had.matches(':focus-visible'));   // keyboard focus in a panel, not a click's
   $('#balance').textContent = money(S.balance);
   $('#setup').hidden = !!r; $('#explore').hidden = !r;
-  $('#playSub').textContent = `${money(S.stake)} · 98% RTP`; $('#play').disabled = starting;
+  $('#playSub').textContent = `${money(S.stake)} · RTP up to ${cfg.rtp}%`; $('#play').setAttribute('aria-disabled', String(starting));   // not disabled: that drops the focus; play() waits while starting
   let label, big, bigCls = 'mult', sub = '', subCls = 'sub';
   if (!r) { label = 'Chests up to ×25 · 8% bombs'; big = '1.00×'; bigCls = 'mult idle'; sub = 'Set your bet and press Play'; }
   else if (r.status === 'explore') {
     label = sayText || (r.tiles ? `${r.tiles} new tile${r.tiles === 1 ? '' : 's'} · cleared tiles are safe` : 'Pick a direction');
     big = fx(r.tiles ? m : 1); if (sayText) bigCls = 'mult gold';
-    sub = r.tiles ? `Cash out ${money(Math.min(r.stake * m, cfg.maxWin))} · next ${fx(Math.floor(r.m * BASE * 100 + 1e-7) / 100)}+` : 'Every new tile clears the clouds';
+    const nx = Math.floor(r.m * BASE * 100 + 1e-7) / 100, top = capM(r, Infinity);
+    sub = r.tiles ? `Cash out ${money(payOf(r))} · next ${nx < top ? fx(nx) + '+' : fx(top) + ' max'}` : 'Every new tile clears the clouds';
   } else if (r.status === 'bust') { label = 'Ka-boom!'; big = 'Lost'; bigCls = 'mult bust'; sub = `A bomb on a new tile · −${money(r.stake)}`; subCls = 'sub bad'; }
-  else { label = m >= 100 ? 'Huge win!' : m >= 10 ? 'Big win!' : `Cashed out after ${r.tiles} new tile${r.tiles === 1 ? '' : 's'}`; big = fx(m); bigCls = m >= 10 ? 'mult win gold' : 'mult win'; sub = `You won ${money(r.payout)}`; subCls = 'sub ok'; }
+  else { label = m >= 100 ? 'Huge win!' : m >= 10 ? 'Big win!' : `Cashed out after ${r.tiles} new tile${r.tiles === 1 ? '' : 's'}`; big = fx(capM(r, m)); bigCls = m >= 10 ? 'mult win gold' : 'mult win'; sub = `You won ${money(r.payout)}`; subCls = 'sub ok'; }
   const lab = $('#label'), mul = $('#mult');
   lab.textContent = label; lab.className = 'label' + (sayText || /win!$/.test(label) ? ' gold' : '');
   if (mul.textContent !== big) mul.textContent = big;
   mul.className = bigCls + (mul.classList.contains('pop') ? ' pop' : '');
   $('#sub').hidden = !sub; $('#sub').textContent = sub; $('#sub').className = subCls;
-  $('#ladder').innerHTML = cfg.chests.map((c, i) => `<span class="rung chest${r && r.found[i] ? ' found' : ''}" style="--c:${CHEST_COL[i]}"><i></i>${c.name.replace(' chest', '')} ×${c.f}${r && r.found[i] > 1 ? ` (${r.found[i]})` : ''}</span>`).join('');
+  $('#ladder').innerHTML = cfg.chests.map((c, i) => { const n = r ? r.found[i] : 0; return `<span class="rung chest${n ? ' found' : ''}" style="--c:${CHEST_COL[i]}"><i></i><span class="vh">${c.name} </span>×${c.f}${n ? `<span class="vh">, found${n > 1 ? ` ${n} times` : ''}</span>` : ''}${n > 1 ? `<b aria-hidden="true">${n}</b>` : ''}</span>`; }).join('');
   const cash = $('#cash');
   cash.disabled = !r || r.status !== 'explore' || r.tiles < 1;
-  $('#cashSub').textContent = r && r.status === 'cashed' ? 'Paid' : r && r.status === 'bust' ? '—' : !r || r.tiles < 1 ? 'after your first new tile' : money(Math.min(r.stake * m, cfg.maxWin));
+  $('#cashSub').textContent = r && r.status === 'cashed' ? 'Paid' : r && r.status === 'bust' ? '—' : !r || r.tiles < 1 ? 'after your first new tile' : money(payOf(r));
   $('#sTiles').textContent = r ? r.tiles : 0; $('#sChests').textContent = r ? r.chests : 0;
   pad.querySelectorAll('button').forEach(b => { b.disabled = !r || r.status !== 'explore'; });
   document.querySelectorAll('#auto button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.a === S.auto)));
+  if (kept && (had.disabled || !had.getClientRects().length)) $(r ? '#explore' : '#play').focus({ preventScroll: true });   // the focused control went away: keep the keyboard in the panel. The round's panel, not an arrow: Enter there still cashes out, and Tab goes on to the pad
   renderPilot();
 }
 const renderControls = renderAll;
@@ -696,10 +775,11 @@ function renderPilot() {
 }
 function renderSound() { const b = $('#sound'); b.setAttribute('aria-pressed', String(sound.on)); b.setAttribute('aria-label', sound.on ? 'Sound on, tap to mute' : 'Sound off, tap to unmute'); }
 function renderPicker() {
-  const L = myLevel(), st = stageOf(L);
+  const L = myLevel(), st = stageOf(L), f = document.activeElement, keep = f && f.closest('#levelsGrid') ? f.dataset.b : '';   // the button just pressed, rebuilt below
   $('#pickLevel').textContent = L; $('#pickSlider').value = L;
   $('#pickNote').textContent = L < 100 ? `${Math.floor(S.cells - CELLS[L]).toLocaleString('en-US')} of ${(CELLS[L + 1] - CELLS[L]).toLocaleString('en-US')} brain cells to level ${L + 1}.` : 'Top level reached.';
   $('#levelsGrid').innerHTML = Array.from({ length: 10 }, (_, i) => `<button type="button" data-b="${i * 10 + 1}" aria-pressed="${i + 1 === st}"${i + 1 > st ? ' class="ahead"' : ''}><img src="assets/brainer-${i + 1}.png" alt=""><b>Stage ${i + 1}</b><span>Levels ${i * 10 + 1}–${i * 10 + 10}</span></button>`).join('');
+  if (keep) $(`#levelsGrid [data-b="${keep}"]`).focus({ preventScroll: true });   // focus stays on it, so its new state is read out (no scroll: the website's frame)
 }
 let toastT = 0;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
@@ -712,12 +792,18 @@ function react(kind, text) {
 
 /* ---------- provably fair sheet: the next round's commit, and the last round revealed, re-checked and mapped ---------- */
 const kv = (k, v) => `<div class="kv"><span>${k}</span><code>${v}</code></div>`;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);   // the client seed is the player's own text
+// The game commits first: the next round's hash is shown before the player sets the client seed, which counts from the
+// next round and is locked while one is on.
 function renderFair() {
-  const live = exploring() ? round : null, r = lastRound;
-  let h = `<h4>${live ? 'This round' : 'Your next round'}</h4>${kv('Server seed hash', live ? live.hash : S.hash)}${kv('Client seed', S.client)}${kv('Nonce', live ? live.nonce : S.nonce)}`
-    + `<p class="sheet-note">${live ? 'The server seed is revealed when this round ends.' : 'This hash is fixed now, before you choose a bet or a tile.'}</p>`;
-  if (r) h += `<h4>Last round: ${r.status === 'bust' ? 'bomb hit' : `cashed out at ${fx(multOf(r))}`} after ${r.tiles} new tile${r.tiles === 1 ? '' : 's'}</h4>`
-    + `${kv('Server seed hash', r.hash)}${kv('Server seed, revealed', r.seed)}${kv('Client seed', r.client)}${kv('Nonce', r.nonce)}`
+  const live = exploring() ? round : null, r = lastRound, off = live ? ' disabled' : '';
+  let h = `<h4>${live ? 'This round' : 'Your next round'}</h4>${kv('Server seed hash', live ? live.hash : S.hash)}`
+    + `<div class="kv seed"><label for="seedIn">Your client seed</label><button type="button" id="seedNew"${off}>New random</button>`
+    + `<input id="seedIn" type="text" value="${esc(live ? live.client : S.client)}" spellcheck="false" autocomplete="off" autocapitalize="off" aria-describedby="seedMsg"${off}><small id="seedMsg" aria-live="polite"></small></div>`
+    + `${kv('Nonce', live ? live.nonce : S.nonce)}`
+    + `<p class="sheet-note">${live ? 'The server seed is revealed when this round ends. You can change your client seed then.' : 'This hash is fixed now, before you choose your client seed, a bet or a tile. A new client seed counts from your next round and is kept for this visit only.'}</p>`;
+  if (r) h += `<h4>Last round: ${r.status === 'bust' ? 'bomb hit' : `cashed out at ${fx(capM(r, multOf(r)))}`} after ${r.tiles} new tile${r.tiles === 1 ? '' : 's'}</h4>`
+    + `${kv('Server seed hash', r.hash)}${kv('Server seed, revealed', r.seed)}${kv('Client seed', esc(r.client))}${kv('Nonce', r.nonce)}`
     + '<button type="button" class="big ghost" id="fairCheck">Check this round</button><div id="fairOut" aria-live="polite"></div>';
   $('#fairBody').innerHTML = h;
 }
@@ -728,12 +814,23 @@ async function checkFair() {
   const ok = (good, text) => `<p class="fair-ok${good ? '' : ' bad'}">${good ? '✓' : '✕'} ${text}</p>`;
   $('#fairOut').innerHTML = ok(hashOk, hashOk ? 'SHA-256 of the seed matches the hash shown before the round' : 'The seed does not match the hash')
     + ok(mapOk, mapOk ? 'The map recomputed from the seeds matches your round' : 'The recomputed map differs from the round')
-    + '<canvas id="fairMap" width="500" height="500" aria-label="The whole map of the last round"></canvas>'
-    + '<div class="legend"><span><i style="background:#9be06e"></i>plain</span><span><i style="background:#ffc147"></i>chest</span><span><i style="background:#e3264a"></i>bomb</span><span><i style="background:#fff;box-shadow:inset 0 0 0 2px #532aff"></i>your path</span></div>';
+    + `<canvas id="fairMap" width="500" height="500" role="img" aria-label="The last round's whole map, ${N} by ${N} tiles: ${map.filter(v => v < 0).length} bombs, ${map.filter(v => v > 0).length} chests, the rest plain, with your path from the centre ringed"></canvas>`
+    + '<div class="legend"><span><i style="background:#9be06e"></i>plain</span>'   // every chest tier in the map's own colours; the path is a ring over a tile's own fill, as drawn
+    + cfg.chests.map((c, i) => `<span><i style="background:${CHEST_COL[i]}"></i>${c.name.replace(' chest', '')} ×${c.f}</span>`).join('')
+    + '<span><i style="background:#e3264a"></i>bomb</span><span><i style="background:transparent;box-shadow:inset 0 0 0 2px #532aff"></i>your path</span></div>';
   const g = $('#fairMap').getContext('2d'), s = 20;
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const v = map[idx(x, y)]; g.fillStyle = v < 0 ? '#e3264a' : v > 0 ? ['#e8b25c', '#d9e1f2', '#ffc147', '#8447fb', '#14a596'][v - 1] : '#9be06e'; g.fillRect(x * s + 1, y * s + 1, s - 2, s - 2); }
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const v = map[idx(x, y)]; g.fillStyle = v < 0 ? '#e3264a' : v > 0 ? CHEST_COL[v - 1] : '#9be06e'; g.fillRect(x * s + 1, y * s + 1, s - 2, s - 2); }
   g.strokeStyle = '#532aff'; g.lineWidth = 3; for (const [x, y] of r.path) g.strokeRect(x * s + 2.5, y * s + 2.5, s - 5, s - 5);
   g.fillStyle = '#fff'; g.beginPath(); g.arc(C * s + s / 2, C * s + s / 2, 4, 0, 7); g.fill();
+}
+// 1 to 64 characters as the player sees them (code points, so an emoji is one), trimmed. Anything else keeps the last
+// valid seed. Keep the rule and the words in step with Plane Crash's setClient.
+function seedInput(el) {
+  const v = el.value.trim(), n = [...v].length, ok = n >= 1 && n <= 64;
+  if (ok) S.client = v;
+  el.setAttribute('aria-invalid', String(!ok));
+  $('#seedMsg').textContent = ok ? '' : `Use 1 to 64 characters${n ? ` (this is ${n})` : ''}. Your last valid seed stays in use.`;
+  return ok;
 }
 
 /* ---------- sheets ---------- */
@@ -748,7 +845,12 @@ $('#pickSlider').addEventListener('input', e => setBrainLevel(+e.target.value));
 $('#help').addEventListener('click', () => openSheet('#tutorial'));
 $('#fair').addEventListener('click', () => { renderFair(); openSheet('#fairSheet'); });
 $('#fairClose').addEventListener('click', () => closeSheet('#fairSheet'));
-$('#fairBody').addEventListener('click', e => { if (e.target.closest('#fairCheck')) checkFair(); });
+$('#fairBody').addEventListener('click', e => {
+  if (e.target.closest('#fairCheck')) checkFair();
+  if (e.target.closest('#seedNew')) { $('#seedIn').value = randHex(8); seedInput($('#seedIn')); }
+});
+$('#fairBody').addEventListener('input', e => { if (e.target.id === 'seedIn') seedInput(e.target); });
+$('#fairBody').addEventListener('change', e => { if (e.target.id === 'seedIn' && seedInput(e.target)) e.target.value = S.client; });   // on leaving the field an accepted seed shows as it is used, trimmed, as in Plane Crash
 $('#tutGo').addEventListener('click', () => { store.set('brainer.fr.tutorial', 'seen'); closeSheet('#tutorial'); });
 $('#ageYes').addEventListener('click', () => { store.set('brainer.age-ok', '1'); closeSheet('#agegate'); if (store.get('brainer.fr.tutorial', '') !== 'seen') openSheet('#tutorial'); });
 $('#ageNo').addEventListener('click', () => { $('#ageSorry').hidden = false; document.querySelector('.age-actions').hidden = true; });
@@ -756,7 +858,7 @@ document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e =
 
 /* ---------- boot ---------- */
 S.client = randHex(8);
-rotateSeed();
+rotateSeed().catch(() => {});   // no crypto.subtle (plain http off localhost): Play says so
 S.auto = +store.get('brainer.fr.auto', '0') || 0; if (![0, 1.5, 2, 3, 5, 10, 25, 100].includes(S.auto)) S.auto = 0;
 setStake(S.stake); renderSound(); resetClouds(); placeWalker(); layout(); renderAll();
 requestAnimationFrame(loop);
@@ -796,6 +898,7 @@ function introActor(g, w, h, now, ex) {
 }
 document.querySelector('.brand .t1').innerHTML = window.BrainerIntro ? window.BrainerIntro.wordmark('fog') : 'FogRush';
 (window.BrainerIntro ? window.BrainerIntro.start({ title: 'FogRush', mark: 'fog', theme: 'fog', what: 'the valley', actor: introActor, progress: loadProgress }) : Promise.resolve()).then(() => {
+  booting = false;   // before the sheets open: from here the 18+ check holds the keys
   if (introA) introA.stage.dispose(); introA = false;   // the intro's own WebGL context goes: phones allow only so many
   if (store.get('brainer.age-ok', store.get('blink.age-ok', '')) !== '1') openSheet('#agegate');
   else if (store.get('brainer.fr.tutorial', '') !== 'seen') openSheet('#tutorial');

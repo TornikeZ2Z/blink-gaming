@@ -1,7 +1,8 @@
 /* The Brainer Games intro (shared/intro.js) and the game wordmarks, shared by every game. */
 .intro{position:fixed;inset:0;z-index:50;display:grid;place-items:center;overflow:hidden;color:#fff;font-family:FiraGO,system-ui,sans-serif;clip-path:circle(150% at 50% 44%);transition:clip-path .7s cubic-bezier(.65,0,.35,1)}
 .intro.t-plane{background:radial-gradient(ellipse at 50% 40%,#7d6bff 0%,#4b36fc 45%,#241a7a 100%)}
-.intro.t-fog{background:linear-gradient(180deg,#5b4af6 0%,#8f88ff 45%,#cdd0ff 100%)}
+/* FogRush: the foggy valley, the game's sky over a meadow, with low fog banks drifting along the horizon */
+.intro.t-fog{background:radial-gradient(42% 7% at 18% 74%,#a9dd93 98%,transparent 100%),radial-gradient(48% 8% at 84% 74%,#9fd88a 98%,transparent 100%),linear-gradient(180deg,#5b4af6 0%,#8f88ff 34%,#cdd0ff 62%,#e6eaff 74%,#a6e48c 74.2%,#86e36b 84%,#6fcf58 100%)}
 .intro.out{clip-path:circle(0% at 50% 44%)}
 .intro.still{transition:opacity .2s;clip-path:none}
 .intro.still.out{opacity:0}
@@ -10,6 +11,11 @@
 .intro.t-fog .intro-sky i{background:radial-gradient(ellipse at 50% 60%,#fff 0%,rgba(255,255,255,.9) 40%,rgba(255,255,255,0) 70%)}
 .intro-sky i:nth-child(1){left:-10%;top:8%}.intro-sky i:nth-child(2){left:62%;top:4%;animation-duration:24s}.intro-sky i:nth-child(3){left:-20%;top:62%;animation-duration:21s}
 .intro-sky i:nth-child(4){left:70%;top:70%;animation-duration:26s}.intro-sky i:nth-child(5){left:30%;top:88%;animation-duration:30s}.intro-sky i:nth-child(6){left:84%;top:36%;animation-duration:19s}
+.intro.t-fog .intro-sky i{aspect-ratio:3.4/1;width:46vmax;animation-duration:26s;background:radial-gradient(ellipse at 50% 55%,rgba(255,255,255,.85) 0%,rgba(255,255,255,.5) 42%,rgba(255,255,255,0) 70%)}
+.intro.t-fog .intro-actor{-webkit-mask-image:radial-gradient(closest-side,#000 72%,transparent 100%);mask-image:radial-gradient(closest-side,#000 72%,transparent 100%)}   /* the fog round the plot drifts past the picture's edges */
+.intro.t-fog .intro-sky i:nth-child(1){left:-14%;top:66%}.intro.t-fog .intro-sky i:nth-child(2){left:58%;top:64%}.intro.t-fog .intro-sky i:nth-child(3){left:18%;top:72%}
+.intro.t-fog .intro-sky i:nth-child(4){left:76%;top:76%}.intro.t-fog .intro-sky i:nth-child(5){left:-6%;top:84%}.intro.t-fog .intro-sky i:nth-child(6){left:44%;top:88%}
+.intro.t-fog .intro-note{text-shadow:0 1px 6px rgba(43,29,158,.65)}
 @keyframes introDrift{from{transform:translateX(-6vw)}50%{transform:translateX(6vw)}to{transform:translateX(-6vw)}}
 .intro-mark{position:absolute;left:18px;top:16px;display:flex;align-items:center;gap:9px;opacity:0;animation:introFade .5s .1s forwards}
 .intro-mark img{width:30px;height:30px;border-radius:9px;box-shadow:0 4px 12px rgba(20,10,80,.35)}
@@ -34,7 +40,7 @@
 .intro-cells i.on:nth-child(4n){background:#ffc147;box-shadow:0 0 10px #ffc147}
 .intro-note{margin-top:6px;font-weight:700;font-size:13px;letter-spacing:.03em;opacity:.9}
 .intro-skip{position:absolute;right:16px;bottom:16px;padding:8px 14px;border:1px solid rgba(255,255,255,.35);border-radius:999px;background:rgba(255,255,255,.12);color:#fff;font:700 13px FiraGO,system-ui,sans-serif}
-.intro.still *{animation-duration:.01s!important;animation-delay:0s!important}
+.intro.still *{animation-duration:.01s!important;animation-delay:0s!important;animation-iteration-count:1!important}   /* once, or the endless cloud drift loops every 10 ms and strobes */
 
 /* the game wordmarks: chunky lettering on a thick outline with a little depth, a gradient face and the game's motif */
 .wm{position:relative;display:inline-flex;align-items:flex-end;font-family:FiraGO,system-ui,sans-serif;font-weight:800;line-height:.9;letter-spacing:-.02em;white-space:nowrap;isolation:isolate}

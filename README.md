@@ -23,29 +23,29 @@ python -m http.server 5174
 
 The player's Brainer walks a 25 x 25 map of grass plots in a foggy valley, starting in the middle. The valley lies in the Brainer world's meadow, next to the airfield Plane Crash takes off from (its runway, hangar, tower and a parked plane show at the valley's west edge). Every new tile clears its fog:
 - Most new tiles are plain and nudge the multiplier up by about 2%.
-- 5% hold a chest: ×1.3, ×2, ×4, ×10 or ×25, rarest last.
+- 5% of safe tiles (4.6% of all new tiles) hold a chest: ×1.3, ×2, ×4, ×10 or ×25, rarest last.
 - 8% hold a bomb, which ends the round.
 
 Tiles already cleared are safe to cross. The player can cash out any time after the first new tile, with an optional auto cash-out. Move with the arrows, WASD, the on-screen pad, or by tapping a tile next to the Brainer.
 
-The math is fair at every step: a safe tile multiplies the multiplier by a base of about ×1.0211 times its chest factor (1 for plain), so (1 − 8%) × base × E[factor] = 1. The 98% RTP is applied once at the start, so the expected payout is 98% of the bet whichever way the player walks or whenever they cash out. Payouts are capped at $10,000. The original FogRush idea (in the NewIdeas repo) paid back 230–300% and was rebalanced to this.
+The math is fair at every step: a safe tile multiplies the multiplier by a base of about ×1.0211 times its chest factor (1 for plain), so (1 − 8%) × base × E[factor] = 1. The RTP is applied once at the start, so the return is 98% before two things lower it in some rounds: payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early. So the RTP is up to 98%. The original FogRush idea (in the NewIdeas repo) paid back 230–300% and was rebalanced to this.
 
-Every tile rolls HMAC-SHA256(server seed, "client seed:nonce:column:row"). A roll under 8% is a bomb, the rest picks plain or a chest, and the start tile is always safe. The shield button checks the last round and draws its whole map. Each finished round adds the same 10 brain cells as Plane Crash; the level is shared.
+Every tile rolls HMAC-SHA256(server seed, "client seed:nonce:column:row"). A roll under 8% is a bomb, the rest picks plain or a chest, and the start tile is always safe. The client seed starts random and the player can set it in the fairness sheet, which shows the next round's server seed hash first; a change counts from the next round. The shield button checks the last round and draws its whole map. Each finished round adds the same 10 brain cells as Plane Crash; the level is shared.
 
 ## Plane Crash
 
 The player's Brainer flies a plane toward five hoops while bombs fall ahead. Between flights the plane waits parked on the road; Play starts a takeoff (roll, lift-off, climb) and then the hoops fly in. At each step the player picks one of the five paths, or jumps out with a parachute to take the current win. After a jump the Brainer floats down and lands on the road, and the game returns to the start screen; after a crash it returns too. Each flight is single player and runs at the player's pace: no timers or shared rounds. All amounts are play-money US dollars: bets $0.10 to $200, max win $10,000 per flight.
 
-The math is Chicken Road's, one to one, at 98% RTP for every player. A 25-tile grid hides 1, 3, 5 or 10 bombs, and each step uncovers one more tile, so the chance of surviving n steps is C(25-n, b) / C(25, b). After n safe paths the multiplier is 0.98 divided by that chance, rounded down to the cent. Every path at a step has the same odds; picking a path is the player's own call, as Chicken's yes/no is.
+The math is Chicken Road's, one to one, with an RTP of up to 98%. A 25-tile grid hides 1, 3, 5 or 10 bombs, and each step uncovers one more tile, so the chance of surviving n steps is C(25-n, b) / C(25, b). After n safe paths the multiplier is 0.98 divided by that chance, rounded down to the cent, so the return is 98% before two things lower it in some flights: payouts round down to the cent, and the $10,000 max win ends long or high-bet flights early. Every path at a step has the same odds; picking a path is the player's own call, as Chicken's yes/no is.
 
 | Difficulty | Bombs in 25 | Paths | First → top multiplier |
 |---|---|---|---|
 | Easy | 1 | 24 | 1.02× → 24.50× |
 | Medium | 3 | 22 | 1.11× → 2,254.00× |
 | Hard | 5 | 20 | 1.22× → 52,067.40× |
-| Hardcore | 10 | 15 | 1.63× → 3,203,384.80× |
+| Hardcore | 10 | up to 14 | 1.63× → 100,000.00× |
 
-The $10,000 max win caps every payout, so a flight jumps out automatically when it reaches it. Every path at every step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"). The shield button in the game shows the next flight's seed hash and re-checks the last flight: it re-hashes the revealed seed and redraws every bomb.
+The $10,000 max win caps every payout, so a flight jumps out automatically when it reaches it. That is 100,000× at the $0.10 minimum bet, so a Hardcore flight never goes past path 14 and its ladder's path 15 (3,203,384.80×) is never offered; the tops above are what a flight can pay. Every path at every step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"), with a client seed the player can set in the game's own fairness sheet, as in FogRush. The shield button in the game shows the next flight's seed hash and re-checks the last flight: it re-hashes the revealed seed and redraws every bomb.
 
 ### Look
 
@@ -58,14 +58,14 @@ The Brainer is the character modelled in Blender (`Brainer 3D/`), exported as `s
 
 It takes a pose for each expression. One renderer draws the Brainer from behind in the cockpit, and from the front for the portrait, the parachute, the crash spotlight and the level-up card. Without WebGL, the old 2D art below stands in.
 
-The face (`shared/led-face.js`) is drawn live in LED dots, so it reacts to the flight, and it changes from one expression to the next dot by dot. At rest each stage shows its own face and pose. The 2D fallback still uses `face.js` and `assets/brainer-N-blank.png`. The expressions:
+The face (`shared/led-face.js`) is drawn live in LED dots, so it reacts to the flight, and it changes from one expression to the next dot by dot. At rest each stage shows its own face and pose. When 3D graphics are unavailable, the 2D stand-in draws the stage stills (`assets/brainer-N.png`, each with its stage's face), with `shared/face.js` adding the sparkles, hearts and zZ round the head. The expressions:
 - While playing: focused with eyes on the path you hover, a wink at take-off, and a gulp with sweat while bombs fall.
 - After a step: "phew" on a safe path.
 - When you jump: happy, star-eyed when excited, amazed on a big win, and ecstatic.
 - On a crash: shocked, then sad with tears, and dizzy spirals in the crash spotlight.
 - Other times: heart eyes on a level-up, and sleepy when left alone.
 
-It blinks, and the glasses slip when it gets a fright.
+It blinks, and in 3D it throws its arms up on a fright.
 
 ### Brain levels
 

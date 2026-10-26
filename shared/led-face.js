@@ -1,6 +1,12 @@
 /* The Brainer's LED face: a dot-matrix panel of glowing dots on an even blue screen, drawn on a canvas.
    Everything is drawn centred, in screen units: the visor is 360 x 200. Also here: the screen switching on (and off),
    a dot-by-dot change from one face to another, and the stage number for the chest screen. */
+// roundRect for browsers before Chrome 99, Safari 16 and Firefox 112 (some run import maps but lack it): the 3D Brainer's
+// visor, chest and badge paint with it, on the site (which never loads face.js) and in the games; it runs before them all
+if (window.CanvasRenderingContext2D && !CanvasRenderingContext2D.prototype.roundRect) CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+  r = Math.max(0, Math.min(+r || 0, Math.abs(w) / 2, Math.abs(h) / 2));
+  this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r); this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath();
+};
 const P = 11;   // dot pitch
 const BLUE = '#3550f0', OFF = '#0b1030', WHITE = '#ffffff', PINK = '#ff7aa8', TEAR = '#a9ecff', GOLD = '#ffd56b';
 const BM = {   // eye and mouth bitmaps; '#' lights a dot, 'p' lights it pink

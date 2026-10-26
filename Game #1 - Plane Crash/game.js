@@ -15,7 +15,8 @@ const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return
 /* ---------- config & math ---------- */
 // Chicken Road's ladder, one to one: 25 tiles hide 1, 3, 5 or 10 bombs and each step uncovers one more tile, so the
 // chance of surviving n steps is C(25-n, b) / C(25, b). After n safe paths the multiplier is the RTP divided by that
-// chance, rounded down to the cent, so jumping out at any step returns the RTP. Every path at a step has the same odds.
+// chance, rounded down to the cent, so a jump at any step returns up to the RTP: less where a payout rounds down to the
+// cent, or where the $10,000 max win ends a long or high-bet flight early. Every path at a step has the same odds.
 const cfg = {
   rtp: 98, minBet: 0.1, maxBet: 200, maxWin: 10000, startBalance: 1000, paths: 5,
   // Brain levels are the Brainer's growth only and never change the odds. Each flight earns the same brain cells when
@@ -40,10 +41,19 @@ const stageOf = L => Math.ceil(L / 10);
 const UNLOCKS = [{ at: 20, world: 'clouds', name: 'Cloud sea' }, { at: 40, world: 'city', name: 'City at dusk' }];
 const rtpOf = () => cfg.rtp;
 const multAt = (d, n, rtp = cfg.rtp) => n <= 0 ? 1 : Math.floor(rtp / 100 / d.cum[n] * 100 + 1e-7) / 100;
+const capAt = (d, n, stake, rtp = cfg.rtp) => Math.min(multAt(d, n, rtp), Math.floor(cfg.maxWin / stake * 100 + 1e-7) / 100);   // what a path really pays at this bet: the max win caps it, rounded down like every multiplier
+const payAt = (r, n) => Math.min(Math.floor(r.stake * multAt(r.d, n, r.rtp) * 100 + 1e-6) / 100, cfg.maxWin);   // a jump after n paths pays this, rounded down to the cent
+const cents = v => Math.round(v * 100) / 100;   // the balance stays in whole cents, so it matches every amount shown
+// What a flight can really reach: the max win ends it on the first path that pays that much (the auto-jump's test), so
+// even at the minimum bet Hardcore never offers path 15. Every top shown before a bet uses d.reach, at the minimum bet;
+// once a bet is placed, the flight counts and draws its own reach (r.reach) and capAt caps at its stake.
+const reachAt = (d, stake, rtp = cfg.rtp) => { let n = 1; while (n < d.steps && stake * multAt(d, n, rtp) < cfg.maxWin) n++; return n; };
+for (const d of LEVELS) d.reach = reachAt(d, cfg.minBet);
+const topOf = d => capAt(d, d.reach, cfg.minBet);
 
 /* ---------- state ---------- */
 const S = { balance: cfg.startBalance, stake: 10, level: 0, nonce: 1, client: '', seed: '', hash: '', cells: Math.max(0, parseFloat(store.get('brainer.xp', '0')) || 0) };   // brain cells, shared by every Brainer game on this site
-let round = null, lastRound = null, starting = false;   // round: the flight in play, or the last one settled; lastRound: the last settled, for the fairness check
+let round = null, lastRound = null, starting = false, booted = false;   // round: the flight in play, or the last one settled; lastRound: the last settled, for the fairness check; booted: the intro has gone (no bets before the 18+ check)
 const inFlight = () => !!round && (round.status === 'takeoff' || round.status === 'choose' || round.status === 'flying');
 const myLevel = () => brainLevel(S.cells);
 
@@ -61,7 +71,10 @@ async function drawBombs(seed, client, nonce, d) {
   return Promise.all(Array.from({ length: d.steps }, (_, i) =>
     Promise.all(Array.from({ length: cfg.paths }, (_, k) => roll(`${client}:${nonce}:${i + 1}:${k + 1}`).then(u => u >= d.safe[i])))));
 }
-async function rotateSeed() { S.seed = randHex(32); S.hash = await sha256(S.seed); }
+// The game commits first: the next flight's server seed is drawn and hashed before the player sets a client seed or
+// a bet. Seed and hash change together, and a flight waits for them, so none starts on a seed whose hash wasn't shown.
+let commit = null;
+function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h => { S.seed = s; S.hash = h; })); }
 
 /* ---------- sound ---------- */
 // Synthesised with Web Audio, so there are no files to load. Starts on the first tap; the HUD button mutes it.
@@ -103,14 +116,16 @@ const sound = (() => {
 /* ---------- round flow ---------- */
 const FLY_MS = 1100, IMPACT = 0.68;
 async function play() {
-  if (inFlight() || starting || sheetOpen()) return;
+  if (!booted || inFlight() || starting || sheetOpen()) return;
   const d = LEVELS[S.level];
   if (S.stake < cfg.minBet || S.stake > cfg.maxBet) { toast(`Bet between ${money(cfg.minBet)} and ${money(cfg.maxBet)}.`); return; }
   if (S.stake > S.balance) { toast('Not enough demo balance for this bet. Lower it or press Reset.'); return; }
   starting = true; renderControls(); flushLevelUp();
-  const r = { stake: S.stake, d, n: 0, rtp: cfg.rtp, seed: S.seed, hash: S.hash, client: S.client, nonce: S.nonce++, status: 'choose', payout: 0, pick: -1, picks: [] };
-  try { r.bombs = await drawBombs(r.seed, r.client, r.nonce, d); } finally { starting = false; }
-  S.balance -= r.stake; round = r;
+  const r = { stake: S.stake, d, n: 0, rtp: cfg.rtp, reach: reachAt(d, S.stake), client: S.client, nonce: S.nonce++, status: 'choose', payout: 0, pick: -1, picks: [] };   // the client seed in effect as it starts
+  try { await commit; r.seed = S.seed; r.hash = S.hash; r.bombs = await drawBombs(r.seed, r.client, r.nonce, d); }
+  catch (e) { S.nonce--; toast(window.isSecureContext ? 'Could not start the flight. Please try again.' : 'This demo needs https (or localhost) for its provably fair draw.'); return; }   // e.g. no crypto.subtle on plain http
+  finally { starting = false; renderControls(); }
+  S.balance = cents(S.balance - r.stake); round = r;
   sceneStart(d);
   $('#pilot').classList.remove('sooty'); react('hop', "Let's fly!"); feel('wink', 900); sound.takeoff();
   renderBalance(); renderControls(); renderLadder();
@@ -126,9 +141,9 @@ function choose(k) {
 function jump(auto) {
   const r = round;
   if (!r || r.status !== 'choose' || r.n < 1) return;
-  const m = multAt(r.d, r.n, r.rtp);
-  r.payout = Math.min(r.stake * m, cfg.maxWin); r.status = 'cashed';
-  S.balance += r.payout;
+  const m = capAt(r.d, r.n, r.stake, r.rtp);
+  r.payout = payAt(r, r.n); r.status = 'cashed'; r.auto = auto;   // auto: the game jumped (last path or max win), so no step was skipped
+  S.balance = cents(S.balance + r.payout);
   sceneJump(performance.now(), m);
   react('pop', m >= 100 ? 'Whoa!!' : m >= 10 ? 'Big win!' : 'Wheee!'); if (m >= 10) feel('amazed', 1700); sound.jump();
   if (auto) toast(r.n >= r.d.steps ? 'Last path cleared, so your Brainer jumped automatically.' : `Max win of ${money(cfg.maxWin)} reached, so your Brainer jumped automatically.`);
@@ -142,7 +157,7 @@ function advance(now) {
   if (!r.struck && p >= IMPACT) {
     r.struck = true; sceneImpact(now);
     if (r.hit) {
-      r.status = 'crashed'; sceneCrash(now); $('#pilot').classList.add('sooty'); react('shake', 'Ouch!'); feel('shock', 450); sound.boom();
+      r.status = 'crashed'; holdLevelUp(); sceneCrash(now); $('#pilot').classList.add('sooty'); react('shake', 'Ouch!'); feel('shock', 450); sound.boom();
       if (navigator.vibrate) navigator.vibrate(120);
       settle(); return;
     }
@@ -157,8 +172,10 @@ function advance(now) {
 }
 
 /* ---------- brain cells and levels ---------- */
-let luT = 0, bubT = 0, pendingLevel = 0, levelFrom = 0;
+let luT = 0, luWait = 0, bubT = 0, pendingLevel = 0, levelFrom = 0, luShown = null;
 function earnCells(k) {
+  const saved = parseFloat(store.get('brainer.xp', ''));
+  if (saved >= 0) S.cells = saved;   // another Brainer game open in another tab may have added cells since this one loaded
   const before = myLevel();
   S.cells = Math.round((S.cells + k) * 10) / 10;
   store.set('brainer.xp', String(S.cells)); store.set('brainer.level', String(myLevel()));   // the website reads brainer.level
@@ -167,16 +184,25 @@ function earnCells(k) {
 }
 function flushLevelUp() {
   if (!pendingLevel) return;
+  if (iris) { clearTimeout(luWait); luWait = setTimeout(flushLevelUp, 120); return; }   // wait until the crash card has closed, whoever asks
   const L = pendingLevel, from = levelFrom, el = $('#levelup'); pendingLevel = 0;
   const newStage = stageOf(L) > stageOf(from), opened = UNLOCKS.filter(u => u.at > from && u.at <= L);
   plane.brain = L; renderLevels();
   $('#luImg').src = brainerURL(L, 'love'); $('#luTitle').textContent = `Brain level ${L}`; feel('love', 1900);
   $('#luSub').textContent = opened.length ? `${opened.map(u => u.name).join(' and ')} world unlocked` : newStage ? `New look: stage ${stageOf(L)} of 10` : L - from > 1 ? `Up ${L - from} levels` : 'Your Brainer grew new brain cells';
-  el.classList.toggle('big', newStage || opened.length > 0);
-  el.hidden = true; void el.offsetWidth; el.hidden = false;
-  clearTimeout(luT); luT = setTimeout(() => { el.hidden = true; }, newStage ? 3600 : 2800);
+  el.classList.toggle('lu-big', newStage || opened.length > 0);   // not .big: that is the big-button class
+  el.style.animationDuration = newStage ? '3.6s' : '';   // fades out exactly when the timer below ends, so a crash only holds a banner still on screen
+  el.hidden = true; void el.offsetWidth; el.hidden = false; luShown = { L, from };
+  clearTimeout(luT); luT = setTimeout(() => { el.hidden = true; luShown = null; }, newStage ? 3600 : 2800);
   sound.level();
   if (newStage && !reduced) burst(W - 140 * PS, 110, 36, ['#ffc147', '#33d66d', '#8447fb', '#ffffff'], 0.45);
+}
+// A crash cuts a level-up banner short (it would sit on the crash card); it shows again once the card has closed.
+function holdLevelUp() {
+  if (!luShown) return;
+  clearTimeout(luT); $('#levelup').hidden = true;
+  if (!pendingLevel) { pendingLevel = luShown.L; levelFrom = luShown.from; }
+  luShown = null;
 }
 function setBrainLevel(L) {   // demo picker: jump straight to a brain level
   S.cells = CELLS[L]; store.set('brainer.xp', String(S.cells)); store.set('brainer.level', String(L));
@@ -212,20 +238,11 @@ function react(kind, text) {
 /* ---------- scene ---------- */
 const stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
 const NAVY = '#0a1322', VIOLET = '#532aff', LINE = 'rgba(10,19,34,.32)';
-// Brain inside the dome, per level: two colours from the brand book and how many neurons glow.
-const BRAIN = [['#33d66d', '#00ebc0', 2], ['#33d66d', '#00ebc0', 3], ['#fa7b5b', '#ffc147', 5], ['#fa7b5b', '#ffc147', 7], ['#9433ed', '#e36072', 9], ['#9433ed', '#e36072', 11], ['#ed2b4b', '#ed6b6b', 14], ['#ed2b4b', '#ed6b6b', 17], ['#4b36fc', '#8447fb', 20], ['#4b36fc', '#8447fb', 24]];
-const NEURONS = (() => {
-  let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
-  const out = [];
-  while (out.length < 24) { const x = (rnd() * 2 - 1) * 40, y = -96 + (rnd() * 2 - 1) * 30; if ((x / 42) ** 2 + ((y + 92) / 34) ** 2 < 1 && y < -62) out.push({ x, y, r: 4 + rnd() * 5, link: -1 }); }
-  out.forEach((n, i) => { let best = -1, bd = 1e9; for (let j = 0; j < i; j++) { const dd = (n.x - out[j].x) ** 2 + (n.y - out[j].y) ** 2; if (dd < bd) { bd = dd; best = j; } } n.link = best; });
-  return out;
-})();
 const sootCache = {};
 function sootyRobot(L) {
   L = stageOf(L);
-  const im = BLANK[L - 1];
-  if (sootCache[L] || !im.complete || !im.naturalWidth) return sootCache[L] || null;
+  const im = artOf(L);
+  if (sootCache[L] || !im) return sootCache[L] || null;
   const c = document.createElement('canvas'); c.width = c.height = 500; const g = c.getContext('2d');
   g.drawImage(im, 0, 0, 500, 500); g.globalCompositeOperation = 'source-atop';
   const sh = g.createLinearGradient(0, 0, 0, 500); sh.addColorStop(0, 'rgba(40,30,60,.38)'); sh.addColorStop(1, 'rgba(40,30,60,.12)');
@@ -236,30 +253,42 @@ function sootyRobot(L) {
   }
   return (sootCache[L] = c);
 }
-/* ---------- the Brainer's face ---------- */
-// The brand art with its painted face wiped (assets/brainer-N-blank.png); the face is drawn live on the visor, so the
-// Brainer reacts to the flight. At rest each level keeps the face of its art: a ring eye and a wink (1–2), happy arcs
-// (3–4), a grin (5–6), heart eyes (7–8), glasses (9–10). Coordinates are in the 500 px art, centred on the visor.
-const BLANK = Array.from({ length: 10 }, (_, i) => { const im = new Image(); im.src = `assets/brainer-${i + 1}-blank.png`; return im; });
-const VISOR = [[252, 278], [253, 278], [251, 282], [255, 284], [252, 282], [253, 282], [244, 282], [246, 286, -0.06], [252, 282], [256, 281]];
-const { drawScreenFace, faceAround, EXPR, restFace } = window.BrainerFace;
-// Draws the Brainer centred at (x, y), `size` px tall, with expression `ex`. o.img swaps the art (e.g. the sooty one),
-// o.lookX / o.lookY (-1..1) steer the eyes, o.since is when this expression started, for the pop-in.
+/* ---------- the 2D Brainer ---------- */
+// The stage stills (assets/brainer-N.png, as in the picker): Blender renders with the stage's face baked in. A render
+// leaves room round the robot and a faint floor, so artOf crops it to the robot and drops the floor (alpha under 60):
+// it fills its spot, and nothing grey hangs under it in the air.
+const ART = Array.from({ length: 10 }, (_, i) => { const im = new Image(); im.src = `assets/brainer-${i + 1}.png`; return im; });
+const artCache = {};
+function artOf(L) {   // stage L's still on a 500 px canvas, or null until it has loaded
+  const im = ART[L - 1];
+  if (artCache[L] || !im.complete || !im.naturalWidth) return artCache[L] || null;
+  const t = document.createElement('canvas'), c = document.createElement('canvas'); t.width = t.height = c.width = c.height = 500;
+  const g = t.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0, 500, 500);
+  let x0 = 0, y0 = 0, x1 = 500, y1 = 500;
+  try {
+    const px = g.getImageData(0, 0, 500, 500), a = px.data; x0 = y0 = 500; x1 = y1 = 0;
+    for (let i = 3; i < a.length; i += 4) if (a[i] < 60) a[i] = 0; else { const p = i >> 2, x = p % 500, y = p / 500 | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    g.putImageData(px, 0, 0);
+  } catch (e) {}   // a canvas the browser will not read back (file://) keeps the whole render
+  const s = Math.max(x1 - x0, y1 - y0) * 1.06;
+  c.getContext('2d').drawImage(t, (x0 + x1 - s) / 2, (y0 + y1 - s) / 2, s, s, 0, 0, 500, 500);
+  return (artCache[L] = c);
+}
+const { faceAround, EXPR } = window.BrainerFace;
+// Draws the Brainer centred at (x, y), `size` px tall, with the effects of expression `ex` round its head (sparkles,
+// hearts, zZ…); the face itself is the still's. o.img swaps the art (e.g. the sooty one).
 function drawBrainer(g, x, y, size, L, ex, t, o = {}) {   // the 2D stand-in, used until the 3D Brainer is ready or without WebGL
-  L = stageOf(L);   // the art comes in ten looks, one per stage
-  const im = o.img || BLANK[L - 1];
-  if (!(im instanceof HTMLCanvasElement) && (!im.complete || !im.naturalWidth)) return;   // o.img may be a prepared canvas
+  const im = o.img || artOf(stageOf(L));   // the art comes in ten looks, one per stage
+  if (!im) return;
   const s = size / 500;
   g.save(); g.translate(x, y); g.scale(s, s); g.translate(-250, -250);
   g.drawImage(im, 0, 0, 500, 500);
-  const [vx, vy, vr = 0] = VISOR[L - 1];
-  g.save(); g.translate(vx, vy); g.rotate(vr); drawScreenFace(g, L, ex, t, o); g.restore();
   faceAround(g, fxOf(ex), t);
   g.restore();
 }
 const fxOf = ex => (EXPR[ex] && EXPR[ex].fx) || [];
 
-/* The 3D actors (brainer3d.js, loaded as a module, sets window.Brainer3D). One renderer draws three views each frame
+/* The 3D actors (brainer3d.js, loaded as a module, sets window.Brainer3D, or false if it fails). One renderer draws three views each frame
    into regions of one canvas: A, the plane from behind with the Brainer in its cockpit; B, the Brainer from the front
    for the portrait and the crash spotlight; C, the Brainer under its parachute (only after a jump). Without WebGL the
    2D drawings stand in. */
@@ -327,7 +356,7 @@ function drawPilot(now) {   // the live portrait in the HUD
   pcx.setTransform(d, 0, 0, d, 0, 0); pcx.clearRect(0, 0, w, h);
   const m = moodNow(now);
   if (has3D()) { blit3D(pcx, 'B', w / 2, h / 2, w * 1.12); pcx.save(); pcx.translate(0, 0); pcx.scale(w / 500, h / 500); faceAround(pcx, fxOf(m.ex), now); pcx.restore(); }
-  else drawBrainer(pcx, w / 2, h / 2 + (reduced ? 0 : Math.sin(now / 600) * 1.2), w, myLevel(), m.ex, now, { since: m.t0, lookX: lookNow(now) });
+  else drawBrainer(pcx, w / 2, h / 2 + (reduced ? 0 : Math.sin(now / 600) * 1.2), w, myLevel(), m.ex, now);
 }
 function brainerURL(L, ex) {
   const c = document.createElement('canvas'); c.width = c.height = 200; const g = c.getContext('2d'), now = performance.now();
@@ -355,6 +384,7 @@ function layout() {
   PS = clamp(Math.min(W / 900, H / 560), 0.45, 1.25);
   const dx = Math.min(W * 0.17, 170);   // gap between waiting gates on screen
   SPREAD = dx * Z_WAIT / F; RING = Math.min(dx * 0.34, 56) * Z_WAIT / F;
+  stage.classList.toggle('slim', H < 520);   // a short stage: the readout shrinks to one line (style.css), or it covers the hoops; by the stage's own height, so the site's frame and full screen get it too. 520, not FogRush's 480: at 761-1299 px wide the full readout and the hoops are both bigger and meet up to ~510 px
   paintSky();
 }
 new ResizeObserver(layout).observe(stage);
@@ -719,7 +749,7 @@ function sceneCrash(now) {
 function scenePassed(now) {
   recenter(); setTrack(view.d, round.n, round.rtp);
   burst(PX, PY - 50 * PS, 22, ['#33d66d', '#00ebc0', '#ffffff'], 0.4);
-  texts.push({ text: fx(multAt(round.d, round.n, round.rtp)), x: PX, y: PY - 175 * PS, t0: now, col: '#7dffcf', size: 30, dur: 1300 });
+  texts.push({ text: fx(capAt(round.d, round.n, round.stake, round.rtp)), x: PX, y: PY - 175 * PS, t0: now, col: '#7dffcf', size: 30, dur: 1300 });
 }
 function sceneJump(now, m) {
   const zw = view.scroll + 12.5;   // where it will land: a little ahead, while the world glides to a stop
@@ -761,7 +791,7 @@ function resetToStart(now) {
   plane.state = 'enter'; plane.t0 = now; plane.brain = myLevel();
   recenter(); setTrack(LEVELS[S.level], 0, cfg.rtp);
   $('#pilot').classList.remove('sooty');
-  renderControls(); renderLadder(); renderLevels(); flushLevelUp();
+  renderControls(); renderLadder(); renderLevels(); flushLevelUp();   // after a crash it waits for the crash card to close
 }
 function burst(x, y, n, cols, sp) {
   for (let i = 0; i < n; i++) { const a = Math.random() * 7, v = sp * (0.4 + Math.random()); parts.push({ type: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.1, g: 0.0009, life: 0, max: 600 + Math.random() * 500, r: 3 + Math.random() * 4, c: cols[i % cols.length] }); }
@@ -778,62 +808,13 @@ function brandText(text, x, y, size, fill, rot, shadow) {
   ctx.fillStyle = fill; ctx.fillText(text, 0, 0); ctx.restore();
 }
 
-/* the player's Brainer from behind, sitting in the cockpit (rim centre at 0,0), built like the Brainer art: a barrel
-   body, a ribbed collar, a wide glass dome holding the brain for this brain level, and hands gripping the rim.
-   Lit from the upper left like the rest of the scene, so every part reads as a solid. */
-function robotBack(t, L) {
-  const [c1, c2, n] = BRAIN[stageOf(L) - 1];   // ten looks, one per stage of ten levels
-  const bob = reduced ? 0 : Math.sin(t / 260) * 1.5;
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  ctx.save(); ctx.translate(0, bob);
-  // barrel body, a lit cylinder; its lower half sits inside the cockpit
-  ctx.beginPath(); ctx.roundRect(-42, -52, 84, 70, 24);
-  const bg = ctx.createLinearGradient(-42, 0, 42, 0);
-  bg.addColorStop(0, '#8b7dd8'); bg.addColorStop(0.16, '#cfc6ff'); bg.addColorStop(0.36, '#ffffff'); bg.addColorStop(0.62, '#eeeaff'); bg.addColorStop(0.86, '#b2a6ee'); bg.addColorStop(1, '#8476d2');
-  ctx.fillStyle = bg; ctx.fill();
-  const ao = ctx.createLinearGradient(0, -52, 0, -28); ao.addColorStop(0, 'rgba(40,22,120,.28)'); ao.addColorStop(1, 'rgba(40,22,120,0)');
-  ctx.fillStyle = ao; ctx.fill();   // shade under the collar
-  ctx.beginPath(); ctx.roundRect(-22, -38, 44, 30, 9);   // back plate with a bevel
-  ctx.fillStyle = lin(0, -38, 0, -8, '#e9e4ff', '#c4b9f6'); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-17, -37); ctx.lineTo(17, -37); ctx.stroke();
-  ctx.strokeStyle = 'rgba(70,50,170,.35)'; ctx.beginPath(); ctx.moveTo(-17, -9); ctx.lineTo(17, -9); ctx.stroke();
-  ctx.beginPath(); ctx.roundRect(-13, -33, 26, 14, 7); ctx.fillStyle = lin(-13, 0, 13, 0, '#4b36fc', '#8447fb'); ctx.fill();   // level badge
-  ctx.fillStyle = '#ffffff'; ctx.font = '800 11px FiraGO, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(L), 0, -25.5);
-  ctx.fillStyle = 'rgba(70,50,170,.4)';
-  for (const vy of [-15, -12]) { ctx.beginPath(); ctx.roundRect(-10, vy, 20, 1.6, 0.8); ctx.fill(); }   // vent slots
-  const glow = clamp(1 - (t - (view.glowT || -1e9)) / 700, 0, 1);   // the brain lights up as new cells arrive
-  if (glow > 0) { const gg = ctx.createRadialGradient(0, -92, 10, 0, -92, 90); gg.addColorStop(0, c2 + 'cc'); gg.addColorStop(1, c2 + '00'); ctx.globalAlpha = glow; ctx.fillStyle = gg; ctx.fillRect(-90, -182, 180, 180); ctx.globalAlpha = 1; }
-  // dome: a glass sphere with the brain inside
-  ctx.save(); ctx.beginPath(); ctx.rect(-70, -160, 140, 106); ctx.clip();
-  const inner = ctx.createRadialGradient(8, -80, 8, 0, -92, 58); inner.addColorStop(0, 'rgba(226,216,255,.55)'); inner.addColorStop(1, 'rgba(136,108,250,.55)');
-  ell(0, -92, 56, 48); ctx.fillStyle = inner; ctx.fill();
-  ctx.save(); ell(0, -92, 54, 46); ctx.clip();
-  const bglow = ctx.createRadialGradient(0, -90, 4, 0, -90, 50); bglow.addColorStop(0, c2 + '55'); bglow.addColorStop(1, c2 + '00');
-  ctx.fillStyle = bglow; ctx.fillRect(-56, -140, 112, 96);
-  ctx.lineWidth = 2.5; ctx.strokeStyle = c1;
-  for (let i = 1; i < n; i++) { const a = NEURONS[i], b = NEURONS[a.link]; ctx.beginPath(); ctx.moveTo(a.x * 1.15, a.y * 1.04); ctx.lineTo(b.x * 1.15, b.y * 1.04); ctx.stroke(); }
-  const pulse = reduced ? 1 : 1 + Math.sin(t / 300) * 0.08;
-  for (let i = 0; i < n; i++) {
-    const a = NEURONS[i], x = a.x * 1.15, y = a.y * 1.04, rr = a.r * 1.15 * pulse, g = ctx.createRadialGradient(x - rr * 0.4, y - rr * 0.45, 0, x, y, rr);
-    g.addColorStop(0, '#ffffff'); g.addColorStop(0.28, c2); g.addColorStop(1, c1); ell(x, y, rr, rr); ctx.fillStyle = g; ctx.fill();
-  }
-  const fres = ctx.createRadialGradient(-6, -98, 22, 0, -92, 56);   // glass gets brighter toward its rim
-  fres.addColorStop(0, 'rgba(255,255,255,0)'); fres.addColorStop(0.72, 'rgba(255,255,255,.08)'); fres.addColorStop(1, 'rgba(255,255,255,.55)');
-  ctx.fillStyle = fres; ctx.fillRect(-56, -140, 112, 96);
-  ctx.restore();
-  ell(0, -92, 55, 47); ctx.strokeStyle = 'rgba(83,42,255,.45)'; ctx.lineWidth = 2; ctx.stroke();
-  ctx.beginPath(); ctx.ellipse(0, -92, 43, 36, 0, Math.PI * 1.08, Math.PI * 1.46); ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 7; ctx.stroke();   // window reflection
-  ctx.beginPath(); ctx.ellipse(0, -92, 47, 40, 0, Math.PI * 1.55, Math.PI * 1.7); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; ctx.stroke();
-  ell(24, -121, 4.5, 3); ctx.fillStyle = '#ffffff'; ctx.fill();
-  ctx.beginPath(); ctx.ellipse(0, -92, 50, 42, 0, Math.PI * 0.15, Math.PI * 0.85); ctx.strokeStyle = 'rgba(60,30,170,.18)'; ctx.lineWidth = 5; ctx.stroke();   // the dome's lower edge in shadow
-  ctx.restore();
-  // ribbed collar, a ring with a lit top
-  ell(0, -50, 56, 9); ctx.fillStyle = 'rgba(40,22,120,.25)'; ctx.fill();   // contact shadow under the dome
-  ctx.beginPath(); ctx.roundRect(-57, -61, 114, 15, 7.5);
-  const cg = ctx.createLinearGradient(0, -61, 0, -46); cg.addColorStop(0, '#ffffff'); cg.addColorStop(0.5, '#e6e0ff'); cg.addColorStop(1, '#a99ce9');
-  ctx.fillStyle = cg; ctx.fill(); ctx.strokeStyle = 'rgba(40,22,120,.25)'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.strokeStyle = 'rgba(110,90,210,.45)'; ctx.lineWidth = 1.5;
-  for (let rx = -45; rx <= 45; rx += 15) { ctx.beginPath(); ctx.moveTo(rx, -58); ctx.lineTo(rx, -49); ctx.stroke(); }
+/* the player's Brainer in the cockpit (rim centre at 0,0): its stage still, turned round to look back at you, the
+   near lip hiding its legs. It lights up as new brain cells arrive. */
+function robotSeat(t, L) {
+  const bob = reduced ? 0 : Math.sin(t / 260) * 1.5, glow = clamp(1 - (t - (view.glowT || -1e9)) / 700, 0, 1);
+  if (glow > 0) { const gg = ctx.createRadialGradient(0, -70, 10, 0, -70, 90); gg.addColorStop(0, 'rgba(0,235,192,.8)'); gg.addColorStop(1, 'rgba(0,235,192,0)'); ctx.globalAlpha = glow; ctx.fillStyle = gg; ctx.fillRect(-90, -160, 180, 180); ctx.globalAlpha = 1; }
+  ctx.save(); ctx.beginPath(); ctx.rect(-130, -240, 260, 244); ctx.clip();   // nothing below the rim
+  drawBrainer(ctx, 0, -32 + bob, 170, L, moodNow(t).ex, t);
   ctx.restore();
 }
 function robotHands(t) {   // hands on the cockpit rim; the one on the side you're hovering lifts toward that path
@@ -901,7 +882,7 @@ function planeBack(x, y, s, rot, t, pilot, soot, L) {
   ctx.fillStyle = 'rgba(200,225,255,.35)'; ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2.5; ctx.stroke();
   // cockpit: a dark opening, the pilot inside, then the padded near lip
   ell(0, 2, 56, 18); ctx.fillStyle = lin(0, -16, 0, 20, '#120d33', '#2a2163'); ctx.fill();
-  if (pilot) robotBack(t, L);
+  if (pilot) robotSeat(t, L);
   ctx.beginPath(); ctx.ellipse(0, 2, 56, 18, 0, 0, Math.PI); ctx.lineWidth = 10; ctx.strokeStyle = lin(0, 2, 0, 24, '#ffffff', '#c3b6f5'); ctx.stroke();
   ctx.beginPath(); ctx.ellipse(0, 2, 56, 18, 0, Math.PI * 0.15, Math.PI * 0.85); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.stroke();
   if (pilot) robotHands(t);
@@ -939,7 +920,7 @@ function chuteDraw(x, y, s, t, open, alpha, L) {
     ctx.restore();
   }
   const m = moodNow(t);
-  drawBrainer(ctx, 0, 40, 220, L, m.ex, t, { since: m.t0, lookX: Math.sin(t / 1200) * 0.5 });
+  drawBrainer(ctx, 0, 40, 220, L, m.ex, t);
   ctx.restore();
 }
 
@@ -1188,13 +1169,13 @@ function draw(now) {
       if (pop > 0 && img) {
         const sz = R1 * 1.75 * easeBack(pop);
         ctx.translate(cx, cy); ctx.rotate(reduced ? 0 : Math.sin(now / 300) * 0.05);
-        for (let i = 0; i < 3; i++) {   // smoke over the dome
+        for (let i = 0; i < 3; i++) {   // smoke over its head
           const q = ((now / 900 + i / 3) % 1);
           ctx.globalAlpha = 0.5 * (1 - q); ell(-R1 * 0.3 + i * R1 * 0.3, -R1 * 0.75 - q * R1 * 0.4, R1 * (0.08 + q * 0.12), R1 * (0.07 + q * 0.1)); ctx.fillStyle = '#6b6585'; ctx.fill();
         }
         ctx.globalAlpha = 1;
         if (has3D()) blit3D(ctx, 'B', 0, 0, sz * 1.15); else drawBrainer(ctx, 0, 0, sz, iris.brain, 'dizzy', now, { img });
-        for (let i = 0; i < 4; i++) {   // stars circling the dome
+        for (let i = 0; i < 4; i++) {   // stars circling its head
           const an = now / 380 + i * Math.PI / 2;
           star(Math.cos(an) * R1 * 0.55, -R1 * 0.58 + Math.sin(an) * R1 * 0.12, R1 * 0.08, 5, 0.45); ctx.fillStyle = '#ffc147'; ctx.fill();
         }
@@ -1219,69 +1200,87 @@ function loop(now) {
 
 /* ---------- readout & controls ---------- */
 const cache = {};
-const put = (id, prop, v) => { const k = id + prop; if (cache[k] === v) return; cache[k] = v; const el = document.getElementById(id); if (prop === 'text') el.textContent = v; else if (prop === 'class') el.className = v; else if (prop === 'hidden') el.hidden = v; else if (prop === 'disabled') el.disabled = v; };
+const put = (id, prop, v) => { const k = id + prop; if (cache[k] === v) return; cache[k] = v; const el = document.getElementById(id); if (prop === 'text') el.textContent = v; else if (prop === 'class') el.className = v; else if (prop === 'hidden') el.hidden = v; else el.setAttribute(prop, v); };
 function updateUI(now) {
   const r = round, d = r ? r.d : LEVELS[S.level];
   let label, big, bigCls = 'mult', sub = '', subCls = 'sub';
-  if (!r || (!inFlight() && starting)) { label = `${d.name} · ${d.steps} paths · top win`; big = fxShort(multAt(d, d.steps)); bigCls = 'mult idle'; sub = 'Set your bet and press Play'; }
+  if (!r || (!inFlight() && starting)) { label = `${d.name} · ${d.reach < d.steps ? 'up to ' : ''}${d.reach} paths · top win`; big = fxShort(topOf(d)); bigCls = 'mult idle'; sub = 'Set your bet and press Play'; }
   else if (r.status === 'choose') {
-    const cur = multAt(r.d, r.n, r.rtp), next = multAt(r.d, r.n + 1, r.rtp);
-    label = r.n ? `Path ${r.n} of ${r.d.steps} cleared · fly on or jump` : 'Bombs ahead! Pick a path';
-    big = fx(cur); sub = r.n ? `Jump now: ${money(Math.min(r.stake * cur, cfg.maxWin))} · next ${fx(next)}` : `A safe path pays ${fx(next)}`;
-  } else if (r.status === 'takeoff') { label = 'Taking off…'; big = fx(1); sub = `A safe path pays ${fx(multAt(r.d, 1, r.rtp))}`;
-  } else if (r.status === 'flying') { label = `Path ${r.pick + 1} · bombs away…`; big = fx(multAt(r.d, r.n, r.rtp)); sub = `Safe path pays ${fx(multAt(r.d, r.n + 1, r.rtp))}`; }
+    const cur = capAt(r.d, r.n, r.stake, r.rtp), next = capAt(r.d, r.n + 1, r.stake, r.rtp);
+    label = r.n ? `Path ${r.n} of ${r.reach} cleared · fly on or jump` : 'Bombs ahead! Pick a path';
+    big = fx(cur); sub = r.n ? `Jump now: ${money(payAt(r, r.n))} · next ${fx(next)}` : `A safe path pays ${fx(next)}`;
+  } else if (r.status === 'takeoff') { label = 'Taking off…'; big = fx(1); sub = `A safe path pays ${fx(capAt(r.d, 1, r.stake, r.rtp))}`;
+  } else if (r.status === 'flying') { label = `Path ${r.pick + 1} · bombs away…`; big = fx(capAt(r.d, r.n, r.stake, r.rtp)); sub = `Safe path pays ${fx(capAt(r.d, r.n + 1, r.stake, r.rtp))}`; }
   else if (r.status === 'crashed') { label = 'Ka-boom!'; big = 'Crashed'; bigCls = 'mult bust'; sub = `Bomb on path ${r.pick + 1} · −${money(r.stake)}`; subCls = 'sub bad'; }
-  else { const m = multAt(r.d, r.n, r.rtp); label = m >= 100 ? 'Huge win!' : m >= 10 ? 'Big win!' : `Jumped after ${r.n} path${r.n === 1 ? '' : 's'}!`; big = fx(m); bigCls = m >= 10 ? 'mult win gold' : 'mult win'; sub = `You won ${money(r.payout)}`; subCls = 'sub ok'; }
+  else { const m = capAt(r.d, r.n, r.stake, r.rtp); label = m >= 100 ? 'Huge win!' : m >= 10 ? 'Big win!' : `Jumped after ${r.n} path${r.n === 1 ? '' : 's'}!`; big = fx(m); bigCls = m >= 10 ? 'mult win gold' : 'mult win'; sub = `You won ${money(r.payout)}`; subCls = 'sub ok'; }
   if (r && r.popAt && now - r.popAt < 400 && r.status === 'choose') bigCls += ' pop';
   put('label', 'text', label); put('label', 'class', /win!$/.test(label) ? 'label gold' : 'label'); put('mult', 'text', big); put('mult', 'class', bigCls);
   put('sub', 'hidden', !sub); put('sub', 'text', sub); put('sub', 'class', subCls);
   if (r && inFlight()) {
-    put('jump', 'disabled', !(r.status === 'choose' && r.n >= 1));
-    put('jumpSub', 'text', r.n < 1 ? 'after the first path' : money(Math.min(r.stake * multAt(r.d, r.n, r.rtp), cfg.maxWin)));
+    put('jump', 'aria-disabled', String(!(r.status === 'choose' && r.n >= 1)));
+    put('jumpSub', 'text', r.n < 1 ? 'after the first path' : money(payAt(r, r.n)));
   }
 }
+// Play, the paths and Jump go inert with aria-disabled, not disabled: Chrome drops focus from a disabled button (and
+// from a hidden one), so keyboard and screen-reader players would lose their place three times a flight. play(),
+// choose() and jump() already ignore presses they cannot take.
 function renderControls() {
-  const fl = inFlight();
+  const fl = inFlight(), from = $(fl ? '#setup' : '#flight'), had = !from.hidden && from.contains(document.activeElement);   // focus in the panel about to hide
   $('#setup').hidden = fl; $('#flight').hidden = !fl;
   $('#playSub').textContent = starting ? 'Taking off…' : `${money(S.stake)} · ${LEVELS[S.level].name}`;
-  $('#play').disabled = starting;
-  document.querySelectorAll('#paths button').forEach((b, k) => { b.disabled = !round || round.status !== 'choose'; b.setAttribute('aria-pressed', String(!!round && round.pick === k)); });
+  $('#play').setAttribute('aria-disabled', String(starting));
+  document.querySelectorAll('#paths button').forEach((b, k) => { b.setAttribute('aria-disabled', String(!round || round.status !== 'choose')); b.setAttribute('aria-pressed', String(!!round && round.pick === k)); });
+  if (had) { $(fl ? '#paths button' : '#play').focus({ preventScroll: true }); ptrFocus = true; }   // to the first path as a flight starts, to Play as it ends; moved by the game, so Space stays the game's
 }
-function renderLevels() {
-  $('#levels').innerHTML = LEVELS.map((d, i) => `<button type="button" data-l="${i}" aria-pressed="${i === S.level}"><b>${d.name}</b><span>up to ${fxShort(multAt(d, d.steps))}</span></button>`).join('');
+function renderLevels() {   // built once, as the tops never change; after that only the pressed one moves, so focus stays on the button
+  const bs = document.querySelectorAll('#levels button[data-l]');
+  if (bs.length === LEVELS.length) { bs.forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.l === S.level))); return; }
+  $('#levels').innerHTML = LEVELS.map((d, i) => `<button type="button" data-l="${i}" aria-pressed="${i === S.level}"><b>${d.name}</b><span>up to ${fxShort(topOf(d))}</span></button>`).join('');
 }
 function renderPaths() {
   $('#paths').innerHTML = PATHS.map(([nm, deg], k) => `<button type="button" data-p="${k}" aria-label="Path ${k + 1}, ${nm}"><span class="n"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><g transform="rotate(${deg} 12 12)"><path d="M12 20V5M6 11l6-6 6 6" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g></svg>${k + 1}</span><span class="nm">${nm}</span></button>`).join('');
 }
 function renderPicker() {   // your Brainer: level, progress, the ten looks, and the worlds it has unlocked
-  const L = myLevel(), st = stageOf(L);
+  const L = myLevel(), st = stageOf(L), f = document.activeElement;
+  const keep = f && f.closest('#levelsGrid, #worldsPick') ? (f.dataset.b ? `#levelsGrid [data-b="${f.dataset.b}"]` : `#worldsPick [data-w="${f.dataset.w}"]`) : '';   // the button just pressed, rebuilt below
   $('#pickLevel').textContent = L; $('#pickSlider').value = L;
   $('#pickNote').textContent = L < 100 ? `${Math.floor(S.cells - CELLS[L]).toLocaleString('en-US')} of ${(CELLS[L + 1] - CELLS[L]).toLocaleString('en-US')} brain cells to level ${L + 1}` : 'Top level reached';
   $('#levelsGrid').innerHTML = Array.from({ length: 10 }, (_, i) => `<button type="button" data-b="${i * 10 + 1}" aria-pressed="${i + 1 === st}"${i + 1 > st ? ' class="ahead"' : ''}><img src="assets/brainer-${i + 1}.png" alt=""><b>Stage ${i + 1}</b><span>Levels ${i * 10 + 1}–${i * 10 + 10}</span></button>`).join('');
-  $('#worldsPick').innerHTML = [['fields', 'Lavender fields', 1], ...UNLOCKS.map(u => [u.world, u.name, u.at])].map(([k, n, at]) => `<button type="button" data-w="${k}" aria-pressed="${k === worldKey}"${L < at ? ' disabled' : ''}><b>${n}</b><span>${L < at ? `Level ${at}` : k === worldKey ? 'Flying here' : 'Unlocked'}</span></button>`).join('');
+  $('#worldsPick').innerHTML = [['fields', WORLDS.fields.name, 1], ...UNLOCKS.map(u => [u.world, u.name, u.at])].map(([k, n, at]) => `<button type="button" data-w="${k}" aria-pressed="${k === worldKey}"${L < at ? ' disabled' : ''}><b>${n}</b><span>${L < at ? `Level ${at}` : k === worldKey ? 'Flying here' : 'Unlocked'}</span></button>`).join('');
+  if (keep && $(keep)) $(keep).focus({ preventScroll: true });   // focus stays on it, so its new state is read out (no scroll: the website's frame)
 }
 function renderLadder() {
   const r = round, d = r ? r.d : LEVELS[S.level], rtp = cfg.rtp, n = r && r.status !== 'crashed' ? r.n : 0, live = inFlight();
   const el = $('#ladder');
-  el.innerHTML = Array.from({ length: d.steps }, (_, i) => `<span class="rung ${i < n ? 'done' : i === n && live ? 'next' : ''}">${fxShort(multAt(d, i + 1, rtp))}</span>`).join('');
+  el.innerHTML = Array.from({ length: r ? r.reach : d.reach }, (_, i) => `<span class="rung ${i < n ? 'done' : i === n && live ? 'next' : ''}">${fxShort(capAt(d, i + 1, r ? r.stake : cfg.minBet, rtp))}</span>`).join('');   // what each path pays at the bet placed, or at most before one
   const nx = el.querySelector('.next') || el.querySelectorAll('.done')[n - 1];
   el.scrollLeft = nx ? nx.offsetLeft - el.clientWidth / 2 + nx.offsetWidth / 2 : 0;
 }
-function renderBalance() { $('#balance').textContent = money(S.balance); }
+function renderBalance() { $('#balance').textContent = money(S.balance); $('.hud').classList.toggle('long', S.balance >= 1e5); }   // six figures and up: a phone's top bar tightens (style.css), so the wallet stays on the stage
 function renderSound() { const b = $('#sound'); b.setAttribute('aria-pressed', String(sound.on)); b.setAttribute('aria-label', sound.on ? 'Sound on, tap to mute' : 'Sound off, tap to unmute'); }
 let toastT = 0;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
 
 /* ---------- provably fair: the next flight's commit, and the last flight revealed and re-checked ---------- */
-const kv = (k, v) => `<div class="kv"><span>${k}</span><code>${v}</code></div>`;
+const esc = s => String(s).replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);   // client seeds are the player's own text
+const kv = (k, v) => `<div class="kv"><span>${k}</span><code>${esc(v)}</code></div>`;
 function renderFair() {
-  const live = inFlight() ? round : null, r = lastRound;
-  let h = `<h4>${live ? 'This flight' : 'Your next flight'}</h4>${kv('Server seed hash', live ? live.hash : S.hash)}${kv('Client seed', S.client)}${kv('Nonce', live ? live.nonce : S.nonce)}`
-    + `<p class="sheet-note">${live ? 'The server seed is revealed when this flight ends.' : 'This hash is fixed now, before you choose a bet or a path.'}</p>`;
-  if (r) h += `<h4>Last flight: ${r.d.name}, ${r.status === 'crashed' ? 'bomb hit' : `jumped at ${fx(multAt(r.d, r.n, r.rtp))}`}</h4>`
+  const live = inFlight() ? round : null, r = lastRound, off = live ? ' disabled' : '';
+  let h = `<h4>${live ? 'This flight' : 'Your next flight'}</h4>${kv('Server seed hash', live ? live.hash : S.hash)}`
+    + `<div class="kv"><label for="seedIn">Your client seed</label><div class="seed-row"><input id="seedIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="seedMsg"${off}><button type="button" id="seedNew"${off}>New random</button></div><p class="seed-msg" id="seedMsg" aria-live="polite"></p></div>`
+    + `${kv('Nonce', live ? live.nonce : S.nonce)}`
+    + `<p class="sheet-note">${live ? 'The server seed is revealed when this flight ends. You can change your client seed after it.' : 'This hash is fixed now, before you set your client seed or choose a bet. A new client seed applies from your next flight and is kept for this visit only.'}</p>`;
+  if (r) h += `<h4>Last flight: ${r.d.name}, ${r.status === 'crashed' ? 'bomb hit' : `jumped at ${fx(capAt(r.d, r.n, r.stake, r.rtp))}`}</h4>`
     + `${kv('Server seed hash', r.hash)}${kv('Server seed, revealed', r.seed)}${kv('Client seed', r.client)}${kv('Nonce', r.nonce)}`
     + '<button type="button" class="big ghost" id="fairCheck">Check this flight</button><div id="fairOut" aria-live="polite"></div>';
-  $('#fairBody').innerHTML = h;
+  $('#fairBody').innerHTML = h; $('#seedIn').value = live ? live.client : S.client;
+}
+function setClient(v) {   // the player's client seed: 1–64 characters (code points, as in FogRush, so an emoji is one), trimmed; anything else keeps the last valid one
+  const s = v.trim(), n = [...s].length, ok = n >= 1 && n <= 64;
+  if (ok && !inFlight()) S.client = s;
+  $('#seedIn').setAttribute('aria-invalid', String(!ok));
+  $('#seedMsg').textContent = ok ? '' : `Use 1 to 64 characters${n ? ` (this is ${n})` : ''}. Your last valid seed stays in use.`;
+  return ok;
 }
 async function checkFair() {
   const r = lastRound;
@@ -1289,13 +1288,17 @@ async function checkFair() {
   const hashOk = (await sha256(r.seed)) === r.hash;
   const bombs = await drawBombs(r.seed, r.client, r.nonce, r.d);
   const bombsOk = JSON.stringify(bombs) === JSON.stringify(r.bombs);
-  const played = r.status === 'crashed' ? r.n + 1 : r.n, shown = r.status === 'cashed' ? Math.min(r.d.steps, played + 1) : played;   // after a jump, also show the step you skipped
+  const played = r.status === 'crashed' ? r.n + 1 : r.n, shown = r.status === 'cashed' && !r.auto ? played + 1 : played;   // after the player's own jump, also show the step they skipped
   const ok = (good, text) => `<p class="fair-ok${good ? '' : ' bad'}">${good ? '✓' : '✕'} ${text}</p>`;
-  const rows = Array.from({ length: shown }, (_, i) => `<div class="frow${i >= played ? ' next' : ''}"><span class="st">${i + 1}</span>`
-    + bombs[i].map((b, k) => `<i class="${b ? 'bomb' : ''}${r.picks[i] === k ? ' pick' : ''}"></i>`).join('') + '</div>').join('');
+  const rows = Array.from({ length: shown }, (_, i) => {
+    const hit = bombs[i].flatMap((b, k) => b ? [k + 1] : []), s = hit.length > 1 ? 's' : '';   // each row also reads out in words: the colours alone tell a screen reader nothing
+    const say = `Step ${i + 1}${i >= played ? ', skipped by jumping' : ''}: ${hit.length ? `bomb${s} on path${s} ${hit.join(', ')}` : 'no bombs'}${r.picks[i] != null ? `; you picked path ${r.picks[i] + 1}` : ''}`;
+    return `<div class="frow${i >= played ? ' next' : ''}" role="img" aria-label="${say}"><span class="st">${i + 1}</span>`
+      + bombs[i].map((b, k) => `<i class="${b ? 'bomb' : ''}${r.picks[i] === k ? ' pick' : ''}"></i>`).join('') + '</div>';
+  }).join('');
   $('#fairOut').innerHTML = ok(hashOk, hashOk ? 'SHA-256 of the seed matches the hash shown before the flight' : 'The seed does not match the hash')
     + ok(bombsOk, bombsOk ? 'Bombs recomputed from the seeds match your flight' : 'Recomputed bombs differ from the flight')
-    + `<div class="fgrid" aria-label="Bombs at each step">${rows}</div>`
+    + `<div class="fgrid" role="group" aria-label="Bombs at each step">${rows}</div>`
     + `<p class="sheet-note">Red: a bomb on that path. White ring: the path you picked.${shown > played ? ' The faded row is the next step you skipped by jumping.' : ''}</p>`;
 }
 
@@ -1312,7 +1315,9 @@ $('#worldsPick').addEventListener('click', e => { const b = e.target.closest('bu
 $('#help').addEventListener('click', () => openSheet('#tutorial'));
 $('#fair').addEventListener('click', () => { renderFair(); openSheet('#fairSheet'); });
 $('#fairClose').addEventListener('click', () => closeSheet('#fairSheet'));
-$('#fairBody').addEventListener('click', e => { if (e.target.closest('#fairCheck')) checkFair(); });
+$('#fairBody').addEventListener('click', e => { if (e.target.closest('#fairCheck')) checkFair(); if (e.target.closest('#seedNew') && !inFlight()) { $('#seedIn').value = randHex(8); setClient($('#seedIn').value); } });
+$('#fairBody').addEventListener('input', e => { if (e.target.id === 'seedIn') setClient(e.target.value); });
+$('#fairBody').addEventListener('change', e => { if (e.target.id === 'seedIn' && setClient(e.target.value)) e.target.value = S.client; });   // on leaving the field an accepted seed shows as it is used, trimmed, as in FogRush
 $('#tutGo').addEventListener('click', () => { store.set('brainer.pc.tutorial', 'seen'); closeSheet('#tutorial'); });
 // 18+ check, shared with the website (same key), so a visitor who confirmed there is not asked again
 $('#ageYes').addEventListener('click', () => { store.set('brainer.age-ok', '1'); closeSheet('#agegate'); if (store.get('brainer.pc.tutorial', '') !== 'seen') openSheet('#tutorial'); });
@@ -1325,7 +1330,7 @@ function setStake(v) { S.stake = clampStake(v); $('#amt').value = S.stake.toFixe
 $('#amt').addEventListener('change', () => setStake(parseFloat($('#amt').value)));
 $('#dec').addEventListener('click', () => setStake(S.stake - (S.stake > 10 ? 1 : 0.5)));
 $('#inc').addEventListener('click', () => setStake(S.stake + (S.stake >= 10 ? 1 : 0.5)));
-$('#chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const c = b.dataset.chip; setStake(c === 'min' ? cfg.minBet : c === 'max' ? Math.min(cfg.maxBet, Math.floor(S.balance * 100) / 100) : c === 'half' ? S.stake / 2 : S.stake * 2); });
+$('#chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const c = b.dataset.chip; setStake(c === 'min' ? cfg.minBet : c === 'max' ? Math.min(cfg.maxBet, Math.floor(S.balance * 100 + 1e-6) / 100) : c === 'half' ? S.stake / 2 : S.stake * 2); });
 $('#levels').addEventListener('click', e => {
   const b = e.target.closest('button[data-l]'); if (!b || inFlight()) return;
   S.level = +b.dataset.l; renderLevels(); renderControls();
@@ -1334,10 +1339,10 @@ $('#levels').addEventListener('click', e => {
   if (iris) iris.out = now;
   if (plane.state !== 'cruise') { plane.state = 'enter'; plane.t0 = now; }
   $('#pilot').classList.remove('sooty');
-  renderLadder();
+  renderLadder(); flushLevelUp();   // the result it cleared held a level-up back; it waits for the crash card to close
 });
 $('#play').addEventListener('click', play);
-$('#paths').addEventListener('click', e => { const b = e.target.closest('button[data-p]'); if (b && !b.disabled) choose(+b.dataset.p); });
+$('#paths').addEventListener('click', e => { const b = e.target.closest('button[data-p]'); if (b) { choose(+b.dataset.p); ptrFocus = true; } });   // focus stays on a picked path, which leaves Space to the game: Space jumps, never flies that path again
 for (const ev of ['pointerover', 'focusin']) $('#paths').addEventListener(ev, e => { const b = e.target.closest('button[data-p]'); view.hover = b ? +b.dataset.p : -1; });
 for (const ev of ['pointerleave', 'focusout']) $('#paths').addEventListener(ev, () => { view.hover = -1; });
 $('#jump').addEventListener('click', () => jump(false));
@@ -1348,18 +1353,29 @@ cv.addEventListener('pointermove', e => { view.hover = round && round.status ===
 cv.addEventListener('pointerleave', () => { view.hover = -1; });
 cv.addEventListener('click', e => { if (round && round.status === 'choose') { const k = gateAt(e); if (k >= 0) choose(k); } });
 document.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {   // Tab stays inside the open sheet (the last one in the page is on top)
+    const s = [...document.querySelectorAll('.sheet')].filter(x => !x.hidden).pop();
+    if (s) { const f = [...s.querySelectorAll('button, input')].filter(b => !b.disabled && b.getClientRects().length), i = f.indexOf(document.activeElement); if (!f.length) e.preventDefault(); else if (i < 0 || (e.shiftKey ? i === 0 : i === f.length - 1)) { e.preventDefault(); f[e.shiftKey ? f.length - 1 : 0].focus({ preventScroll: true }); } }
+    return;
+  }
   if (e.key === 'Escape') { if (!$('#picker').hidden) closeSheet('#picker'); if (!$('#fairSheet').hidden) closeSheet('#fairSheet'); if (!$('#tutorial').hidden) { store.set('brainer.pc.tutorial', 'seen'); closeSheet('#tutorial'); } return; }
+  if (!booted) { if (e.code === 'Space') e.preventDefault(); return; }   // no game keys under the intro (the 18+ check comes first); Space only skips it, with no page scroll
   if (sheetOpen()) return;
   const tag = document.activeElement && document.activeElement.tagName;
   if (tag === 'INPUT') return;
-  if (/^[1-5]$/.test(e.key)) { choose(+e.key - 1); return; }
-  if (e.code !== 'Space' || e.repeat || tag === 'BUTTON') return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;   // leave browser shortcuts (Ctrl+1, Alt+Space…) alone
+  const dk = /^Digit([1-5])$/.exec(e.code) || /^([1-5])$/.exec(e.key);   // the key's place first, so AZERTY's number row works too (as in FogRush); the numpad by its digit
+  if (dk) { if (!e.repeat) choose(+dk[1] - 1); return; }   // a held key never flies the next path by itself
+  if (e.code !== 'Space' || e.repeat || (tag === 'BUTTON' && !ptrFocus)) return;   // a button reached with Tab takes Space itself; one just clicked does not
   e.preventDefault();
   if (inFlight()) jump(false); else play();
 });
 
 /* ---------- boot ---------- */
 for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { lastInput = performance.now(); }, true);
+let ptrFocus = false;   // focus last moved by a click (Chrome focuses clicked buttons) or by the game, not by Tab
+document.addEventListener('pointerdown', () => { ptrFocus = true; }, true);
+document.addEventListener('keydown', e => { if (e.key === 'Tab') ptrFocus = false; }, true);
 {
   const q = new URLSearchParams(location.search), sw = $('#worlds');
   const saved = store.get('brainer.world', ''), ok = k => k === 'fields' || UNLOCKS.some(u => u.world === k && myLevel() >= u.at);
@@ -1370,15 +1386,15 @@ for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () =>
   }
 }
 S.client = randHex(8);
-rotateSeed();
+rotateSeed().catch(() => {});   // without crypto.subtle (plain http) Play says why instead
 setStake(S.stake); renderLevels(); renderPaths(); renderBalance(); renderControls(); renderPilot(); renderSound();
 layout(); plane.brain = myLevel(); setTrack(LEVELS[S.level], 0, cfg.rtp); park(); renderLadder();
 // The Brainer intro plays first (logo motion and loading); the 18+ check and the tutorial follow it.
 const bootT = performance.now();
 function loadProgress() {   // fonts, the robot art and the 3D engine; a slow network never holds the player past 9 s
   if (performance.now() - bootT > 9000) return 1;
-  const art = BLANK.filter(im => im.complete).length / BLANK.length, font = !document.fonts || document.fonts.status === 'loaded' ? 1 : 0;
-  const three = b3 === false || has3D() ? 1 : window.Brainer3D ? 0.6 : 0;
+  const art = ART.filter(im => im.complete).length / ART.length, font = !document.fonts || document.fonts.status === 'loaded' ? 1 : 0;
+  const three = b3 === false || window.Brainer3D === false || has3D() ? 1 : window.Brainer3D ? 0.6 : 0;   // false: no WebGL, or the module never loaded (blocked, or no import maps before Safari 16.4)
   return (art + font + three * 2) / 4;
 }
 // The intro's actor: the player's Brainer flying its 3D plane toward the camera, on its own renderer.
@@ -1398,6 +1414,7 @@ function introActor(g, w, h, now, ex) {
 }
 $('.brand .t1').innerHTML = window.BrainerIntro ? window.BrainerIntro.wordmark('plane') : 'Plane Crash';
 (window.BrainerIntro ? window.BrainerIntro.start({ title: 'Plane Crash', mark: 'plane', theme: 'plane', what: 'your plane', actor: introActor, progress: loadProgress }) : Promise.resolve()).then(() => {
+  booted = true;   // before the 18+ sheet opens, which then holds the game keys
   if (introA) introA.stage.dispose(); introA = false;   // the intro's own WebGL context goes: phones allow only so many
   if (store.get('brainer.age-ok', store.get('blink.age-ok', '')) !== '1') openSheet('#agegate');
   else if (store.get('brainer.pc.tutorial', '') !== 'seen') openSheet('#tutorial');

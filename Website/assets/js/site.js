@@ -48,10 +48,14 @@ $$('[data-icon]').forEach(el => { el.outerHTML = ICON[el.dataset.icon] || ''; })
 /* ---------- game cards: any [data-games] list fills itself from the catalogue ---------- */
 // How often a new tile holds a chest, as "1 in N": the bomb chance first, then the chest's share of safe tiles.
 const oneIn = (g, c) => Math.round(1 / ((1 - g.bomb / 100) * c.chance / 100)).toLocaleString('en-US');
-// The strip under a game's blurb: top-step multipliers per difficulty for a ladder game, the chests for a map game.
+// What a difficulty can really pay, as the game shows it before a bet: the ladder's top, or the max win at the minimum
+// bet when that is lower (Hardcore: 100,000×). A difficulty the max win cuts short lists the paths it can `reach`.
+const topOf = (g, l) => g.maxWin && g.minBet ? Math.min(l.top, Math.floor(g.maxWin / g.minBet * 100 + 1e-7) / 100) : l.top;
+const pathsOf = l => l.reach ? `up to ${l.reach}` : String(l.steps);
+// The strip under a game's blurb: top multipliers per difficulty for a ladder game, the chests for a map game.
 function oddsStrip(g) {
-  const cap = g.maxWin ? ` A ${g.round} pays at most $${g.maxWin.toLocaleString('en-US')}.` : '';
-  if (g.levels && g.levels.every(l => l.top)) return `<div class="diffs" aria-label="Top-step multiplier per difficulty">${g.levels.map(l => `<div><span>${esc(l.name)}</span><b>${fx(l.top)}</b><small>${l.bombs} ${l.bombs === 1 ? 'bomb' : 'bombs'} · ${l.steps} paths</small></div>`).join('')}</div><p class="diffs-note">Top-step multiplier.${cap}</p>`;
+  const cap = g.maxWin ? ` A ${g.round} pays at most $${g.maxWin.toLocaleString('en-US')}${g.minBet ? `, which is ${fx(g.maxWin / g.minBet)} at the $${g.minBet.toFixed(2)} minimum bet` : ''}.` : '';
+  if (g.levels && g.levels.every(l => l.top)) return `<div class="diffs" aria-label="Top multiplier per difficulty">${g.levels.map(l => `<div><span>${esc(l.name)}</span><b>${fx(topOf(g, l))}</b><small>${l.bombs} ${l.bombs === 1 ? 'bomb' : 'bombs'} · ${pathsOf(l)} paths</small></div>`).join('')}</div><p class="diffs-note">Top multiplier a ${g.round} can pay.${cap}</p>`;
   if (g.chests) return `<div class="diffs five" aria-label="Chest multipliers and how often a new tile holds one">${g.chests.map(c => `<div><span>${esc(c.name)}</span><b>×${c.x}</b><small>1 in ${oneIn(g, c)} tiles</small></div>`).join('')}</div><p class="diffs-note">How often a new tile holds each chest; ${g.bomb}% hold a bomb.${cap}</p>`;
   return '';
 }
@@ -60,7 +64,7 @@ function gameCard(g) {
   const art = g.art ? `<img src="${g.art}" alt="" loading="lazy" decoding="async">` : '<span class="ph">?</span>';
   const shape = g.levels ? `${g.levels.length} difficulties` : g.grid ? `${g.grid} × ${g.grid} map` : '';
   const more = soon ? '' : `
-      <div class="chips"><span class="chip">RTP <b>${g.rtp}%</b></span>${shape ? `<span class="chip">${shape}</span>` : ''}<span class="chip">Provably fair</span></div>
+      <div class="chips"><span class="chip">RTP up to <b>${g.rtp}%</b></span>${shape ? `<span class="chip">${shape}</span>` : ''}<span class="chip">Provably fair</span></div>
       ${oddsStrip(g)}
       <div class="ctas"><a class="btn btn-ink" href="${href}">${ICON.play}Play the demo</a><a class="btn" href="${href}#specs">Specs</a></div>`;
   return `<article class="game${soon ? ' is-soon' : ''}">
@@ -77,8 +81,7 @@ $$('[data-games]').forEach(el => { el.innerHTML = GAMES.map(gameCard).join(''); 
 const live = GAMES.filter(x => x.status !== 'soon');
 $$('[data-hero-stats]').forEach(el => {
   if (!live.length) { el.remove(); return; }
-  const rtps = [...new Set(live.map(x => x.rtp))].sort((a, b) => a - b), rtp = rtps.length === 1 ? `${rtps[0]}%` : `${rtps[0]}–${rtps[rtps.length - 1]}%`;
-  const stats = [[rtp, 'RTP for every player'], [String(live.length), live.length === 1 ? 'Playable demo' : 'Playable demos'], [String(BRAIN.levels), 'Brain levels'], ['Every round', 'Provably fair']];
+  const stats = [[`Up to ${Math.max(...live.map(x => x.rtp))}%`, 'RTP'], [String(live.length), live.length === 1 ? 'Playable demo' : 'Playable demos'], [String(BRAIN.levels), 'Brain levels'], ['Every round', 'Provably fair']];
   el.innerHTML = stats.map(([v, l]) => `<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('');
 });
 
@@ -134,7 +137,7 @@ if (footer) {
   footer.className = 'site-footer';
   footer.innerHTML = `<div class="wrap">
     <div class="foot-top">
-      <div class="foot-brand">${logo}<p>Crash games your casino can make its own. Every round provably fair.</p></div>
+      <div class="foot-brand">${logo}<p>Instant games your casino can make its own. Every round provably fair.</p></div>
       <div class="foot-col"><h4>Studio</h4><ul>${NAV.map(n => `<li><a href="${n.href}">${n.label}</a></li>`).join('')}</ul></div>
       <div class="foot-col"><h4>Legal</h4><ul><li><a href="responsible-gaming.html"${cur('rg')}>Responsible gaming</a></li><li><a href="terms.html"${cur('terms')}>Terms</a></li><li><a href="privacy.html"${cur('privacy')}>Privacy</a></li></ul></div>
     </div>
@@ -149,7 +152,7 @@ document.body.insertAdjacentHTML('beforeend', `
     <nav>${NAV.map(n => `<a href="${n.href}"${cur(n.key)}>${n.label}</a>`).join('')}</nav>
     <a class="btn btn-red btn-lg" href="contact.html">Request a demo</a>
   </dialog>
-  <dialog class="modal" id="age" aria-labelledby="ageTitle">
+  <dialog class="modal" id="age" aria-labelledby="ageTitle" closedby="none">
     <div class="modal-body">
       <div class="age-mark">${SITE.minAge}+</div>
       <h2 id="ageTitle">Are you ${SITE.minAge} or older?</h2>
@@ -167,14 +170,19 @@ drawer.addEventListener('click', e => {
 
 const AGE_KEY = 'brainer.age-ok';
 if (store.get('blink.age-ok') === '1') store.set(AGE_KEY, '1'); // the name it had before the Brainer rename
+// closedby="none" keeps Esc and the back gesture off the gate, so back still leaves the page. Older browsers ignore it, and
+// Chrome lets a page block only one Esc per click, so there a gate closed without a Yes opens again. The answer is kept
+// in memory, so a Yes with storage blocked does not loop.
+let ageOk = store.get(AGE_KEY) === '1';
 age.addEventListener('cancel', e => e.preventDefault());
+age.addEventListener('close', () => { if (!ageOk) age.showModal(); });
 age.addEventListener('click', e => {
   const b = e.target.closest('[data-age]');
   if (!b) return;
-  if (b.dataset.age === 'yes') { store.set(AGE_KEY, '1'); age.close(); }
+  if (b.dataset.age === 'yes') { ageOk = true; store.set(AGE_KEY, '1'); age.close('yes'); }
   else { $('#ageNo').hidden = false; $('.age-actions', age).hidden = true; }
 });
-if (store.get(AGE_KEY) !== '1') age.showModal();
+if (!ageOk) age.showModal();
 
 document.addEventListener('click', e => {
   const a = e.target.closest('[data-act],[data-todo]');
@@ -185,5 +193,5 @@ document.addEventListener('click', e => {
 // Content drawn by script lands after the browser's own jump to #section, so jump again once it is there.
 const jumpToHash = () => { const t = location.hash && document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); };
 
-window.Brainer = { $, $$, esc, store, toast, ICON, jumpToHash, SITE, GAMES };
+window.Brainer = { $, $$, esc, store, toast, ICON, jumpToHash, topOf, pathsOf, SITE, GAMES };
 })();

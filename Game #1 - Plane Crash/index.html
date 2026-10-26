@@ -56,7 +56,7 @@
     <div class="sheet" id="fairSheet" role="dialog" aria-modal="true" aria-labelledby="fairTitle" hidden>
       <div class="sheet-card fair">
         <div class="sheet-head"><b id="fairTitle">Provably fair</b><button type="button" class="round" id="fairClose" aria-label="Close">✕</button></div>
-        <p class="sheet-note">Every flight is fixed before you bet. You see the SHA-256 hash of the server seed first; the seed itself is revealed when the flight ends. Each path at each step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"), and a roll at or above that step's survival chance is a bomb.</p>
+        <p class="sheet-note">Every flight is fixed before you bet, by the game's server seed and your client seed. You see the SHA-256 hash of the server seed first, then set your client seed if you like; the server seed is revealed when the flight ends. Each path at each step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"), and a roll at or above that step's survival chance is a bomb.</p>
         <div id="fairBody"></div>
       </div>
     </div>
@@ -67,10 +67,11 @@
         <ol>
           <li><b>Pick a difficulty and your bet</b>, then press Play.</li>
           <li><b>Bombs fall ahead. Choose one of five paths.</b> Every safe path raises your multiplier.</li>
-          <li><b>Jump with the parachute</b> whenever you like to take your win. A bomb on your path ends the flight.</li>
+          <li><b>Jump with the parachute</b> whenever you like to take your win, up to $10,000 a flight. A bomb on your path ends the flight.</li>
           <li><b>Your Brainer grows with every flight:</b> each one adds brain cells, whatever you bet. 100 levels, a new look every 10; levels never change the odds.</li>
         </ol>
-        <button type="button" class="big play" id="tutGo"><span class="l1">Let's fly</span></button>
+        <p class="sheet-note tut-rtp"><b>RTP up to 98%.</b> The return is 98% before two things lower it in some flights: payouts round down to the cent, and the $10,000 max win ends long or high-bet flights early.</p>
+        <div class="sheet-go"><button type="button" class="big play" id="tutGo"><span class="l1">Let's fly</span></button></div>
       </div>
     </div>
     <div class="sheet" id="agegate" role="dialog" aria-modal="true" aria-labelledby="ageTitle" hidden>
@@ -111,7 +112,7 @@
       </button>
     </div>
   </section>
-  <p class="foot">Demo with play money · Keys: 1–5 pick a path · Space jumps or plays</p>
+  <p class="foot">Demo with play money · RTP up to 98% · Keys: 1–5 pick a path · Space jumps or plays</p>
 </main>
 <div class="toast" id="toast" role="status"></div>
 <script type="importmap">{"imports":{"three":"../shared/vendor/three.module.min.js"}}</script>
@@ -119,6 +120,6 @@
 <script src="../shared/intro.js"></script>
 <script src="../shared/focus.js"></script>
 <script src="game.js"></script>
-<script type="module">import { Brainer, BrainerStage, Plane3D, Chute3D } from '../shared/brainer3d.js'; window.Brainer3D = { Brainer, BrainerStage, Plane3D, Chute3D };</script>
+<script type="module">import('../shared/brainer3d.js').then(m => { window.Brainer3D = { Brainer: m.Brainer, BrainerStage: m.BrainerStage, Plane3D: m.Plane3D, Chute3D: m.Chute3D }; }, () => { window.Brainer3D = false; });   // false: the 2D Brainer plays, and the intro stops waiting for 3D</script>
 </body>
 </html>

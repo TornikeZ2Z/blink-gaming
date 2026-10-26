@@ -12,7 +12,7 @@ async function newRound() {
   round = { id: 1000 + Math.floor(Math.random() * 9000), seed, hash: await sha256(seed) };
   $('#vRound').textContent = `Flight ${round.id}`;
   $('#vHash').textContent = round.hash;
-  const s = $('#vSeed'); s.textContent = '•'.repeat(64); s.classList.add('blur');
+  const s = $('#vSeed'); s.innerHTML = `<span aria-hidden="true">${'•'.repeat(64)}</span><span class="sr-only">Hidden until you reveal it</span>`; s.classList.add('blur');   // a screen reader hears the label, not 64 bullets
   $('#vOut').hidden = true;
   $('#vReveal').disabled = false;
 }

@@ -42,7 +42,7 @@ p{margin:0}
 /* pills */
 .sticker{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:999px;background:var(--tint-2);color:var(--main);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
 .sticker.red{background:#FFE8EC;color:var(--red)}
-.sticker.sky{background:#E2FAF0;color:#078A55}
+.sticker.sky{background:#E2FAF0;color:#067A4B}
 .sticker.paper{background:#fff;color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line)}
 .sticker.on-grad{background:rgba(255,255,255,.18);color:#fff}
 
@@ -110,7 +110,7 @@ dialog::backdrop{background:rgba(10,19,34,.5);backdrop-filter:blur(3px)}
 .hero-panel::before{width:clamp(420px,40vw,820px);aspect-ratio:1;right:-8%;top:-28%}
 .hero-panel::after{width:clamp(220px,18vw,380px);aspect-ratio:1;left:38%;bottom:-22%}
 .hero-panel h1{font-size:clamp(34px,4.5vw,88px);margin:20px 0 20px;max-width:15ch}
-.hero-panel .lead{color:#E6E0FF;font-size:clamp(15px,1.25vw,22px)}
+.hero-panel .lead{color:#fff;font-size:clamp(15px,1.25vw,22px)}
 .hero-panel .ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:clamp(26px,2.4vw,40px)}
 .ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}
 /* the live 3D Brainer fills the hero's right column; its controls sit at its foot, its background is transparent */
@@ -125,7 +125,7 @@ dialog::backdrop{background:rgba(10,19,34,.5);backdrop-filter:blur(3px)}
 .hero-stats{display:flex;flex-wrap:wrap;gap:clamp(18px,2.4vw,48px);margin-top:clamp(28px,3vw,52px);padding-top:clamp(20px,1.8vw,30px);border-top:1px solid rgba(255,255,255,.22)}
 .hero-stats div{display:flex;flex-direction:column;gap:2px}
 .hero-stats b{font-size:clamp(20px,1.7vw,32px);font-weight:800;letter-spacing:-.01em}
-.hero-stats span{font-size:clamp(12px,.85vw,14px);color:#D9D1FF}
+.hero-stats span{font-size:clamp(12px,.85vw,14px);color:#fff}
 
 /* ---------- proof points ---------- */
 .points{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(16px,1.5vw,28px)}
@@ -174,6 +174,10 @@ dialog::backdrop{background:rgba(10,19,34,.5);backdrop-filter:blur(3px)}
 .diffs b{font-family:var(--mono);font-size:clamp(16px,1.3vw,24px);font-weight:500;color:var(--main)}
 .diffs small{font-size:clamp(11px,.72vw,13px);color:var(--muted)}
 .diffs-note{margin-top:8px;font-size:12.5px!important;color:var(--muted)!important}
+/* small phones: 100,000.00× still fits a half-width cell */
+@media (max-width:380px){.diffs div{padding-inline:10px}.diffs b{font-size:14px}}
+/* tablets: the strip stays 2-up until four cells fit 100,000.00× (from about 950px) */
+@media (min-width:821px) and (max-width:980px){.diffs:not(.five){grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* ---------- steps ---------- */
 .steps3{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;position:relative;counter-reset:s}
@@ -188,10 +192,10 @@ dialog::backdrop{background:rgba(10,19,34,.5);backdrop-filter:blur(3px)}
 .split h2{font-size:clamp(26px,2.7vw,48px)}
 .receipt{padding:clamp(22px,2vw,38px);border-radius:var(--r-lg);background:#fff;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:14px}
 .kv{display:flex;flex-direction:column;gap:6px}
-.kv span{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.kv > span{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .kv code{font-family:var(--mono);font-size:12.5px;line-height:1.55;padding:11px 13px;border-radius:12px;background:var(--tint);word-break:break-all}
 .kv code.blur{filter:blur(5px);user-select:none}
-.ok{display:flex;align-items:center;gap:8px;padding-top:14px;border-top:1px dashed var(--line);font-weight:700;color:#078A55}
+.ok{display:flex;align-items:center;gap:8px;padding-top:14px;border-top:1px dashed var(--line);font-weight:700;color:#067A4B}
 .ok svg{width:20px;height:20px}
 .bad{color:var(--red)}
 
@@ -199,7 +203,7 @@ dialog::backdrop{background:rgba(10,19,34,.5);backdrop-filter:blur(3px)}
 .cta-panel{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;align-items:center;padding:clamp(32px,3.4vw,72px) clamp(26px,3.8vw,84px);border-radius:clamp(24px,2vw,40px);background:var(--g1);color:#fff;isolation:isolate}
 .cta-panel::after{content:"";position:absolute;width:clamp(300px,26vw,520px);aspect-ratio:1;right:-6%;top:-60%;border-radius:50%;background:rgba(255,255,255,.1);z-index:-1}
 .cta-panel h2{font-size:clamp(24px,2.7vw,48px)}
-.cta-panel p{margin-top:10px;font-size:clamp(15px,1.1vw,19px);color:#E6E0FF;max-width:52ch}
+.cta-panel p{margin-top:10px;font-size:clamp(15px,1.1vw,19px);color:#fff;max-width:52ch}
 .cta-panel .btn{background:#fff;color:var(--main);box-shadow:0 8px 20px rgba(10,19,34,.18)}
 
 /* ---------- page heads ---------- */
@@ -252,7 +256,8 @@ dialog::backdrop{background:rgba(10,19,34,.5);backdrop-filter:blur(3px)}
 .dl span{margin-left:auto;font-weight:400;color:var(--muted)}
 .dl:hover{background:var(--tint-2)}
 table{width:100%;border-collapse:collapse;font-size:14px}
-.tbl{border-radius:var(--r);overflow:hidden;background:#fff;box-shadow:inset 0 0 0 1px var(--line)}
+/* a table wider than a small phone scrolls in its box instead of losing its last columns */
+.tbl{border-radius:var(--r);overflow-x:auto;background:#fff;box-shadow:inset 0 0 0 1px var(--line)}
 th{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:13px 16px;background:var(--tint)}
 td{padding:12px 16px;border-top:1px solid var(--line)}
 td.num{font-family:var(--mono)}
@@ -285,8 +290,13 @@ td.num{font-family:var(--mono)}
 .verify-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .verify-head h3{font-size:20px}
 .verify .row{display:flex;gap:10px;flex-wrap:wrap}
-.formula{font-family:var(--mono);font-size:13.5px;padding:16px 18px;border-radius:var(--r);background:var(--dark);color:#E6E0FF;overflow-x:auto;line-height:1.75}
-.formula i{font-style:normal;color:#9F86FF}
+/* the scheme, term by term: each term beside its rule, above it on phones */
+.rules{display:grid;gap:10px;margin:0;max-width:1100px}
+.rules div{display:grid;grid-template-columns:140px minmax(0,1fr);gap:4px 24px;padding:16px 20px;border-radius:var(--r);background:var(--tint)}
+.rules dt{font-weight:700}
+.rules dd{margin:0;color:var(--ink-2);max-width:80ch}
+.rules code{font-family:var(--mono);font-size:.88em;color:var(--ink);overflow-wrap:anywhere}
+@media (max-width:620px){.rules div{grid-template-columns:minmax(0,1fr);padding:14px 16px}}
 
 /* ---------- contact page ---------- */
 .contact{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr);gap:36px;align-items:start}
@@ -315,7 +325,7 @@ td.num{font-family:var(--mono)}
 .age-badge{flex:none;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;border:2px solid #ff3b58;font-weight:700;font-size:14px}
 .foot-rg p{font-size:13px;color:#9BA3C7}
 .foot-rg b{color:#fff}
-.foot-bottom{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 20px;padding:16px 0 30px;border-top:1px solid #1d2840;font-size:12px;color:#6E7799}
+.foot-bottom{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 20px;padding:16px 0 30px;border-top:1px solid #1d2840;font-size:12px;color:#8A93B5}
 
 /* ---------- toast ---------- */
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));z-index:80;transform:translate(-50%,20px);opacity:0;max-width:calc(100% - 32px);padding:13px 20px;border-radius:999px;background:var(--dark);color:#fff;box-shadow:0 14px 40px rgba(10,19,34,.3);font-size:14px;transition:.2s;pointer-events:none}
@@ -364,8 +374,10 @@ td.num{font-family:var(--mono)}
   .play-head .tools .btn span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .play-head .tools .btn{width:46px;padding:0}
   .frame{height:calc(100dvh - var(--header-h) - 60px);min-height:540px;margin-inline:calc(var(--gutter) * -1);border-radius:0;box-shadow:none}
-  td,th{padding-inline:12px}
+  td,th{padding-inline:8px}
 }
+/* small phones: the five odds columns of Plane Crash fit at 320px (the 8px padding alone only from 386px) */
+@media (max-width:400px){table{font-size:12.5px}td,th{padding-inline:5px}th{font-size:10px;letter-spacing:.04em}}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
 }

@@ -18,6 +18,7 @@ body{min-height:100dvh;background:radial-gradient(90% 60% at 50% 0%,#24206e 0%,v
 button,input{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid #8447fb;outline-offset:2px}
+.hud :focus-visible,.pilot:focus-visible,.worlds :focus-visible{outline-color:#fff;box-shadow:0 0 0 8px #0a1322}   /* over the sky a violet ring all but vanishes: white with a navy halo reads on any backdrop */
 .app{max-width:1640px;margin:0 auto;padding:14px 16px 12px;display:flex;flex-direction:column;gap:12px}
 
 .stage{position:relative;height:var(--stage-h);border-radius:26px;overflow:hidden;background:#7a45f5;box-shadow:0 20px 60px rgba(75,54,252,.35),0 0 0 1px var(--line);touch-action:manipulation;user-select:none}
@@ -64,7 +65,7 @@ button{cursor:pointer}
 .earn i{display:inline-block;width:9px;height:9px;margin-right:5px;border-radius:50%;background:var(--green);box-shadow:0 0 10px #00ebc0}
 
 .readout{position:absolute;left:50%;top:10px;transform:translateX(-50%);width:min(440px,50%);display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;pointer-events:none;z-index:2}
-.readout .label{font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#e9e3ff;text-shadow:0 1px 6px rgba(10,19,34,.45)}
+.readout .label{font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#e9e3ff;background:rgba(10,19,34,.65);backdrop-filter:blur(8px);padding:2px 10px;border-radius:999px}   /* on a pill, as .sub: on a phone it sits over the light lower sky, the sun and the clouds (.65 holds 4.5:1 over white) */
 .readout .mult{font-weight:800;font-size:clamp(40px,6.6vw,62px);line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;text-shadow:0 4px 0 rgba(75,54,252,.55),0 8px 26px rgba(10,19,34,.35)}
 .readout .mult.idle{font-size:clamp(32px,4.8vw,46px)}
 .readout .mult.win{color:#7dffcf}
@@ -74,6 +75,12 @@ button{cursor:pointer}
 .readout .sub{font-weight:700;font-size:14px;background:rgba(10,19,34,.55);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:999px;padding:4px 14px;margin-top:6px;font-variant-numeric:tabular-nums}
 .readout .sub.ok{background:rgba(0,150,110,.65)}
 .readout .sub.bad{background:rgba(220,40,70,.6)}
+/* a short stage (game.js layout() sets .slim): the readout is one slim line, the multiplier beside the line under it,
+   so the hoops keep their room (as in FogRush; before the gold multiplier, which keeps its own shadow) */
+.slim .readout{flex-flow:row wrap;justify-content:center;column-gap:10px;row-gap:2px}
+.slim .readout .label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}   /* read out, not shown */
+.slim .readout .mult,.slim .readout .mult.idle{font-size:26px;text-shadow:0 2px 0 rgba(75,54,252,.55),0 4px 14px rgba(10,19,34,.35)}
+.slim .readout .sub{margin-top:0;padding:3px 11px;font-size:13px}
 
 .levelup{position:absolute;right:14px;top:62px;z-index:3;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;padding:8px 16px 8px 8px;border-radius:20px;background:rgba(10,19,34,.82);backdrop-filter:blur(10px);border:1px solid rgba(132,71,251,.7);box-shadow:0 0 40px rgba(132,71,251,.55);pointer-events:none;animation:lvl 2.8s ease-out forwards}
 .levelup img{grid-row:span 2;width:70px;height:70px;object-fit:contain}
@@ -111,7 +118,10 @@ button{cursor:pointer}
 .tut > b{font-size:22px;font-weight:800}
 .tut ol{margin:6px 0 12px;padding-left:22px;text-align:left;display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.45;color:#dfe3f5}
 .tut ol b{color:#fff}
+.tut .tut-rtp{margin:-6px 0 8px;font-size:12.5px;line-height:1.4}
+.tut-rtp b{color:#dfe3f5}
 .tut .big{width:100%;min-height:60px}
+.sheet-go{position:sticky;bottom:-18px;width:100%;margin:-8px 0 -18px;padding:8px 0 18px;background:var(--navy-2)}   /* on a short card the steps scroll and Let's fly stays in view, over the card's own background */
 .age-mark{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:var(--grad);font-weight:800;font-size:22px;box-shadow:0 8px 24px rgba(75,54,252,.5)}
 .age-actions{display:grid;grid-template-columns:1fr 2fr;gap:10px;width:100%}
 .big.ghost{background:var(--navy-3);border:1px solid var(--line);font-weight:800;font-size:18px}
@@ -122,9 +132,10 @@ button{cursor:pointer}
 .field{display:flex;flex-direction:column;gap:7px;min-width:0}
 .field label,.flabel{font-weight:800;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .bet-row{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;gap:6px}
-.money-in{position:relative;display:block}
-.money-in span{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-weight:800;font-size:18px;color:var(--lilac);pointer-events:none}
-.money-in input{width:100%;height:46px;padding:0 10px 0 28px;text-align:center;font-weight:800;font-size:18px;border:1px solid var(--line);border-radius:14px;background:var(--navy)}
+.money-in{position:relative;display:block;container-type:inline-size}   /* the field's own width sizes the amount (cqi), so 200.00 fits in the narrow columns too */
+.money-in span{position:absolute;left:.6em;top:50%;transform:translateY(-50%);font-weight:800;font-size:clamp(16px,19cqi,18px);color:var(--lilac);pointer-events:none}
+.money-in input{width:100%;height:46px;padding:0 .35em 0 1.4em;text-align:center;font-weight:800;font-size:clamp(16px,19cqi,18px);border:1px solid var(--line);border-radius:14px;background:var(--navy);-moz-appearance:textfield;appearance:textfield}   /* 16 px at least: iPhone zooms into smaller inputs */
+.money-in input::-webkit-inner-spin-button,.money-in input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}   /* − and + step the bet; the spin box took 15 px of the amount */
 .step{height:46px;border:1px solid var(--line);border-radius:14px;background:var(--navy-3);font-size:22px;font-weight:700}
 .chips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .chips button{height:38px;border:1px solid var(--line);border-radius:12px;background:var(--navy-3);font-weight:700;font-size:13px;color:#dfe3f5}
@@ -137,19 +148,19 @@ button{cursor:pointer}
 .lv button[aria-pressed=true]{background:var(--grad);border-color:transparent;box-shadow:0 6px 20px rgba(75,54,252,.45)}
 .lv button[aria-pressed=true] span{color:#e9e3ff}
 .big{border:0;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:78px;transition:transform .08s,box-shadow .2s,filter .2s}
-.big:hover:not(:disabled){filter:brightness(1.08)}
-.big:active:not(:disabled){transform:translateY(2px)}
+.big:hover:not(:disabled):not([aria-disabled=true]){filter:brightness(1.08)}
+.big:active:not(:disabled):not([aria-disabled=true]){transform:translateY(2px)}
 .big .l1{display:flex;align-items:center;gap:8px;font-weight:800;font-size:26px;line-height:1;letter-spacing:-.01em}
 .big .l2{font-weight:700;font-size:14px;opacity:.92;font-variant-numeric:tabular-nums}
 .play{background:var(--grad);box-shadow:0 10px 30px rgba(75,54,252,.5)}
 .jump{background:var(--green);color:var(--navy);box-shadow:0 10px 30px rgba(0,235,192,.3)}
-.controls button:disabled,.controls input:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;filter:none}
+.controls button:disabled,.controls button[aria-disabled=true],.controls input:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;filter:none}
 .flight{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:14px}
 .paths{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
 .paths button{border:1px solid var(--line);border-radius:18px;background:var(--navy-3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px;transition:background .15s,border-color .15s}
 .paths button .n{display:flex;align-items:center;gap:5px;font-weight:800;font-size:21px;line-height:1}
 .paths button .nm{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.paths button:hover:not(:disabled),.paths button:focus-visible{background:#2a2f7a;border-color:rgba(132,71,251,.7)}
+.paths button:hover:not(:disabled):not([aria-disabled=true]),.paths button:focus-visible{background:#2a2f7a;border-color:rgba(132,71,251,.7)}
 .paths button[aria-pressed=true]{background:var(--grad);border-color:transparent}
 .paths button[aria-pressed=true] .nm{color:#e9e3ff}
 .foot{margin:0;text-align:center;font-size:12px;font-weight:700;color:#7f89b0}
@@ -185,12 +196,20 @@ button{cursor:pointer}
   .wallet{gap:4px;padding:4px 4px 4px 10px;font-size:14px} .wallet small{display:none} .wallet button{padding:4px 9px}
 }
 @media (max-height:700px) and (min-width:761px){ .foot{display:none} :root{--stage-h:clamp(360px,calc(100dvh - 206px),640px)} }
-@media (prefers-reduced-motion:reduce){ .readout .mult.pop,.pilot .ava,.levelup,.bubble{animation:none!important} .big,.toast{transition:none} }
+@media (prefers-reduced-motion:reduce){ .readout .mult.pop,.readout .mult.gold,.pilot .ava,.levelup,.bubble{animation:none!important} .big,.toast{transition:none} }
 
 /* provably fair sheet */
 .fair h4{margin:14px 0 8px;font-size:13px;font-weight:800;color:var(--lilac)}
 .fair .kv{display:grid;gap:3px;margin-bottom:8px}
-.fair .kv span{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.fair .kv span,.fair .kv label{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.seed-row{display:flex;flex-wrap:wrap;gap:6px}
+.seed-row input{flex:1 1 170px;min-width:0;height:36px;padding:0 9px;border:1px solid rgba(132,71,251,.55);border-radius:9px;background:var(--navy-3);font:600 13px ui-monospace,Consolas,monospace}
+.seed-row input[aria-invalid=true]{border-color:#ff5a72}
+.seed-row button{flex:none;height:36px;padding:0 12px;border:1px solid var(--line);border-radius:9px;background:var(--navy-3);font-size:13px;font-weight:700}
+.seed-row button:hover:not(:disabled){border-color:rgba(132,71,251,.7)}
+.seed-row :disabled{opacity:.5;cursor:not-allowed}
+.seed-msg{margin:0;font-size:12px;font-weight:700;color:#ff8a9b}   /* never display:none when empty: the live region must exist before its text, or screen readers miss it */
+@media (max-width:760px),(pointer:coarse){ .seed-row input{font-size:16px} }   /* 16 px: iPhone zooms the page into smaller inputs, sideways too */
 .fair code{padding:6px 9px;border-radius:9px;background:var(--navy-3);color:#fff;font:600 12px/1.45 ui-monospace,Consolas,monospace;word-break:break-all}
 .fair .big.ghost{width:100%;min-height:48px;margin-top:4px;font-size:15px}
 .fair-ok{margin:10px 0 0;font-size:13px;font-weight:700;color:#3ee08f}
@@ -215,11 +234,16 @@ button{cursor:pointer}
 .worlds-pick button[aria-pressed=true]{background:var(--grad);border-color:transparent}
 .worlds-pick button[aria-pressed=true] span{color:#fff}
 .worlds-pick button:disabled{opacity:.5;cursor:default}
-.levelup.big{border-color:#ffc147;box-shadow:0 0 0 2px rgba(255,193,71,.5),0 14px 40px rgba(10,19,34,.5)}
+.levelup.lu-big{border-color:#ffc147;box-shadow:0 0 0 2px rgba(255,193,71,.5),0 14px 40px rgba(10,19,34,.5)}
 
 /* tablets and small laptops: the top bar fills the width, so the multiplier sits under it and the Brainer's card
    moves to the bottom left */
 @media (min-width:761px) and (max-width:1299px){ .readout{top:60px} .levelup{top:auto;bottom:52px} }
 @media (min-width:761px) and (max-width:1099px){ .pilot{top:auto;bottom:46px} }
 @media (max-width:374px){ .hud{justify-content:flex-end} .brand{display:none} }   /* small phones: the controls before the logo */
-@media (max-width:330px){ #help{display:none} }   /* the smallest phones: room for full screen and the wallet */
+@media (max-width:330px){ .hud-right{gap:4px} .round{width:31px;height:31px} .round svg{width:16px;height:16px} .wallet{font-size:13px;padding:4px 4px 4px 8px} .wallet button{padding:4px 7px} }   /* the smallest phones: a tighter top bar, so How to play (the only way back to the rules and the RTP note) still fits beside full screen and the wallet */
+@media (max-width:480px){ .hud.long .hud-right{gap:4px} .hud.long .round{width:31px;height:31px} .hud.long .round svg{width:16px;height:16px} .hud.long .wallet{font-size:13px;padding:4px 4px 4px 8px} .hud.long .wallet button{padding:4px 7px} }   /* a six-figure balance (game.js renderBalance() sets .long): that tighter bar on every phone, or the wallet runs off the stage just above 330 and 374 px, where the bar loosens */
+@media (max-width:760px){   /* full screen on a phone: the bet takes a little from Play, so $200.00 fits at 16 px (over shared/focus.css, loaded after) */
+  .focus .controls .setup{grid-template-columns:minmax(0,1.05fr) minmax(0,.85fr)}
+  .focus .controls .bet-row{grid-template-columns:36px minmax(0,1fr) 36px;gap:4px}
+}

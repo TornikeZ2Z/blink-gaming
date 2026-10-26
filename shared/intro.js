@@ -1,11 +1,13 @@
 /* The Brainer Games intro, shared by every game. It's about the player's Brainer: it stands big in the middle, doing
-   the game's thing (flying its plane, standing on a cloud island), and wakes up as the game loads: sleepy, then
+   the game's thing (flying its plane, standing on a plot in the foggy valley), and wakes up as the game loads: sleepy, then
    focused, then excited, then a wink at 100%. Under it are the game's wordmark and a 0-100% counter; the studio logo
    sits small in the corner. It plays in full once a visit and short after that; a tap or key skips it once loaded.
-   BrainerIntro.start({ title, mark, theme, progress, actor }) returns a promise that resolves when the intro has left.
+   BrainerIntro.start({ title, mark, theme, what, progress, actor, fallback }) returns a promise that resolves when the
+   intro has left.
      mark: 'plane' or 'fog' picks the wordmark (BrainerIntro.wordmark builds it for the game's own top bar too).
      actor(ctx, w, h, t, ex): the game draws its 3D Brainer into the canvas and returns true, or false while its 3D
-     isn't ready yet (the brand art stands in after a moment). */
+     isn't ready yet. After a moment a still stands in: fallback, or else the player's own stage, assets/brainer-N.png
+     for the brain level every game keeps in localStorage brainer.level. */
 (() => {
 'use strict';
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -21,20 +23,22 @@ function wordmark(mark) {
 
 function start(cfg) {
   const root = document.createElement('div');
-  root.className = `intro t-${cfg.theme || cfg.mark || 'plane'}`; root.setAttribute('role', 'status'); root.setAttribute('aria-label', `Loading ${cfg.title}`);
+  root.className = `intro t-${cfg.theme || cfg.mark || 'plane'}`;
   root.innerHTML = `<div class="intro-sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="intro-mark"><img src="${cfg.logo || 'assets/logo-white.png'}" alt=""><span>BRAINER<small>GAMES</small></span></div>
     <div class="intro-center">
       <canvas class="intro-actor" aria-hidden="true"></canvas>
       <div class="intro-title">${wordmark(cfg.mark || cfg.title)}</div>
-      <div class="intro-pct"><b>0</b><span>%</span></div>
+      <div class="intro-pct" aria-hidden="true"><b>0</b><span>%</span></div>
       <div class="intro-cells" aria-hidden="true">${'<i></i>'.repeat(12)}</div>
-      <small class="intro-note">Waking up your Brainer…</small>
+      <small class="intro-note" role="status">Waking up your Brainer…</small>
     </div>
     <button type="button" class="intro-skip" hidden>Skip</button>`;
   document.body.appendChild(root);
   const cv = root.querySelector('.intro-actor'), g = cv.getContext('2d'), pctEl = root.querySelector('.intro-pct b'), cells = [...root.querySelectorAll('.intro-cells i')], note = root.querySelector('.intro-note'), skip = root.querySelector('.intro-skip');
-  const short = seen || reduced, minT = short ? 1100 : 2600, fallback = new Image(); fallback.src = cfg.fallback || 'assets/brainer-1.png';
+  const short = seen || reduced, minT = short ? 1100 : 2600, fallback = new Image();
+  const level = (() => { try { return parseInt(localStorage.getItem('brainer.level'), 10) || 1; } catch (e) { return 1; } })();
+  fallback.src = cfg.fallback || `assets/brainer-${clamp(Math.ceil(level / 10), 1, 10)}.png`;   // the player's own stage, not always the Baby
   if (short) root.classList.add('short');
   if (reduced) root.classList.add('still');
   let t = 0, prev = 0, shown = 0, leaving = 0, finished = false, resolve;
@@ -50,10 +54,16 @@ function start(cfg) {
     const ex = leaving || ready ? 'wink' : p < 0.35 ? 'sleepy' : p < 0.8 ? 'focus' : 'excited';
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
     const drew = cfg.actor ? cfg.actor(g, cv.width, cv.height, now, ex) : false;
-    if (!drew && t > 900 && fallback.complete && fallback.naturalWidth) { const s = cv.width * 0.8, b = reduced ? 0 : Math.sin(now / 420) * cv.width * 0.015; g.drawImage(fallback, (cv.width - s) / 2, (cv.height - s) / 2 + b, s, s); }
-    pctEl.textContent = Math.floor(shown);
+    if (!drew && t > 900 && fallback.complete && fallback.naturalWidth) {
+      const s = cv.width * 0.8, x = (cv.width - s) / 2, y = (cv.height - s) / 2 + (reduced ? 0 : Math.sin(now / 420) * cv.width * 0.015);
+      g.drawImage(fallback, x, y, s, s);
+      const m = g.createRadialGradient(cv.width / 2, y + s * 0.42, 0, cv.width / 2, y + s * 0.42, s * 0.56); m.addColorStop(0.84, '#000'); m.addColorStop(1, 'transparent');
+      g.globalCompositeOperation = 'destination-in'; g.fillStyle = m; g.fillRect(0, 0, cv.width, cv.height); g.globalCompositeOperation = 'source-over';   // the still's soft floor shadow fades out before its square edge shows
+    }
+    const pct = String(Math.floor(shown)); if (pctEl.textContent !== pct) pctEl.textContent = pct;
     cells.forEach((c, i) => c.classList.toggle('on', i < Math.round(p * cells.length)));
-    note.textContent = shown >= 100 ? 'Ready!' : p < 0.35 ? 'Waking up your Brainer…' : p < 0.8 ? `Getting ${cfg.what || 'the game'} ready…` : 'Almost there…';
+    const nt = shown >= 100 ? 'Ready!' : p < 0.35 ? 'Waking up your Brainer…' : p < 0.8 ? `Getting ${cfg.what || 'the game'} ready…` : 'Almost there…';
+    if (note.textContent !== nt) note.textContent = nt;   // the note is the live region: it speaks on each new step, not every frame
     skip.hidden = !(real >= 100 && !ready);
     if (ready && !leaving) setTimeout(leave, short ? 200 : 650);
     if (ready && !leaving) leaving = -1;

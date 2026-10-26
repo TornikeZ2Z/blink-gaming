@@ -367,13 +367,15 @@ def build(stage=1, dirn='C', x=0.0, pose=None, face='face_pixel_happy.png', styl
         for k, r in enumerate((0.62, 0.42)): torus(f'Aura{k}', r * root.scale.x, 0.025, (x, 0, 0.03 + 0.05 * k), (0, 0, 0), glow, None)
     return root
 
-# the Grows up stages: name, LED face and pose (Tornike: smoother steps, a pose and a face of their own for each)
+# the Grows up stages: name, LED face and pose (Tornike: smoother steps, a pose and a face of their own for each).
+# Kept in step with STAGES in shared/brainer-model.js. The head is wider than the shoulders: an arm raised more than
+# 1.8 out to the side goes into the visor or an ear, so raised arms stop there and heads tilt away from a raised hand.
 STAGES = [
     ('Baby', 'amazed', {'legL': (-1.45, 0, 0), 'legR': (-1.45, 0, 0), 'lift': -0.25, 'armL': (-0.5, 0.45, 0), 'armR': (-0.5, -0.45, 0), 'head': (0, 0.12, 0)}),
-    ('Toddler', 'love', {'armL': (-0.9, 1.75, 0), 'armR': (-0.9, -1.75, 0), 'head': (-0.12, 0, 0)}),   # arms out for a hug
-    ('Kid', 'wink', {'armR': (-0.5, -2.0, 0), 'head': (0, 0.12, -0.1)}),   # waving, clear of the big head
-    ('School kid', 'happy', {'armR': (-0.15, -2.45, 0), 'armL': (0, 0.15, 0), 'body': (0, -0.06, 0)}),   # a hand up in class
-    ('Teen', 'excited', {'lift': 0.35, 'legL': (0, 0.35, 0), 'legR': (0, -0.35, 0), 'armL': (0, 2.15, 0), 'armR': (0, -2.15, 0)}),   # a jump, arms in a V
+    ('Toddler', 'love', {'armL': (-0.9, 1.65, 0), 'armR': (-0.9, -1.65, 0), 'head': (-0.12, 0, 0)}),   # arms out for a hug
+    ('Kid', 'wink', {'armR': (-0.5, -1.75, 0), 'head': (0, -0.12, -0.1)}),   # waving, the head tilted away from the hand
+    ('School kid', 'happy', {'armR': (-0.15, -1.8, 0), 'armL': (0, 0.15, 0), 'body': (0, -0.06, 0)}),   # a hand up in class
+    ('Teen', 'excited', {'lift': 0.35, 'legL': (0, 0.35, 0), 'legR': (0, -0.35, 0), 'armL': (0, 1.8, 0), 'armR': (0, -1.8, 0)}),   # a jump, arms in a V
     ('Student', 'proud', {'legL': (-0.45, 0, 0), 'legR': (0.45, 0, 0), 'armL': (0.5, 0, 0), 'armR': (-0.5, 0, 0), 'body': (0, 0, 0.12)}),
     ('Young pro', 'rest', {'armR': (-0.3, -1.3, 0), 'armL': (0, 0.1, 0), 'head': (0, 0, 0.25)}),
     ('Pro', 'think', {'armR': (-1.7, -0.6, 0), 'armL': (-1.0, -0.4, 0), 'head': (-0.06, -0.12, 0.1)}),

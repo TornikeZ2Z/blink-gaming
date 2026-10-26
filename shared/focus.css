@@ -37,3 +37,8 @@
   .focus .big{min-height:46px}
   .focus .big .l1{font-size:18px}
 }
+@media (max-width:359px){   /* Plane Crash's five paths beside the 110px cash-out get about 32px each: a smaller arrow keeps each number in its button */
+  .focus .paths button{padding:4px 0}
+  .focus .paths button .n{gap:2px}
+  .focus .paths button .n svg{width:16px;height:16px}
+}

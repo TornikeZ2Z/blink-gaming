@@ -19,6 +19,8 @@ body{min-height:100dvh;background:radial-gradient(90% 60% at 50% 0%,#24206e 0%,v
 button,input{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid #8447fb;outline-offset:2px}
+.hud :focus-visible,.pilot:focus-visible{outline-color:#fff;box-shadow:0 0 0 8px #0a1322}   /* over the sky and fog a violet ring all but vanishes: white with a navy halo reads on any backdrop */
+.hud .wallet :focus-visible{box-shadow:none;outline-offset:0}   /* the wallet's own navy is the halo there: an 8 px one covered the balance's last digit */
 .app{max-width:1640px;margin:0 auto;padding:14px 16px 12px;display:flex;flex-direction:column;gap:12px}
 
 .stage{position:relative;height:var(--stage-h);border-radius:26px;overflow:hidden;background:#7a45f5;box-shadow:0 20px 60px rgba(75,54,252,.35),0 0 0 1px var(--line);touch-action:manipulation;user-select:none}
@@ -112,7 +114,10 @@ button{cursor:pointer}
 .tut > b{font-size:22px;font-weight:800}
 .tut ol{margin:6px 0 12px;padding-left:22px;text-align:left;display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.45;color:#dfe3f5}
 .tut ol b{color:#fff}
+.tut .tut-rtp{margin:-6px 0 8px;font-size:12.5px;line-height:1.4}
+.tut-rtp b{color:#dfe3f5}
 .tut .big{width:100%;min-height:60px}
+.sheet-go{position:sticky;bottom:-18px;width:100%;margin:-8px 0 -18px;padding:8px 0 18px;background:var(--navy-2)}   /* on a short card the steps scroll and Let's explore stays in view, over the card's own background */
 .age-mark{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:var(--grad);font-weight:800;font-size:22px;box-shadow:0 8px 24px rgba(75,54,252,.5)}
 .age-actions{display:grid;grid-template-columns:1fr 2fr;gap:10px;width:100%}
 .big.ghost{background:var(--navy-3);border:1px solid var(--line);font-weight:800;font-size:18px}
@@ -125,7 +130,8 @@ button{cursor:pointer}
 .bet-row{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;gap:6px}
 .money-in{position:relative;display:block}
 .money-in span{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-weight:800;font-size:18px;color:var(--lilac);pointer-events:none}
-.money-in input{width:100%;height:46px;padding:0 10px 0 28px;text-align:center;font-weight:800;font-size:18px;border:1px solid var(--line);border-radius:14px;background:var(--navy)}
+.money-in input{width:100%;height:46px;padding:0 6px 0 26px;text-align:center;font-weight:800;font-size:18px;border:1px solid var(--line);border-radius:14px;background:var(--navy);-moz-appearance:textfield;appearance:textfield}
+.money-in input::-webkit-inner-spin-button,.money-in input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}   /* − and + do that job; the browser's arrows took 15 px of "200.00" */
 .step{height:46px;border:1px solid var(--line);border-radius:14px;background:var(--navy-3);font-size:22px;font-weight:700}
 .chips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .chips button{height:38px;border:1px solid var(--line);border-radius:12px;background:var(--navy-3);font-weight:700;font-size:13px;color:#dfe3f5}
@@ -144,7 +150,7 @@ button{cursor:pointer}
 .big .l2{font-weight:700;font-size:14px;opacity:.92;font-variant-numeric:tabular-nums}
 .play{background:var(--grad);box-shadow:0 10px 30px rgba(75,54,252,.5)}
 .jump{background:var(--green);color:var(--navy);box-shadow:0 10px 30px rgba(0,235,192,.3)}
-.controls button:disabled,.controls input:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;filter:none}
+.controls button:disabled,.controls button[aria-disabled=true],.controls input:disabled{opacity:.45;cursor:not-allowed;box-shadow:none;filter:none}
 .flight{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:14px}
 .paths{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
 .paths button{border:1px solid var(--line);border-radius:18px;background:var(--navy-3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px;transition:background .15s,border-color .15s}
@@ -199,14 +205,26 @@ button{cursor:pointer}
 .nogl .big{min-height:56px;width:min(260px,80vw);margin:6px auto 0}
 .no3d .controls,.no3d .hud .round,.no3d .pilot,.no3d .readout,.no3d .ladder{display:none}   /* without 3D there is nothing to play */
 .brand .t1 .wm{font-size:28px;text-shadow:none;margin:2px 0 0 2px}
-.readout{width:auto;min-width:min(300px,86%);max-width:92%;padding:8px 20px 10px;border-radius:24px;background:rgba(14,10,48,.5);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.16);box-shadow:0 10px 30px rgba(14,10,48,.25)}   /* a glass card: the sky here is white clouds, not Plane Crash's violet */
+.readout{width:auto;min-width:min(300px,86%);max-width:92%;padding:8px 20px 10px;border-radius:24px;background:rgba(14,10,48,.75);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.16);box-shadow:0 10px 30px rgba(14,10,48,.25)}   /* a glass card: the sky here is white clouds, not Plane Crash's violet */
+.pilot,.wallet,.rung{background:rgba(10,19,34,.78)} .pilot:hover{background:rgba(10,19,34,.88)}   /* darker than Plane Crash's: over white fog the small lilac text needs it for 4.5:1 */
+#explore:focus{outline:none}   /* the keyboard waits here once Play or Cash out has gone (game.js renderAll); the panel itself needs no ring */
 .readout .mult{color:#fff}
 .readout .sub{background:rgba(255,255,255,.14)}
-.rung.chest{display:flex;align-items:center;gap:6px}
-.rung.chest i{width:10px;height:10px;border-radius:3px;background:var(--c)}
+.ladder{justify-content:center;overflow:visible;-webkit-mask-image:none;mask-image:none;pointer-events:none}   /* one short row that always fits: each chest's colour and factor (the names are in How to play and the fairness sheet, and read out here) */
+.rung.chest{position:relative;display:flex;align-items:center;gap:5px;padding:3px 8px}
+.rung.chest i{width:9px;height:9px;border-radius:3px;background:var(--c);box-shadow:0 0 0 1px rgba(255,255,255,.4)}   /* the rim: Royal's violet on the navy chip */
 .rung.chest.found{background:var(--green);color:var(--navy)}
 .rung.chest.found i{box-shadow:0 0 0 2px #fff}
-.levelup.big{border-color:#ffc147;box-shadow:0 0 0 2px rgba(255,193,71,.5),0 0 40px rgba(255,193,71,.45)}
+.rung.chest b{position:absolute;top:-8px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--grad);color:#fff;box-shadow:0 0 0 2px var(--navy);font-size:10px;font-weight:800;line-height:16px;text-align:center}   /* found more than once: how many, as a badge like the level's, so the row keeps its width */
+.vh,.slim .readout .label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}   /* read out, not shown */
+/* a short stage (game.js layout() sets .slim): the readout is one slim line, the multiplier beside the cash-out line,
+   so the Brainer and the tiles round it keep the room */
+.slim .readout{flex-flow:row nowrap;width:max-content;justify-content:center;column-gap:10px;padding:5px 12px 6px;border-radius:18px}   /* as wide as its line (up to max-width), not half the stage: a round's line wrapped there */
+.slim .readout .mult,.slim .readout .mult.idle{font-size:26px;text-shadow:0 2px 0 rgba(75,54,252,.55),0 4px 14px rgba(10,19,34,.35)}
+.slim .readout .mult.gold{text-shadow:none;filter:drop-shadow(0 2px 0 rgba(75,54,252,.55)) drop-shadow(0 4px 12px rgba(255,170,60,.45))}
+.slim .readout .sub{min-width:0;margin-top:0;padding:3px 11px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}   /* never a second line: only the tail of "next …" can give way, on the smallest phones */
+@media (max-width:389px){ .slim .readout{padding:5px 8px 6px;column-gap:8px} .slim .readout .sub{padding:3px 9px;font-size:12px} }   /* phones under 390 px, as the top bar: a four-figure cash-out line shows in full from 360 px */
+.levelup.lu-big{border-color:#ffc147;box-shadow:0 0 0 2px rgba(255,193,71,.5),0 0 40px rgba(255,193,71,.45)}
 .levelup img{object-fit:contain}
 .auto{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;flex:1}
 .auto button{border:1px solid var(--line);border-radius:14px;background:var(--navy-3);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:4px 2px;min-height:40px}
@@ -242,12 +260,22 @@ button{cursor:pointer}
 /* provably fair sheet */
 .fair h4{margin:14px 0 8px;font-size:13px;font-weight:800;color:var(--lilac)}
 .fair .kv{display:grid;gap:3px;margin-bottom:8px}
-.fair .kv span{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.fair .kv span,.fair .kv label{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.fair .seed{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.fair .seed input,.fair .seed small{grid-column:1/-1}
+.fair .seed input{min-width:0;padding:5px 9px;border:1px solid rgba(132,71,251,.5);border-radius:9px;background:var(--navy);font:600 14px/1.45 ui-monospace,Consolas,monospace;user-select:text;-webkit-user-select:text}   /* the stage is user-select:none, and Safari won't type into that */
+.fair .seed input[aria-invalid=true]{border-color:#ff5a72}
+.fair .seed input:disabled{opacity:.6;border-color:var(--line)}
+.fair .seed button{border:1px solid var(--line);border-radius:999px;background:var(--navy-3);padding:3px 11px;font-size:12px;font-weight:700}
+.fair .seed button:hover:not(:disabled){border-color:rgba(132,71,251,.8)}
+.fair .seed button:disabled{opacity:.45;cursor:not-allowed}
+.fair .seed small{font-size:12px;font-weight:700;color:#ff5a72}   /* never display:none when empty: the live region must exist before its text, or screen readers miss a rejection. Empty, it has no height */
+@media (max-width:760px),(pointer:coarse){ .fair .seed input{font-size:16px} }   /* 16 px: iPhone zooms the page into smaller inputs, sideways too */
 .fair code{padding:6px 9px;border-radius:9px;background:var(--navy-3);color:#fff;font:600 12px/1.45 ui-monospace,Consolas,monospace;word-break:break-all}
 .fair .big.ghost{width:100%;min-height:48px;margin-top:4px;font-size:15px}
 .fair-ok{margin:10px 0 0;font-size:13px;font-weight:700;color:#3ee08f}
 .fair-ok.bad{color:#ff5a72}
-.fair canvas{display:block;width:100%;max-width:400px;aspect-ratio:1;margin:12px auto 0;border-radius:12px}
+.fair canvas{position:static;display:block;width:100%;height:auto;max-width:400px;aspect-ratio:1;margin:12px auto 0;border-radius:12px}   /* in the flow, not filling the stage like the world's canvas */
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;margin-top:8px;font-size:12px;font-weight:700;color:#dfe3f5}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 @media (max-width:760px){
@@ -266,6 +294,18 @@ button{cursor:pointer}
    moves to the bottom left */
 @media (min-width:761px) and (max-width:1299px){ .readout{top:60px} .levelup{top:auto;bottom:52px} }
 @media (min-width:761px) and (max-width:1099px){ .pilot{top:auto;bottom:46px} }
-@media (max-width:560px){ .brand .t1{display:none} }   /* phones: the logo alone, so the top bar fits */
-@media (max-width:374px){ .hud{justify-content:flex-end} .brand{display:none} }   /* small phones: the controls before the logo */
-@media (max-width:330px){ #help{display:none} }   /* the smallest phones: room for full screen and the wallet */
+@media (max-width:580px){ .brand .t1{display:none} }   /* phones: the logo alone, so the top bar fits (a seven-figure wallet too) */
+@media (max-width:374px){ .hud{justify-content:flex-end} .brand{display:none} .readout{min-width:94%;padding:8px 10px 10px} }   /* small phones: the controls before the logo, and a round's lines on one line each, so the readout leaves the Brainer room */
+@media (max-width:389px){ .hud-right{gap:4px} .hud .round{width:31px;height:31px} .hud .round svg{width:16px;height:16px} .wallet{font-size:13px;padding:4px 4px 4px 8px} .wallet button{padding:4px 7px} }   /* phones under 390 px: a tighter top bar, so How to play (the only way back to the rules and the RTP note), full screen and a seven-figure wallet all fit, beside the logo from 375 px */
+@media (max-width:330px){ .hud-right{gap:3px} }   /* 320 px: $1,000,000.00 inside the bar's own margins too */
+@media (max-width:340px){ .focus #playSub{font-size:11px} }   /* full screen: "$200.00 · RTP up to 98%" on one line */
+@media (max-width:400px){   /* full screen on a phone: slimmer − and + and a 16 px amount (iPhone zooms into less), so "200.00" fits */
+  .focus .field .bet-row{grid-template-columns:32px minmax(0,1fr) 32px;gap:4px}
+  .focus .money-in span{left:8px;font-size:16px} .focus .money-in input{padding:0 4px 0 18px;font-size:16px}
+}
+@media (orientation:landscape) and (max-height:500px){   /* a phone on its side: the stage is too short for the readout above the Brainer, so it moves to the top right (game.js layout() centres the Brainer beside it; keep the two queries the same) */
+  .readout{left:auto;right:14px;top:58px;transform:none;min-width:0;max-width:44%;padding:4px 14px 6px}
+  .readout .mult,.readout .mult.idle{font-size:30px}
+  .readout .sub{font-size:12px;margin-top:3px}
+}
+@media (orientation:landscape) and (max-height:340px){ .focus .readout .label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap} }   /* the smallest phones on their side in full screen: the label is only read out, so the cash-out line clears the chest chips */

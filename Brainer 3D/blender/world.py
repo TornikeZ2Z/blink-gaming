@@ -3,7 +3,8 @@
 # usage: blender -b --python world.py -- <outdir> <theme> <view> [res]
 #   themes: meadow (green countryside), tech (lavender land with glowing circuit roads), islands (floating islands)
 #   views: establish (the whole world), plane (behind the plane in flight), fog (over the FogRush valley),
-#          card_plane, card_fog (4:5 pictures for the website's game cards, the Brainer facing the camera)
+#          card_fog (the website's 4:5 FogRush card), card_ground (the backdrop of the Plane Crash card, which puts the
+#          game's own plane and pilot on top), card_plane (an older Plane Crash card with this kit's plane)
 import bpy, bmesh, math, os, random, runpy, sys
 from mathutils import Vector, noise
 
@@ -262,8 +263,18 @@ cam_presets = {
     'fog': ((FOG[0] - 2, FOG[1] - 14, 13), (FOG[0], FOG[1] + 3, 0), 32, (RES, RES * 9 // 16)),
 }
 SIDE = Vector((PD.y, -PD.x, 0))   # to the plane's right
-cam_presets['card_plane'] = (tuple(PL + PD * 8.5 + SIDE * 3.6 + Vector((0, 0, 2.2))), tuple(PL + PD * 0.6 + Vector((0, 0, -0.9))), 32, (RES * 4 // 5, RES))
-cam_presets['card_fog'] = ((bx + 2.4, by - 6.2, 3.2), (bx, by + 0.6, 0.95), 40, (RES * 4 // 5, RES))
+CARD = [float(v) for v in os.environ.get('CARD', '').split(',') if v]   # tuning a card camera: the numbers each view below unpacks
+if VIEW == 'card_plane':   # higher over the airfield than in the game shots, so the airfield reads small below and behind
+    lift, ahead, side, up, lens = CARD or (9.0, 6.5, 3.2, 3.2, 38)
+    PC = PL + Vector((0, 0, lift)); plane.location = tuple(PC)
+    cam_presets['card_plane'] = (tuple(PC + PD * ahead + SIDE * side + Vector((0, 0, up))), tuple(PC + PD * 0.2 + Vector((0, 0, 1.1))), lens, (RES * 4 // 5, RES))
+if VIEW == 'card_ground':   # the Plane Crash card's backdrop: the airfield from high above; the game's own plane goes on top
+    for o in [plane, *plane.children_recursive]: o.hide_render = True
+    cx, cy, cz, tx, ty, lens = CARD or (-4, -66, 48, -4, 24, 32)
+    cam_presets['card_ground'] = ((cx, cy, cz), (tx, ty, 0), lens, (RES * 4 // 5, RES))
+if VIEW == 'card_fog':   # from above the fog, looking down onto the cleared plot
+    dx, dy, z, lens = CARD or (2.2, -4.6, 5.2, 46)
+    cam_presets['card_fog'] = ((bx + dx, by + dy, z), (bx, by + 0.4, 1.1), lens, (RES * 4 // 5, RES))
 if THEME == 'islands': cam_presets['establish'] = ((-150, -125, 16), (25, 35, -10), 30, (RES, RES * 9 // 16))   # from beside, to see them float
 cl, ct, lens, res = cam_presets[VIEW]
 bpy.ops.object.camera_add(location=cl); cam = bpy.context.active_object; scene.camera = cam; look(cam, ct); cam.data.lens = lens; cam.data.clip_end = 2000

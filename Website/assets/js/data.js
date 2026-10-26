@@ -41,7 +41,7 @@ window.BRAINER = {
       badge: 'Game #1',
       round: 'flight',
       color: '#2E8BD8',
-      art: 'assets/games/plane-crash.svg',
+      art: 'assets/games/plane-crash.webp',
       // Published, the game sits at /plane-crash/ next to the site; in the repo it is the sibling folder.
       src: location.pathname.includes('/Website/') ? '../Game%20%231%20-%20Plane%20Crash/index.html' : 'plane-crash/index.html',
       tagline: 'Pick one of five paths while bombs fall ahead. Bail out with the parachute to cash out.',
@@ -56,43 +56,47 @@ window.BRAINER = {
         'Jump with the parachute whenever you like to cash out at the current multiplier. A bomb on your path ends the flight.'
       ],
       // Mirrors cfg and LEVELS in Game #1 - Plane Crash/game.js (Chicken Road's ladder: 25 tiles hide 1, 3, 5 or 10 bombs,
-      // multiplier = RTP ÷ chance of surviving, rounded down to the cent); final once the game is certified.
+      // multiplier = RTP ÷ chance of surviving, rounded down to the cent); final once the game is certified. `top` is the
+      // ladder's last step; the site shows what a flight can pay, the max win at the minimum bet when that is lower. A
+      // Hardcore flight through path 14 has reached the max win even at $0.10, so path 15 is never offered: `reach` paths.
       provisional: true,
       rtp: 98,
+      minBet: 0.1,
       maxWin: 10000,
       levels: [
         { name: 'Easy', bombs: 1, steps: 24, first: 1.02, top: 24.5 },
         { name: 'Medium', bombs: 3, steps: 22, first: 1.11, top: 2254 },
         { name: 'Hard', bombs: 5, steps: 20, first: 1.22, top: 52067.4 },
-        { name: 'Hardcore', bombs: 10, steps: 15, first: 1.63, top: 3203384.8 }
+        { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.63, top: 3203384.8 }
       ],
       specs: [
         ['Type', 'Crash, single player'],
-        ['RTP', '98% for every player, at every brain level'],
+        ['RTP', 'Up to 98%, the same at every brain level. Payouts round down to the cent, and the $10,000 max win ends long or high-bet flights early, so some flights return less'],
         ['Brain levels', '100 in ten looks; the same 10 brain cells for every finished flight. They never change odds or payouts'],
         ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 bombs in 25 tiles'],
-        ['Paths per flight', '24, 22, 20, 15'],
+        ['Paths per flight', '24, 22, 20, up to 14'],
         ['Bet range', '$0.10 to $200'],
-        ['Max win', '$10,000 per flight, which caps every payout'],
+        ['Max win', '$10,000 per flight, which caps every payout: 100,000× at the $0.10 minimum bet'],
         ['Currency', 'US dollars in the demo, local currencies per market'],
-        ['Fairness', 'Provably fair, every flight can be checked in the game'],
+        ['Fairness', 'Provably fair, with a client seed the player can set; every flight can be checked in the game'],
         ['Devices', 'Mobile and desktop (HTML5)'],
         ['Languages', 'English now, Georgian in progress'],
         ['Certification', 'Not yet tested by a lab']
       ],
-      fairness: 'Every flight is fixed before the bet: the game shows the SHA-256 hash of its server seed first and reveals the seed when the flight ends. The shield button in the game re-checks the hash and redraws every bomb of your last flight, so the player, the casino or a regulator can recompute it.',
+      fairness: 'Every flight is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the flight ends. The shield button in the game re-checks the hash and redraws every bomb of your last flight, so the player, the casino or a regulator can recompute it.',
       demoNote: 'Demo build with play money in US dollars; the game’s final name is still being chosen. Brain levels change the Brainer’s look and unlock worlds; they never change the odds or payouts.',
       levelsNote: 'The odds and payouts are the same for every player at every brain level. Whatever the multiplier, a single flight pays at most the $10,000 max win.'
     },
     {
       id: 'fogrush',
+      hidden: true,   // Tornike, 2026-10-26: hidden from the site and the deploy for now; set to false to bring it back
       title: 'FogRush',
       status: 'demo',
       genre: 'Mines',
       badge: 'Game #2',
       round: 'round',
       color: '#9BE06E',
-      // Cropped from Marketing kit/renders/fogrush-chest.png (the game team's render), 560x700.
+      // The game team's card render Brainer 3D/renders/cards/fogrush.png (Blender, world.py view card_fog), 800x1000.
       art: 'assets/games/fogrush.webp',
       // Published, the game sits at /fogrush/ next to the site; in the repo it is the sibling folder.
       src: location.pathname.includes('/Website/') ? '../Game%20%232%20-%20FogRush/index.html' : 'fogrush/index.html',
@@ -109,10 +113,11 @@ window.BRAINER = {
       ],
       // Mirrors cfg in Game #2 - FogRush/game.js: each new tile is a bomb with chance `bomb` (%); a safe one is plain or a
       // chest, `chance` being the share of safe tiles. Every safe new tile multiplies the multiplier by `step` and a chest
-      // by its `x` as well; the round starts at 0.98×, so the RTP is 98% whatever the route or the cash-out. Final once
-      // the game is certified.
+      // by its `x` as well; the round starts at 0.98×, so the return is 98% before rounding down to the cent and the max
+      // win lower it in some rounds: RTP up to 98%. Final once the game is certified.
       provisional: true,
       rtp: 98,
+      minBet: 0.1,
       maxWin: 10000,
       grid: 25,
       bomb: 8,
@@ -126,7 +131,7 @@ window.BRAINER = {
       ],
       specs: [
         ['Type', 'Mines-style instant game, single player'],
-        ['RTP', '98% for every player, at every brain level, whatever the route or the cash-out'],
+        ['RTP', 'Up to 98%, the same at every brain level. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
         ['Brain levels', 'Shared with Plane Crash: the same 100 levels and the same 10 brain cells for every finished round. They never change odds or payouts'],
         ['Map', '25 × 25 grass plots under fog; the start tile in the middle is always safe'],
         ['Bomb chance', '8% on every new tile; cleared tiles are safe to cross'],
@@ -135,14 +140,15 @@ window.BRAINER = {
         ['Bet range', '$0.10 to $200'],
         ['Max win', '$10,000 per round; the game cashes out when a round reaches it'],
         ['Currency', 'US dollars in the demo, local currencies per market'],
-        ['Fairness', 'Provably fair, every round and its whole map can be checked in the game'],
+        ['Fairness', 'Provably fair, with a client seed the player can set; every round and its whole map can be checked in the game'],
         ['Devices', 'Mobile and desktop (HTML5 with WebGL)'],
         ['Languages', 'English now, Georgian in progress'],
         ['Certification', 'Not yet tested by a lab']
       ],
-      fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first and reveals the seed when the round ends. Every tile of the map rolls from that seed, so the route cannot move a bomb. The shield button in the game re-checks the hash and draws the whole map of your last round, with your path on it.',
+      fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Every tile of the map rolls from those seeds, so the route cannot move a bomb. The shield button in the game re-checks the hash and draws the whole map of your last round, with your path on it.',
       demoNote: 'Demo build with play money in US dollars. Brain levels change the Brainer’s look; they never change the odds or payouts.',
       levelsNote: 'The odds and payouts are the same for every player at every brain level. Whatever the multiplier, a single round pays at most the $10,000 max win.'
     }
   ]
 };
+window.BRAINER.GAMES = window.BRAINER.GAMES.filter(g => !g.hidden);

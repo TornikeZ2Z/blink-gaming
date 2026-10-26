@@ -20,10 +20,10 @@ const CSS = `
 .bsc .bsc-still{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:min(78%,420px);height:auto}
 .bsc.bsc-nogl .bsc-faces,.bsc.bsc-nogl .bsc-power{display:none}
 .bsc-ui{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;gap:10px;padding:0 12px 14px;pointer-events:none}
-.bsc-cap{font:700 15px/1.3 inherit;color:#fff;text-align:center;text-shadow:0 2px 12px rgba(20,10,80,.45)}
+.bsc-cap{font-weight:700;font-size:15px;line-height:1.3;color:#fff;text-align:center;text-shadow:0 2px 12px rgba(20,10,80,.45)}
 .bsc-cap small{display:block;font-weight:500;opacity:.8;font-size:13px}
 .bsc-row{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;pointer-events:auto}
-.bsc button{font:600 13px/1 inherit;color:#fff;background:rgba(30,18,110,.42);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:8px 11px;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:background .2s,transform .2s}
+.bsc button{font-family:inherit;font-weight:600;font-size:13px;line-height:1;color:#fff;background:rgba(30,18,110,.42);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:8px 11px;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:background .2s,transform .2s}
 .bsc button:hover{background:rgba(70,50,230,.6)}.bsc button:active{transform:scale(.96)}
 .bsc button[aria-pressed=true]{background:#5a3ffc;border-color:#fff}
 .bsc .bsc-n{width:34px;height:34px;padding:0;border-radius:50%}
@@ -40,12 +40,11 @@ export async function mountShowcase(el, opts = {}) {
   // ---------- renderer, light and stage ----------
   const small = Math.min(innerWidth, innerHeight) < 700;   // phones: a lighter load on the GPU
   const scene = new THREE.Scene(); scene.environmentIntensity = 0.75;
-  let pmrem = null;
   const make = () => {
     const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     r.setPixelRatio(Math.min(devicePixelRatio, small ? 1.75 : 2)); r.outputColorSpace = THREE.SRGBColorSpace;
     r.toneMapping = THREE.NeutralToneMapping; r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
-    if (pmrem) pmrem.dispose(); pmrem = new THREE.PMREMGenerator(r); scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    const pm = new THREE.PMREMGenerator(r), room = new RoomEnvironment(); scene.environment = pm.fromScene(room, 0.04).texture; pm.dispose(); room.dispose();   // baked once: free the generator's 6 MB of targets
     return r;
   };
   let still = null, rig = null;   // the picture shown if WebGL is gone for good; the character
@@ -67,7 +66,8 @@ export async function mountShowcase(el, opts = {}) {
   const auraMat = new THREE.MeshBasicMaterial({ color: 0xb9a6ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   [0.62, 0.42].forEach((r, k) => { const m = new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 12, 96), auraMat); m.rotation.x = Math.PI / 2; m.position.y = 0.03 + 0.05 * k; aura.add(m); });
 
-  rig = new BrainerRig(await loadBrainer());
+  const giveBack = e => { gl.stop(); gl.renderer.dispose(); gl.renderer.forceContextLoss(); throw e; };   // a failed start gives the context back; the page shows its still
+  try { rig = new BrainerRig(await loadBrainer()); } catch (e) { giveBack(e); }   // no model
   const turn = new THREE.Group(); turn.add(rig.root); scene.add(turn);
   rig.power = 0; rig.powerTo = 1;
 
@@ -91,7 +91,8 @@ export async function mountShowcase(el, opts = {}) {
   function refreshUI() {
     if (!ui) return;
     const s = STAGES[rig.stage];
-    ui.querySelector('.bsc-cap').innerHTML = `Stage ${rig.stage + 1} · ${s.name}<small>Brain levels ${rig.stage * 10 + 1}–${rig.stage * 10 + 10}</small>`;
+    const cap = ui.querySelector('.bsc-cap'); cap.setAttribute('aria-live', st.auto ? 'off' : 'polite');   // read out the visitor's picks, not every autoplay step
+    cap.innerHTML = `Stage ${rig.stage + 1} · ${s.name}<small>Brain levels ${rig.stage * 10 + 1}–${rig.stage * 10 + 10}</small>`;
     ui.querySelectorAll('.bsc-n').forEach((b, i) => b.setAttribute('aria-pressed', i === rig.stage));
     el.querySelector('.bsc-play').textContent = st.auto ? 'Pause' : 'Watch it grow';
   }
@@ -125,7 +126,7 @@ export async function mountShowcase(el, opts = {}) {
   const io = new IntersectionObserver(es => { visible = es[0].isIntersecting; }); io.observe(el);
 
   // ---------- each frame ----------
-  setStage(0); rig.update(performance.now(), 0, { instant: true });
+  try { setStage(0); rig.update(performance.now(), 0, { instant: true }); } catch (e) { ro.disconnect(); io.disconnect(); giveBack(e); }   // its first paint failed (an old browser)
   let last = performance.now(), raf = 0;
   const frame = now => {
     raf = requestAnimationFrame(frame);
@@ -148,6 +149,6 @@ export async function mountShowcase(el, opts = {}) {
   refreshUI();
   return {
     setStage: s => { stopAuto(); setStage(s); }, setFace: (ex, hold) => setFace(ex, hold), setPower,
-    destroy() { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); gl.stop(); gl.renderer.dispose(); pmrem.dispose(); el.replaceChildren(); el.classList.remove('bsc'); }
+    destroy() { cancelAnimationFrame(raf); ro.disconnect(); io.disconnect(); gl.stop(); gl.renderer.dispose(); el.replaceChildren(); el.classList.remove('bsc'); }
   };
 }

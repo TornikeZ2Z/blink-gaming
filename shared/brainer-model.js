@@ -8,13 +8,15 @@ import { loadGLB } from './glb-lite.js';
 import { draw as drawFace, drawNumber } from './led-face.js';
 
 export const MODEL_URL = new URL('./models/brainer.glb', import.meta.url).href;
-// pose angles are Blender's (x, y, z) rotations, as in the Blender kit; lift is in model units
+// pose angles are Blender's (x, y, z) rotations, as in the Blender kit; lift is in model units. The head is wider than
+// the shoulders, so an arm raised more than y = 1.8 out to the side goes into the visor or an ear on some stage, and a
+// head tilted toward a raised hand meets it: keep raised arms at 1.8 or less and tilt the head away.
 export const STAGES = [
   { name: 'Baby', face: 'amazed', colour: '#58B7FF', pose: { legL: [-1.45, 0, 0], legR: [-1.45, 0, 0], lift: -0.25, armL: [-0.5, 0.45, 0], armR: [-0.5, -0.45, 0], head: [0, 0.12, 0] } },
-  { name: 'Toddler', face: 'love', colour: '#16C79A', pose: { armL: [-0.9, 1.75, 0], armR: [-0.9, -1.75, 0], head: [-0.12, 0, 0] } },
-  { name: 'Kid', face: 'wink', colour: '#F2703F', pose: { armR: [-0.5, -2.0, 0], head: [0, 0.12, -0.1] } },
-  { name: 'School kid', face: 'happy', colour: '#F59A2A', pose: { armR: [-0.15, -2.45, 0], armL: [0, 0.15, 0], body: [0, -0.06, 0] } },
-  { name: 'Teen', face: 'excited', colour: '#E3488F', pose: { lift: 0.35, legL: [0, 0.35, 0], legR: [0, -0.35, 0], armL: [0, 2.15, 0], armR: [0, -2.15, 0] } },
+  { name: 'Toddler', face: 'love', colour: '#16C79A', pose: { armL: [-0.9, 1.65, 0], armR: [-0.9, -1.65, 0], head: [-0.12, 0, 0] } },
+  { name: 'Kid', face: 'wink', colour: '#F2703F', pose: { armR: [-0.5, -1.75, 0], head: [0, -0.12, -0.1] } },
+  { name: 'School kid', face: 'happy', colour: '#F59A2A', pose: { armR: [-0.15, -1.8, 0], armL: [0, 0.15, 0], body: [0, -0.06, 0] } },
+  { name: 'Teen', face: 'excited', colour: '#E3488F', pose: { lift: 0.35, legL: [0, 0.35, 0], legR: [0, -0.35, 0], armL: [0, 1.8, 0], armR: [0, -1.8, 0] } },
   { name: 'Student', face: 'proud', colour: '#8447FB', pose: { legL: [-0.45, 0, 0], legR: [0.45, 0, 0], armL: [0.5, 0, 0], armR: [-0.5, 0, 0], body: [0, 0, 0.12] } },
   { name: 'Young pro', face: 'rest', colour: '#5A3FFC', pose: { armR: [-0.3, -1.3, 0], armL: [0, 0.1, 0], head: [0, 0, 0.25] } },
   { name: 'Pro', face: 'think', colour: '#3B3A8F', pose: { armR: [-1.7, -0.6, 0], armL: [-1.0, -0.4, 0], head: [-0.06, -0.12, 0.1] } },
@@ -29,7 +31,7 @@ const easeBack = q => 1 + 2.7 * (q - 1) ** 3 + 1.7 * (q - 1) ** 2;
 const clamp01 = v => Math.max(0, Math.min(1, v));
 
 let model = null;
-export const loadBrainer = (url = MODEL_URL) => model || (model = loadGLB(url, THREE));
+export const loadBrainer = (url = MODEL_URL) => model || (model = loadGLB(url, THREE).catch(e => { model = null; throw e; }));   // a failed download isn't kept, so a retry fetches again
 
 export class BrainerRig {
   constructor(tpl) {
@@ -72,7 +74,7 @@ export class BrainerRig {
   setStage(s, instant = false) {
     s = Math.max(0, Math.min(9, s | 0));
     const pair = k => Math.ceil((k + 1) / 2) - 1;
-    if (pair(s) !== pair(this.stage) || this.accAt < 0) { this.accFrom = ACCESSORY[pair(this.stage)]; this.accAt = instant ? -1e9 : performance.now(); }
+    if (pair(s) !== pair(this.stage)) { this.accFrom = ACCESSORY[pair(this.stage)]; this.accAt = instant ? -1e9 : performance.now(); }
     this.stage = s; if (instant) this.age = s / 9;
     const c = new THREE.Color(STAGES[s].colour);
     for (const m of ['Accent', 'AccCap', 'AccBowTie', 'AccTassel']) if (this.materials[m]) this.materials[m].color.copy(c);

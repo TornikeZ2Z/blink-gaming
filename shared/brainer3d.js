@@ -9,24 +9,26 @@ import { loadBrainer, BrainerRig, STAGES } from './brainer-model.js';
 import { guardRenderer } from './gl-guard.js';
 
 let model = null;
-export const brainerReady = loadBrainer().then(m => (model = m));
+const fetchModel = () => loadBrainer().then(m => (model = m), () => new Promise(r => setTimeout(r, 3000)).then(fetchModel));   // a dropped download on a flaky phone connection tries again
+export const brainerReady = fetchModel();
 const pearl = () => new THREE.MeshPhysicalMaterial({ color: 0xf7f5ff, roughness: 0.36, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.12, sheen: 1, sheenColor: new THREE.Color(0xc4b5ff), sheenRoughness: 0.45 });
 const FEET = -1.18;   // where the feet sit in the old frame the games' cameras and props were tuned for
 const W = Math.sin;
 
 // An expression as a pose, in Blender's joint angles; t animates it. Cheers and frights lift the arms, sadness droops.
+// Raised arms stay at y = 1.8 or less so they clear the head on every stage (see brainer-model.js).
 function poseFor(ex, t, stagePose) {
   switch (ex) {
     case 'rest': return stagePose;
     case 'happy': return { armL: [0, 0.8 + W(t / 300) * 0.15, 0], armR: [0, -0.8 - W(t / 300 + 1) * 0.15, 0], head: [0, W(t / 300) * 0.1, 0] };
-    case 'wink': return { armR: [-0.5, -2.0 + W(t / 120) * 0.25, 0], head: [0, 0.14, 0] };
+    case 'wink': return { armR: [-0.5, -1.55 + W(t / 120) * 0.2, 0], head: [0, -0.14, 0] };
     case 'focus': return { body: [0.1, 0, 0], armL: [-0.3, 0.2, 0], armR: [-0.3, -0.2, 0] };
     case 'gulp': return { armL: [-1.15, -0.35, 0], armR: [-1.15, 0.35, 0], body: [0.06, W(t / 28) * 0.02, 0], head: [0.08, 0, 0] };
-    case 'phew': return { armL: [0, 2.0, 0], armR: [0, -2.0, 0], hop: 0.12 };
-    case 'excited': return { armL: [0, 2.25 + W(t / 90) * 0.1, 0], armR: [0, -2.25 - W(t / 90 + 1) * 0.1, 0], hop: 0.16 };
-    case 'ecstatic': return { armL: [0, 2.4, 0], armR: [0, -2.4, 0], body: [0, 0, W(t / 220) * 0.35], hop: 0.2 };
+    case 'phew': return { armL: [0, 1.75, 0], armR: [0, -1.75, 0], hop: 0.12 };
+    case 'excited': return { armL: [0, 1.7 + W(t / 90) * 0.1, 0], armR: [0, -1.7 - W(t / 90 + 1) * 0.1, 0], hop: 0.16 };
+    case 'ecstatic': return { armL: [0, 1.8, 0], armR: [0, -1.8, 0], body: [0, 0, W(t / 220) * 0.35], hop: 0.2 };
     case 'amazed': return { armL: [0, 1.4, 0], armR: [0, -1.4, 0], body: [-0.12, 0, 0], head: [-0.1, 0, 0] };
-    case 'shock': return { armL: [-0.3, 2.4, 0], armR: [-0.3, -2.4, 0], body: [-0.18, 0, 0], lift: 0.06 };
+    case 'shock': return { armL: [-0.3, 1.8, 0], armR: [-0.3, -1.8, 0], body: [-0.18, 0, 0], lift: 0.06 };
     case 'sad': return { body: [0.2, 0, 0], head: [0.25, W(t / 900) * 0.05, 0], armL: [-0.2, 0.08, 0], armR: [-0.2, -0.08, 0] };
     case 'dizzy': return { body: [0, W(t / 180) * 0.18, W(t / 240) * 0.3], armL: [0, 1.0 + W(t / 200) * 0.3, 0], armR: [0, -1.0 + W(t / 200) * 0.3, 0] };
     case 'love': return { armL: [-1.2, -0.5, 0], armR: [-1.2, 0.5, 0], head: [0, W(t / 400) * 0.12, 0], hop: 0.05 };
@@ -52,14 +54,15 @@ export class Brainer {
     this.floorCanvas = document.createElement('canvas'); this.floorCanvas.width = this.floorCanvas.height = 128;
     this.floor = new THREE.Mesh(new THREE.CircleGeometry(0.1, 8), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(this.floorCanvas) }));
     this.domeLight = new THREE.PointLight(0xffffff, 0);
-    this.rig = null; this.neckY = 0; this.last = 0; this.L = 0; this.lift = 0;
+    this.rig = null; this.neckY = 0; this.headTop = 0; this.last = 0; this.L = 0; this.lift = 0;
     this.setLevel(L);
     if (model) this.attach(); else brainerReady.then(() => this.attach());
   }
   get ready() { return !!this.rig; }
   attach() {
     this.rig = new BrainerRig(model); this.rig.root.position.y = FEET; this.root.add(this.rig.root);
-    this.rig.setStage(this.stage - 1, true); this.rig.setPose(STAGES[this.stage - 1].pose); this.rig.update(performance.now(), 0, { instant: true, noFace: true });
+    this.rig.setStage(this.stage - 1, true); this.rig.setPose(STAGES[this.stage - 1].pose); this.rig.face = STAGES[this.stage - 1].face;   // on its stage's face from the start, not changing into it
+    this.rig.update(performance.now(), 0, { instant: true, noFace: true });
     // the carry slot sits on its back, scaled from the old barrel body to the new torso
     this.rig.nodes.Body.add(this.body); this.body.position.set(0, 0.26, 0); this.body.scale.setScalar(0.62); this.body.visible = true;
   }
@@ -88,20 +91,22 @@ export class Brainer {
     if (o.seat) {   // in the cockpit: no hops or sitting, hands on the rim unless it cheers or startles
       const arms = ['phew', 'wink', 'excited', 'ecstatic', 'amazed', 'shock'].includes(ex);
       p = { head: p.head, body: p.body && [p.body[0] * 0.5, p.body[1], p.body[2] * 0.5], armL: arms ? p.armL : [-1.3, 0.25, 0], armR: arms ? p.armR : [-1.3, -0.25, 0] };
-      if (!arms && o.side) p[o.side < 0 ? 'armL' : 'armR'] = [-0.4, o.side < 0 ? 1.6 + W(t / 140) * 0.1 : -1.6 - W(t / 140) * 0.1, 0];
+      if (!arms && o.side) { const w = 1.6 + (still ? 0 : W(t / 140) * 0.1); p[o.side < 0 ? 'armR' : 'armL'] = [-0.4, o.side < 0 ? -w : w, 0]; }   // seen from behind, armR is the one on the left; it holds still for reduced motion
     }
     const extra = {};
     if (o.walk != null && !still) {   // a step: legs and arms swing, it leans into the hop
       const sw = W(o.walk * Math.PI * 2), up = W(o.walk * Math.PI);
       Object.assign(extra, { legL: [sw * 0.5, 0, 0], legR: [-sw * 0.5, 0, 0], armL: [-sw * 0.6, 0, 0], armR: [sw * 0.6, 0, 0], body: [0.18 * up, 0, 0] });
     }
-    rig.setPose(p); rig.setExtra(extra); rig.setFace(ex); rig.soot(!!o.soot);
+    rig.setPose(p); rig.setExtra(extra); rig.setFace(ex === 'rest' ? STAGES[this.stage - 1].face : ex); rig.soot(!!o.soot);   // at rest it wears its stage's own face, as in the showcase and the stills
     for (const leg of [rig.nodes.LegL, rig.nodes.LegR]) leg.visible = !o.seat;
     rig.update(t, dt, { noFace: o.noFace, power: o.power, bob: o.seat ? 0 : hop + (still ? 0 : W(t / 520) * 0.02), ease: still ? 60 : 8 });
-    // where its neck is, for the cockpit and the parachute harness
+    // where its neck and the top of its head are, for the cockpit and the parachute lines
     this.root.updateMatrixWorld(true);
     const v = rig.nodes.Head.getWorldPosition(new THREE.Vector3()); this.neckY = this.root.worldToLocal(v).y;
-    if (o.seat) { this.lift += (-0.25 - (this.neckY - this.lift) - this.lift) * Math.min(1, dt * 10); rig.root.position.y = FEET + this.lift; }   // the head clears the rim whatever its size
+    const sh = rig.nodes.HeadShell;
+    if (sh) { if (!sh.geometry.boundingBox) sh.geometry.computeBoundingBox(); this.headTop = sh.geometry.boundingBox.clone().applyMatrix4(this.root.matrixWorld.clone().invert().multiply(sh.matrixWorld)).max.y; }
+    if (o.seat) { this.lift += (0.05 - (this.neckY - this.lift) - this.lift) * Math.min(1, dt * 10); rig.root.position.y = FEET + this.lift; }   // the neck high enough that the whole visor (mouth too) and a cheer's arms clear the rim, whatever its size
     else if (this.lift) { this.lift = 0; rig.root.position.y = FEET; }
     this.shadow.material.opacity = 1 - Math.max(0, rig.lift + hop) * 2;
   }
@@ -204,7 +209,7 @@ export class Chute3D {
     const c = document.createElement('canvas'); c.width = 512; c.height = 16; const g = c.getContext('2d');
     for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#ffffff' : '#5a3ffc'; g.fillRect(i * 64, 0, 64, 16); }
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-    this.rigging = new THREE.Group(); this.root.add(this.rigging);   // canopy and lines, raised or lowered to meet the pilot's shoulders
+    this.rigging = new THREE.Group(); this.root.add(this.rigging);   // canopy and lines, raised or lowered to meet the top of the pilot's head
     this.canopy = new THREE.Group(); this.canopy.position.y = 3.3; this.rigging.add(this.canopy);
     const cap = new THREE.Mesh(new THREE.SphereGeometry(2.3, 48, 20, 0, Math.PI * 2, 0, Math.PI * 0.42), new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.7, sheen: 1, sheenColor: new THREE.Color(0xffffff), side: THREE.DoubleSide }));
     cap.scale.y = 0.6; cap.position.y = -0.9; this.canopy.add(cap);   // a canopy much wider than its pilot, like a real one
@@ -222,7 +227,7 @@ export class Chute3D {
   }
   update(t, o = {}) {
     const open = o.open ?? 1, fold = o.fold || 0, sway = o.reduced ? 0 : Math.sin(t / 700) * 0.12 * (1 - fold);
-    this.rigging.position.y = this.brainer.neckY + 0.12 - 0.55;
+    this.rigging.position.y = (this.brainer.headTop ? this.brainer.headTop - 0.04 : this.brainer.neckY + 0.12) - 0.55;   // the lines end on the crown, clear of the visor
     this.root.rotation.z = sway;
     const sc = Math.max(0.05, open);
     this.canopy.scale.set(sc * (1 - fold * 0.3), sc * (1 - fold * 0.75), sc * (1 - fold * 0.3));
@@ -241,7 +246,7 @@ export class BrainerStage {
       const r = new THREE.WebGLRenderer({ alpha: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: false });
       r.setPixelRatio(1); r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.95;
       r.outputColorSpace = THREE.SRGBColorSpace; r.setClearColor(0x000000, 0); r.setScissorTest(true);
-      this.scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture;
+      const pm = new THREE.PMREMGenerator(r), room = new RoomEnvironment(); this.scene.environment = pm.fromScene(room, 0.04).texture; pm.dispose(); room.dispose();   // baked once: free the generator's 6 MB of targets
       return r;
     }, next => { const [w, h] = this.size; this.size = [0, 0]; if (w) this.setSize(w, h); });
     this.scene.add(new THREE.HemisphereLight(0xf6f2ff, 0x4a37c9, 0.85));

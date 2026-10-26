@@ -2,7 +2,9 @@
    specular and emissive strength). It skips textures: the Brainer's screens are painted live by the page.
    loadGLB(url, THREE) resolves to { scene, nodes, materials }, both maps keyed by name. */
 export async function loadGLB(url, THREE) {
-  const buf = await (await fetch(url)).arrayBuffer(), dv = new DataView(buf);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${res.status} ${url}`);   // an error page isn't a model
+  const buf = await res.arrayBuffer(), dv = new DataView(buf);
   if (dv.getUint32(0, true) !== 0x46546c67) throw new Error('not a GLB: ' + url);
   const jsonLen = dv.getUint32(12, true), json = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, jsonLen)));
   const binStart = 20 + jsonLen + 8;
