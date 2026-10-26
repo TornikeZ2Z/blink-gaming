@@ -28,6 +28,7 @@ jobs:
           mkdir -p _site
           cp -r Website/. _site/
           cp -r "Game #1 - Plane Crash" _site/plane-crash
+          cp -r "Game #3 - Fly High" _site/fly-high
           cp -r shared _site/shared
           rm -f _site/README.md
       - uses: actions/configure-pages@v5

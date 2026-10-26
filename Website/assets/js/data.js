@@ -88,6 +88,53 @@ window.BRAINER = {
       levelsNote: 'The odds and payouts are the same for every player at every brain level. Whatever the multiplier, a single flight pays at most the $10,000 max win.'
     },
     {
+      id: 'fly-high',
+      title: 'Fly High',
+      workingTitle: true,
+      status: 'demo',
+      genre: 'Crash',
+      badge: 'Game #2',
+      round: 'round',
+      color: '#5A3FFC',
+      art: 'assets/games/fly-high.webp',
+      // Published, the game sits at /fly-high/ next to the site; in the repo it is the sibling folder.
+      src: location.pathname.includes('/Website/') ? '../Game%20%233%20-%20Fly%20High/index.html' : 'fly-high/index.html',
+      tagline: 'Your Brainer takes off and the multiplier climbs. Cash out before it flies away.',
+      about: [
+        'A crash game in the style of Aviator. Rounds run one after another: a short betting window, then take-off, and the multiplier climbs from 1.00× until the plane flies away at a point fixed before take-off.',
+        'Cash out at any moment in flight to win the bet times the multiplier. If the plane flies away first, the bet is lost. Two bets can ride the same round, each with its own auto bet and auto cash-out.',
+        'The Brainer flies its 3D plane up from the airfield’s runway over the meadow, the same world as Plane Crash.'
+      ],
+      how: [
+        'Set a bet in US dollars and press Bet before take-off. Use the second panel for a second bet.',
+        'Watch the multiplier climb and press Cash out whenever you like.',
+        'Auto places your bet every round and can cash out by itself at a multiplier you choose.'
+      ],
+      // Mirrors cfg in Game #3 - Fly High/game.js: the round flies away at 0.98 ÷ (1 − u), rounded down to the cent,
+      // 1.00× at least and 10,000× at most, so every cash-out point returns 98% before rounding and the max win.
+      provisional: true,
+      rtp: 98,
+      minBet: 0.1,
+      maxWin: 10000,
+      specs: [
+        ['Type', 'Crash, Aviator style, rounds every few seconds'],
+        ['RTP', 'Up to 98%, the same at every brain level and for every cash-out point. Payouts round down to the cent, and the $10,000 max win ends high-bet rounds early, so some rounds return less'],
+        ['Brain levels', '100 in ten looks; the same 10 brain cells for every round played. They never change odds or payouts'],
+        ['Multiplier', 'From 1.00× up to 10,000×; about 3 rounds in 100 fly away at 1.00×'],
+        ['Bets per round', 'Up to two, each with auto bet and auto cash-out'],
+        ['Bet range', '$0.10 to $200'],
+        ['Max win', '$10,000 per bet'],
+        ['Currency', 'US dollars in the demo, local currencies per market'],
+        ['Fairness', 'Provably fair, with a client seed the player can set; every recent round can be checked in the game'],
+        ['Devices', 'Mobile and desktop (HTML5)'],
+        ['Languages', 'English now, Georgian in progress'],
+        ['Certification', 'Not yet tested by a lab']
+      ],
+      fairness: 'Every round is fixed before take-off: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. The round rolls HMAC-SHA256(server seed, "client seed:nonce") and flies away at 0.98 ÷ (1 − u). The shield button in the game, or any pill in the round history, re-checks a round, so the player, the casino or a regulator can recompute it.',
+      demoNote: 'Demo build with play money in US dollars; the game’s final name is still being chosen. Brain levels change the Brainer’s look; they never change the odds or payouts.',
+      levelsNote: 'The odds and payouts are the same for every player at every brain level. A single bet pays at most the $10,000 max win.'
+    },
+    {
       id: 'fogrush',
       hidden: true,   // Tornike, 2026-10-26: hidden from the site and the deploy for now; set to false to bring it back
       title: 'FogRush',

@@ -4,7 +4,7 @@
    sits small in the corner. It plays in full once a visit and short after that; a tap or key skips it once loaded.
    BrainerIntro.start({ title, mark, theme, what, progress, actor, fallback }) returns a promise that resolves when the
    intro has left.
-     mark: 'plane' or 'fog' picks the wordmark (BrainerIntro.wordmark builds it for the game's own top bar too).
+     mark: 'plane', 'fly' or 'fog' picks the wordmark (BrainerIntro.wordmark builds it for the game's own top bar too).
      actor(ctx, w, h, t, ex): the game draws its 3D Brainer into the canvas and returns true, or false while its 3D
      isn't ready yet. After a moment a still stands in: fallback, or else the player's own stage, assets/brainer-N.png
      for the brain level every game keeps in localStorage brainer.level. */
@@ -17,6 +17,8 @@ const seen = (() => { try { return sessionStorage.getItem('brainer.intro') === '
 function wordmark(mark) {
   if (mark === 'plane') return `<span class="wm wm-plane" role="img" aria-label="Plane Crash"><span class="wm-w wm-top" data-t="PLANE"><b>PLANE</b></span><span class="wm-w wm-main" data-t="CRASH"><b>CRASH</b></span>`
     + '<svg class="wm-swoosh" viewBox="0 0 220 70" aria-hidden="true"><path class="wm-trail" d="M6 60 C 70 68, 140 46, 196 14"/><path class="wm-jet" d="M0 0 L 18 5 L 0 10 L 5 5 Z" transform="translate(192 4) rotate(-28)"/></svg></span>';
+  if (mark === 'fly') return `<span class="wm wm-plane" role="img" aria-label="Fly High"><span class="wm-w wm-top" data-t="FLY"><b>FLY</b></span><span class="wm-w wm-main" data-t="HIGH"><b>HIGH</b></span>`
+    + '<svg class="wm-swoosh" viewBox="0 0 220 70" aria-hidden="true"><path class="wm-trail" d="M6 64 C 90 64, 150 40, 196 8"/><path class="wm-jet" d="M0 0 L 18 5 L 0 10 L 5 5 Z" transform="translate(192 0) rotate(-36)"/></svg></span>';   // the Aviator-style game, in Plane Crash's lettering
   if (mark === 'fog') return '<span class="wm wm-fog" role="img" aria-label="FogRush"><span class="wm-w wm-cloud" data-t="Fog"><b>Fog</b></span><span class="wm-w wm-gold" data-t="Rush"><b>Rush</b></span><i class="wm-spark" aria-hidden="true"></i></span>';
   return `<span class="wm"><span class="wm-w wm-main" data-t="${mark}"><b>${mark}</b></span></span>`;
 }
