@@ -677,7 +677,7 @@ function showGear(L, name) {   // the banner under the multiplier: "Level 5 · H
   el.hidden = true; void el.offsetWidth; el.hidden = false;
   clearTimeout(gearT); gearT = setTimeout(() => { el.hidden = true; }, 1700);
 }
-const REACTS = [{ face: 'star' }, { face: 'hearts' }, { visor: 'WOW' }, { visor: 'YES!' }, { visor: 'GO!' }, { visor: 'COOL' }, { face: 'joy', flip: true }, { face: 'star', flip: true }];
+const REACTS = [{ face: 'star' }, { face: 'hearts' }, { face: 'joy' }, { visor: 'WOW' }, { visor: 'YES!' }, { visor: 'GO!' }, { visor: 'COOL' }];   // no flips: Tornike didn't like it spinning round (2026-10-27)
 function draw(now) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const dt = Math.min(50, now - (view.last || now)); view.last = now;
@@ -705,7 +705,7 @@ function draw(now) {
     const gq = view.gearT0 ? (now - view.gearT0) / 550 : 1;
     if (gq < 1 && view.arrive) { o.arrive = { ...view.arrive, q: gq }; pop = 1 + 0.1 * Math.sin(Math.PI * clamp(gq * 1.3, 0, 1)); }
     const rq = view.gearT0 ? (now - view.gearT0) / 1200 : 1;
-    if (rq < 1 && view.react) { if (view.react.visor) o.visor = view.react.visor; else o.face = view.react.face; if (view.react.flip && !reduced) rot += TAU * smooth(clamp(rq * 1.8, 0, 1)); }
+    if (rq < 1 && view.react) { if (view.react.visor) o.visor = view.react.visor; else o.face = view.react.face; }
     const sc = scareFx(now);
     Object.assign(o, { footL: sc.footL, footR: sc.footR, glitch: sc.glitch, batt: sc.batt }); o.thrust *= sc.thrust * (1 + 0.4 * fast);
     if (sc.face) { o.face = sc.face; o.visor = ''; }
