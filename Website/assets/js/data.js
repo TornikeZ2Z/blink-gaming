@@ -31,7 +31,63 @@ window.BRAINER = {
     ]
   },
 
+  // Listed first: the newest game, so visitors meet it at the top of the home and games pages (Tornike, 2026-10-27).
   GAMES: [
+    {
+      id: 'multi-charge',
+      title: 'Multi Charge',
+      status: 'demo',
+      genre: 'Instant',
+      badge: 'New',
+      round: 'round',
+      color: '#29C8FF',
+      // A frame of the game: the Brainer on its pad in the lab, charging from one of the five pillars, 800x1000.
+      art: 'assets/games/multi-charge.webp',
+      // Published, the game sits at /multi-charge/ next to the site; in the repo it is the sibling folder.
+      src: location.pathname.includes('/Website/') ? '../Game%20%235%20-%20Multi%20Charge/index.html' : 'multi-charge/index.html',
+      tagline: 'Five charging pillars, one pick per charge. Pick a safe one to level your Brainer up, then cash out.',
+      about: [
+        'A single-player instant game played in steps: Plane Crash’s rules with Charge’s Brainer, in a neon laboratory. Five charging pillars, dark obelisks lit along every edge with a crystal floating over each, stand round the Brainer’s pad, and at every charge the player picks one of them to charge from. Some are overloaded.',
+        'A safe pillar charges the battery over the Brainer’s head, levels it up and raises the multiplier, and the other pillars then show which were overloaded. Pick an overloaded one and the battery overfills and pops, the Brainer dozes off and the bet is lost. Cash out after any charge to lock in the multiplier.',
+        'Every safe charge changes the Brainer. Its eleven looks are spread over the charges a round can reach, from the baby to the master in graduation cap and cape on the last one, with a random piece of gear on each charge between. The Brainer is live 3D and never stands still.'
+      ],
+      how: [
+        'Pick a difficulty and a bet in US dollars, then press Play.',
+        'At each charge pick one of the five pillars. Some are overloaded; every pillar has the same chance, and the ladder shows what the next level pays.',
+        'Cash out whenever you like. An overloaded pillar ends the round and the bet is lost.'
+      ],
+      // Mirrors cfg and LEVELS in Game #5 - Multi Charge/game.js, which are Plane Crash's one to one: 25 charges hide 1, 3,
+      // 5 or 10 overloads, multiplier = RTP ÷ chance of surviving, rounded down to the cent; five pillars at every charge,
+      // each overloaded on its own with that charge's chance, as Plane Crash's five paths.
+      provisional: true,
+      rtp: 98,
+      minBet: 0.1,
+      maxWin: 10000,
+      words: { aBomb: 'an overload', bomb: 'overload', bombs: 'overloads', bombsIn: 'Overloads in 25 charges', path: 'charge', paths: 'charges', Paths: 'Charges', step: 'charge', steps: 'charges', first: 'First charge', make: 'make' },
+      levels: [
+        { name: 'Easy', bombs: 1, steps: 24, first: 1.02, top: 24.5 },
+        { name: 'Medium', bombs: 3, steps: 22, first: 1.11, top: 2254 },
+        { name: 'Hard', bombs: 5, steps: 20, first: 1.22, top: 52067.4 },
+        { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.63, top: 3203384.8 }
+      ],
+      specs: [
+        ['Type', 'Instant, single player, Chicken Road style with a five-way pick'],
+        ['RTP', 'Up to 98%, the same for every player and every pillar. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
+        ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 overloads in 25 charges'],
+        ['Pillars', 'Five at every charge, each overloaded on its own with the same chance'],
+        ['Charges per round', '24, 22, 20, up to 14'],
+        ['Looks', 'Eleven, spread over the charges a round can reach, and a random piece of gear on every charge between. They never change odds or payouts'],
+        ['Bet range', '$0.10 to $200'],
+        ['Max win', '$10,000 per round, which caps every payout: 100,000× at the $0.10 minimum bet'],
+        ['Currency', 'US dollars in the demo, local currencies per market'],
+        ['Fairness', 'Provably fair, with a client seed the player can set; every round can be checked in the game'],
+        ['Devices', 'Mobile and desktop (HTML5)'],
+        ['Languages', 'English now, Georgian in progress'],
+        ['Certification', 'Not yet tested by a lab']
+      ],
+      fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Every pillar at every charge rolls HMAC-SHA256(server seed, "client seed:nonce:charge:pillar"), and a pillar is overloaded when its roll is at or above that charge’s safe chance, so whichever pillar the player picks is safe with exactly that chance. The shield button in the game re-checks the last round and redraws every pillar of every charge, so the player, the casino or a regulator can recompute it.',
+      demoNote: 'Demo build with play money in US dollars. The Brainer’s looks and gear never change the odds or payouts.'
+    },
     {
       id: 'plane-crash',
       title: 'Plane Crash',
