@@ -52,6 +52,7 @@
 @keyframes bootScreen{0%{opacity:0}30%{opacity:.35}42%{opacity:.06}60%{opacity:.7}68%{opacity:.4}100%{opacity:1}}
 @keyframes bootEyes{0%{opacity:0;transform:scaleY(.12)}25%{opacity:1;transform:scaleY(.12)}45%{transform:scaleY(1.08)}55%,72%{transform:scaleY(1)}80%{transform:scaleY(.12)}90%,100%{opacity:1;transform:scaleY(1)}}
 @keyframes bootGlow{from{filter:drop-shadow(0 0 0 rgba(90,110,255,0))}to{filter:drop-shadow(0 0 28px rgba(90,110,255,.85)) drop-shadow(0 0 70px rgba(90,50,251,.55))}}
+.intro.lit .boot-visor .off{opacity:0;transition:opacity .3s}
 .intro.lit .boot-visor .screen,.intro.lit .boot-visor .gloss,.intro.lit .boot-visor .eye{opacity:1;animation:none}
 .intro.lit .boot-visor{animation:none;filter:drop-shadow(0 0 18px rgba(90,110,255,.7))}
 .intro.lit .boot-dark{transition:opacity calc(.7s*var(--k)) ease-out;opacity:0}

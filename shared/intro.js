@@ -10,7 +10,7 @@
      actor(ctx, w, h, t, ex): the game draws its 3D Brainer into the canvas and returns true, or false while its 3D
      isn't ready yet. After a moment a still stands in: fallback, or else the player's own stage, assets/brainer-N.png
      for the brain level every game keeps in localStorage brainer.level.
-     face: [x, y, width, tilt] of the robot's visor in the actor's square, as fractions of its side, and its lean in degrees
+     face: [x, y, width, tilt] of the robot's lit screen in the actor's square, as fractions of its side, and its lean in degrees
      (FACES has each game's). */
 (() => {
 'use strict';
@@ -21,10 +21,11 @@ const seen = !full && (() => { try { return sessionStorage.getItem('brainer.intr
 let visorN = 0;
 // where each game's Brainer has its visor in the actor's square, in the pose it holds as the view pulls back to it
 // (measured from the drawn frame; FogRush's is an estimate, it isn't on the site yet)
-const FACES = { plane: [0.49, 0.352, 0.28], fog: [0.5, 0.33, 0.24], fly: [0.5, 0.367, 0.35], CHARGE: [0.511, 0.583, 0.38, 10], 'MULTI CHARGE': [0.511, 0.583, 0.38, 10] };
+const FACES = { plane: [0.49, 0.352, 0.236], fog: [0.5, 0.33, 0.2], fly: [0.5, 0.367, 0.295], CHARGE: [0.511, 0.583, 0.32, 10], 'MULTI CHARGE': [0.511, 0.583, 0.32, 10] };
 const W0 = 36755;   // the clock the robot holds its pose at (see actorClock): a moment the plane flies level and the head looks straight on
-// the Brainer's visor, the studio logo (Website/assets/brainer/logo/visor.svg), inline so its screen and eyes can light up
-const visor = cls => { const id = `iv${++visorN}`; return `<svg class="${cls}" viewBox="0 0 64 44" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3f7bff"/><stop offset="1" stop-color="#5a32fb"/></linearGradient></defs><rect width="64" height="44" rx="19" fill="#0a1322"/><rect class="screen" x="5" y="5" width="54" height="34" rx="14.5" fill="url(#${id})"/><path class="gloss" d="M14 10.5h36" stroke="#fff" stroke-opacity=".28" stroke-width="2.4" stroke-linecap="round"/><rect class="eye" x="18" y="16" width="8" height="12" rx="3.2" fill="#fff"/><rect class="eye" x="38" y="16" width="8" height="12" rx="3.2" fill="#fff"/></svg>`; };
+// the Brainer's visor, the studio logo (Website/assets/brainer/logo/visor.svg): just the lit screen, no dark shell, inline so
+// its screen and eyes can light up
+const visor = cls => { const id = `iv${++visorN}`, off = cls === 'boot-visor' ? '<rect class="off" width="64" height="44" rx="19" fill="#0d1830"/>' : ''; return `<svg class="${cls}" viewBox="0 0 64 44" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3f7bff"/><stop offset="1" stop-color="#5a32fb"/></linearGradient></defs>${off}<rect class="screen" width="64" height="44" rx="19" fill="url(#${id})"/><path class="gloss" d="M12 7.5h40" stroke="#fff" stroke-opacity=".3" stroke-width="2.6" stroke-linecap="round"/><rect class="eye" x="17" y="14" width="9" height="15" rx="3.6" fill="#fff"/><rect class="eye" x="38" y="14" width="9" height="15" rx="3.6" fill="#fff"/></svg>`; };
 
 function wordmark(mark) {
   if (mark === 'plane') return `<span class="wm wm-plane" role="img" aria-label="Plane Crash"><span class="wm-w wm-top" data-t="PLANE"><b>PLANE</b></span><span class="wm-w wm-main" data-t="CRASH"><b>CRASH</b></span>`
@@ -52,7 +53,7 @@ function start(cfg) {
   document.body.appendChild(root);
   const cv = root.querySelector('.intro-actor'), g = cv.getContext('2d'), pctEl = root.querySelector('.intro-pct b'), cells = [...root.querySelectorAll('.intro-cells i')], note = root.querySelector('.intro-note'), skip = root.querySelector('.intro-skip');
   const short = seen || reduced, bootT = reduced ? 400 : short ? 650 : 1200, pullT = reduced ? 0 : short ? 450 : 750, holdT = reduced ? 0 : short ? 100 : 250;
-  const actT = bootT + pullT + holdT, minT = actT + (short ? 500 : 900), face = cfg.face || FACES[cfg.mark] || [0.5, 0.32, 0.2], fallback = new Image();
+  const actT = bootT + pullT + holdT, minT = actT + (short ? 500 : 900), face = cfg.face || FACES[cfg.mark] || [0.5, 0.32, 0.17], fallback = new Image();
   const boot = root.querySelector('.intro-boot'), bootV = boot.querySelector('.boot-visor');
   const level = (() => { try { return parseInt(localStorage.getItem('brainer.level'), 10) || 1; } catch (e) { return 1; } })();
   fallback.src = cfg.fallback || `assets/brainer-${clamp(Math.ceil(level / 10), 1, 10)}.png`;   // the player's own stage, not always the Baby
