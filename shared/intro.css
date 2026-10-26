@@ -59,6 +59,18 @@
 .intro.lit .boot-light{animation:bootFlood calc(.85s*var(--k)) ease-out both}
 @keyframes bootFlood{30%{opacity:1;transform:scale(1.6)}100%{opacity:0;transform:scale(4)}}
 .intro.still .intro-boot{transition:opacity .2s}.intro.still.lit .intro-boot{opacity:0}
+/* the rendered clip (intro.js CLIPS): full screen under the counter and the game's name, which sit low over a soft shade */
+.intro.clip{background:#000}
+.intro-clip{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+.intro.clip::after{content:"";position:absolute;inset:auto 0 0;height:42%;background:linear-gradient(0deg,rgba(24,14,90,.62),rgba(24,14,90,0));opacity:0;transition:opacity .6s;pointer-events:none}
+.intro.clip .intro-sky,.intro.clip .intro-actor{display:none}
+.intro.clip .intro-center{position:absolute;left:0;right:0;bottom:max(4vh,18px);margin:0;z-index:2}
+.intro.clip .intro-title{margin-top:0}
+.intro.clip .intro-mark,.intro.clip .intro-skip{z-index:2}
+.intro.clip .intro-mark{animation:none}
+.intro.clip .boot-visor{visibility:hidden}   /* the clip draws its own logo; this one shows only if the drawn intro takes over */
+.intro.clip .intro-mark,.intro.clip .intro-pct,.intro.clip .intro-cells,.intro.clip .intro-note{opacity:0;transition:opacity .6s}
+.intro.clip.lit::after,.intro.clip.lit .intro-mark,.intro.clip.lit .intro-pct,.intro.clip.lit .intro-cells,.intro.clip.lit .intro-note{opacity:1}
 .intro.still *{animation-duration:.01s!important;animation-delay:0s!important;animation-iteration-count:1!important}   /* once, or the endless cloud drift loops every 10 ms and strobes */
 
 /* the game wordmarks: chunky lettering on a thick outline with a little depth, a gradient face and the game's motif */

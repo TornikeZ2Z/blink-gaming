@@ -1,0 +1,91 @@
+C:\Users\user\Claude\Blink Gaming\Brainer 3D\blender\intro_clip.py:127: DeprecationWarning: 'Material.use_nodes' is expected to be removed in Blender 6.0
+  b = m.node_tree.nodes.get('Principled BSDF') if m.use_nodes else None
+00:40.703  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0001.png'
+RENDERED C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\unused.png
+FRAME 1
+00:47.766  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0002.png'
+FRAME 2
+00:54.782  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0003.png'
+FRAME 3
+01:01.578  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0004.png'
+FRAME 4
+01:08.610  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0005.png'
+FRAME 5
+01:15.782  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0006.png'
+FRAME 6
+01:23.000  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0007.png'
+FRAME 7
+01:30.203  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0008.png'
+FRAME 8
+01:37.235  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0009.png'
+FRAME 9
+01:44.297  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0010.png'
+FRAME 10
+01:51.328  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0011.png'
+FRAME 11
+01:58.391  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0012.png'
+FRAME 12
+02:05.547  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0013.png'
+FRAME 13
+02:12.532  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0014.png'
+FRAME 14
+02:19.594  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0015.png'
+FRAME 15
+02:26.672  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0016.png'
+FRAME 16
+02:34.000  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0017.png'
+FRAME 17
+02:41.032  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0018.png'
+FRAME 18
+02:47.610  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0019.png'
+FRAME 19
+02:54.047  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0020.png'
+FRAME 20
+03:00.938  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0021.png'
+FRAME 21
+03:08.000  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0022.png'
+FRAME 22
+03:15.125  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0023.png'
+FRAME 23
+03:22.063  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0024.png'
+FRAME 24
+03:28.953  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0025.png'
+FRAME 25
+03:35.516  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0026.png'
+FRAME 26
+03:42.078  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0027.png'
+FRAME 27
+03:48.719  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0028.png'
+FRAME 28
+03:55.344  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0029.png'
+FRAME 29
+04:01.953  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0030.png'
+FRAME 30
+04:08.625  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0031.png'
+FRAME 31
+04:15.282  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0032.png'
+FRAME 32
+04:21.938  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0033.png'
+FRAME 33
+04:28.516  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0034.png'
+FRAME 34
+04:35.063  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0035.png'
+FRAME 35
+04:41.641  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0036.png'
+FRAME 36
+04:48.610  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0037.png'
+FRAME 37
+04:55.594  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0038.png'
+FRAME 38
+05:02.985  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0039.png'
+FRAME 39
+05:10.110  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0040.png'
+FRAME 40
+05:23.641  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0041.png'
+FRAME 41
+05:37.297  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0042.png'
+FRAME 42
+05:51.532  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0043.png'
+FRAME 43
+06:05.594  render           | Saved: 'C:\Users\user\Claude\Blink Gaming\Brainer 3D\renders\intro\charge\preview_l\frame_0044.png'
+FRAME 44

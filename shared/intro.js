@@ -11,7 +11,10 @@
      isn't ready yet. After a moment a still stands in: fallback, or else the player's own stage, assets/brainer-N.png
      for the brain level every game keeps in localStorage brainer.level.
      face: [x, y, width, tilt] of the robot's lit screen in the actor's square, as fractions of its side, and its lean in degrees
-     (FACES has each game's). */
+     (FACES has each game's).
+   A game in CLIPS opens with its rendered clip instead (Brainer 3D/blender/intro_clip.py): the visor lit as the logo in the
+   dark, the lights coming up on the Brainer face on, it waking, then doing the game's thing. shared/clips/<name>-wide.mp4
+   or -tall.mp4 plays full screen under the counter and the game's name; if it can't play in time, the drawn intro plays. */
 (() => {
 'use strict';
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -22,6 +25,9 @@ let visorN = 0;
 // where each game's Brainer has its visor in the actor's square, in the pose it holds as the view pulls back to it
 // (measured from the drawn frame; FogRush's is an estimate, it isn't on the site yet)
 const FACES = { plane: [0.49, 0.352, 0.236], fog: [0.5, 0.33, 0.2], fly: [0.5, 0.367, 0.295], CHARGE: [0.511, 0.583, 0.32, 10], 'MULTI CHARGE': [0.511, 0.583, 0.32, 10] };
+// the games whose intro is a rendered clip; lit: when its lights are up, title: when the game's name pops (seconds)
+const CLIPS = { CHARGE: { name: 'charge', lit: 1.5, title: 3.7 } };
+const here = document.currentScript ? new URL('.', document.currentScript.src).href : '';
 const W0 = 36755;   // the clock the robot holds its pose at (see actorClock): a moment the plane flies level and the head looks straight on
 // the Brainer's visor, the studio logo (Website/assets/brainer/logo/visor.svg): just the lit screen, no dark shell, inline so
 // its screen and eyes can light up
@@ -51,6 +57,15 @@ function start(cfg) {
     <button type="button" class="intro-skip" hidden>Skip</button>
     <div class="intro-boot" aria-hidden="true"><i class="boot-dark"></i><i class="boot-light"></i>${visor('boot-visor')}</div>`;
   document.body.appendChild(root);
+  const cc = !reduced && here && CLIPS[cfg.mark];
+  let clip = null;
+  if (cc) {   // the clip for the screen's shape; it starts black, so the page stays black until it can play
+    clip = document.createElement('video');
+    clip.className = 'intro-clip'; clip.muted = true; clip.playsInline = true; clip.preload = 'auto'; clip.disablePictureInPicture = true;
+    clip.setAttribute('aria-hidden', 'true'); clip.setAttribute('playsinline', '');
+    clip.src = `${here}clips/${cc.name}-${innerHeight > innerWidth ? 'tall' : 'wide'}.mp4`;
+    root.prepend(clip); root.classList.add('clip');
+  }
   const cv = root.querySelector('.intro-actor'), g = cv.getContext('2d'), pctEl = root.querySelector('.intro-pct b'), cells = [...root.querySelectorAll('.intro-cells i')], note = root.querySelector('.intro-note'), skip = root.querySelector('.intro-skip');
   const short = seen || reduced, bootT = reduced ? 400 : short ? 650 : 1200, pullT = reduced ? 0 : short ? 450 : 750, holdT = reduced ? 0 : short ? 100 : 250;
   const actT = bootT + pullT + holdT, minT = actT + (short ? 500 : 900), face = cfg.face || FACES[cfg.mark] || [0.5, 0.32, 0.17], fallback = new Image();
@@ -92,8 +107,12 @@ function start(cfg) {
     size();
     const real = clamp(cfg.progress(), 0, 1) * 100;
     shown = Math.min(real, shown + (short ? 3 : 1.1) * (reduced ? 10 : 1));   // counts up smoothly, never ahead of the real progress
-    const p = shown / 100, ready = shown >= 100 && t >= minT;
+    const p = shown / 100, ready = shown >= 100 && (clip ? clip.ended : t >= minT);
     const ex = leaving || ready ? 'wink' : p < 0.35 ? 'sleepy' : p < 0.8 ? 'focus' : 'excited';
+    if (clip) {   // the clip plays the Brainer: the page only follows its lights and its cue for the game's name
+      if (!booted && clip.currentTime >= cc.lit) { booted = true; root.classList.add('lit'); }
+      if (!acting && clip.currentTime >= cc.title) { acting = true; root.classList.add('run'); }
+    } else {
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
     const clock = actorClock(), drew = cfg.actor ? cfg.actor(g, cv.width, cv.height, clock, ex) : false;
     if (!booted && t >= bootT) lightsUp();
@@ -103,6 +122,7 @@ function start(cfg) {
       g.drawImage(fallback, x, y, s, s);
       const m = g.createRadialGradient(cv.width / 2, y + s * 0.42, 0, cv.width / 2, y + s * 0.42, s * 0.56); m.addColorStop(0.84, '#000'); m.addColorStop(1, 'transparent');
       g.globalCompositeOperation = 'destination-in'; g.fillStyle = m; g.fillRect(0, 0, cv.width, cv.height); g.globalCompositeOperation = 'source-over';   // the still's soft floor shadow fades out before its square edge shows
+    }
     }
     const pct = String(Math.floor(shown)); if (pctEl.textContent !== pct) pctEl.textContent = pct;
     cells.forEach((c, i) => c.classList.toggle('on', i < Math.round(p * cells.length)));
@@ -119,10 +139,26 @@ function start(cfg) {
     try { sessionStorage.setItem('brainer.intro', '1'); } catch (e) { /* storage blocked: it just plays in full again */ }
     setTimeout(() => { finished = true; root.remove(); resolve(); }, reduced ? 200 : 700);
   }
-  const tap = () => { if (!booted) { t = Math.max(t, bootT); lightsUp(); } else if (cfg.progress() >= 1) { leave(); return true; } return false; };   // the first tap skips the opening
+  const tap = () => {   // the first tap skips the opening (a clip plays on); once the game has loaded a tap leaves
+    if (!booted && !clip) { t = Math.max(t, bootT); lightsUp(); } else if (cfg.progress() >= 1) { leave(); return true; }
+    return false;
+  };
   root.addEventListener('click', tap);
   addEventListener('keydown', function k() { if (tap()) removeEventListener('keydown', k); });
-  requestAnimationFrame(() => { root.classList.add('boot'); requestAnimationFrame(frame); });
+  const drawn = () => requestAnimationFrame(() => { root.classList.add('boot'); requestAnimationFrame(frame); });
+  if (!clip) drawn();
+  else {   // the clip, once it can play through; on a slow line or an error, the drawn intro instead
+    let settled = false;
+    const fail = () => { if (settled) return; settled = true; clip.remove(); clip = null; root.classList.remove('clip'); drawn(); };
+    const go = () => {
+      if (settled) return; settled = true;
+      if (short) { clip.currentTime = 0.3; clip.playbackRate = 1.5; }   // a repeat visit: straight to the logo, and quicker
+      clip.play().then(() => { boot.remove(); requestAnimationFrame(frame); }, () => { settled = false; fail(); });
+    };
+    clip.addEventListener('canplaythrough', go, { once: true });
+    clip.addEventListener('error', fail, { once: true });
+    setTimeout(() => (clip && clip.readyState >= 3 ? go() : fail()), 1500);
+  }
   return done;
 }
 window.BrainerIntro = { start, wordmark };

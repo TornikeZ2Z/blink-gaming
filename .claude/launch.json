@@ -12,6 +12,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "5174", "--directory", "."],
       "port": 5174
+    },
+    {
+      "name": "plane-crash-aim",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5181", "--directory", "."],
+      "port": 5181
     }
   ]
 }
