@@ -2,7 +2,7 @@
 
 Last updated 2026-10-26, after a full live test on Tornike's second account. This is for the next Claude session. It covers the game/3D work, which belongs to the "BG - Game Developer" session. The website (`Website/`) belongs to the "BG - Website Developer" session: commit only your own paths and never run `git add -A`.
 
-Live site: https://brainer.datastudio.ge. It deploys from `TornikeZ2Z/brainer-games`, branch `main`, through GitHub Pages (`.github/workflows/pages.yml`).
+Live site: https://brainer.games (Cloudflare zone brainer.games: apex A/AAAA to GitHub Pages, www CNAME, DNS only; Pages custom domain, HTTPS enforced). brainer.datastudio.ge has a 301 rule to it in the datastudio.ge zone. It deploys from `TornikeZ2Z/brainer-games`, branch `main`, through GitHub Pages (`.github/workflows/pages.yml`).
 
 ## What is decided (Tornike approved all of it)
 
