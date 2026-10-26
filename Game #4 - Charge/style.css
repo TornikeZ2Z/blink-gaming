@@ -182,6 +182,7 @@ button{cursor:pointer}
   .wallet{gap:4px;padding:4px 4px 4px 10px;font-size:14px} .wallet small{display:none} .wallet button{padding:4px 9px}
 }
 @media (max-width:374px){ .hud{justify-content:flex-end} .brand{display:none} }
+@media (max-width:480px){ .hud.long .hud-right{gap:4px} .hud.long .round{width:31px;height:31px} .hud.long .round svg{width:16px;height:16px} .hud.long .wallet{font-size:13px;padding:4px 4px 4px 8px} .hud.long .wallet button{padding:4px 7px} }   /* a six-figure balance (renderBalance() sets .long): the tighter top bar, as in Plane Crash and Fly High, so the wallet stays on the stage */
 @media (max-width:330px){ .hud-right{gap:4px} .round{width:31px;height:31px} .round svg{width:16px;height:16px} .wallet{font-size:13px;padding:4px 4px 4px 8px} .wallet button{padding:4px 7px} }
 @media (max-height:700px) and (min-width:761px){ .foot{display:none} :root{--stage-h:clamp(360px,calc(100dvh - 206px),640px)} }
 @media (prefers-reduced-motion:reduce){ .readout .mult.pop,.readout .mult.gold,.newlook{animation:none!important} .big,.toast,.cells-in{transition:none} }

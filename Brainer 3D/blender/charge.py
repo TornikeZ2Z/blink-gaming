@@ -162,9 +162,12 @@ cyl('PadTop', 1.3, 0.02, (0, 0, PAD - 0.005), (0, 0, 0), navy, None, verts=128)
 torus('PadRing', 1.12, 0.035, (0, 0, PAD), (0, 0, 0), ring_m, None)
 torus('PadRing2', 0.62, 0.02, (0, 0, PAD), (0, 0, 0), ring_m, None)
 torus('PadBand', 1.56, 0.05, (0, 0, 0.12), (0, 0, 0), violet, None)
+# the charging pillar (Tornike, 2026-10-27: a single pillar, visible on a phone too): behind the pad on the Brainer's right,
+# close in, so a phone's narrow crop of the set keeps all of it. TERM holds its terminal, keyed by side as when there were two.
+PILLAR = (1.6, 1.8)
 TERM = {}
-for sd in (-1, 1):
-    x, y = sd * 2.75, 0.85
+for sd in (1,):
+    x, y = PILLAR
     rbox(f'CoilBase{sd}', (0.5, 0.5, 0.26), (x, y, 0.3), 0.12, white, None)
     rbox(f'CoilBand{sd}', (0.52, 0.52, 0.04), (x, y, 0.44), 0.04, violet, None, segs=4, sub=1)
     cyl(f'CoilColumn{sd}', 0.2, 2.5, (x, y, 1.75), (0, 0, 0), white, None, bevel=0.02)
@@ -174,7 +177,7 @@ for sd in (-1, 1):
     TERM[sd] = Vector((x, y, 3.42))
     cu = bpy.data.curves.new(f'Cable{sd}', 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = 0.035; cu.bevel_resolution = 3
     sp = cu.splines.new('BEZIER'); sp.bezier_points.add(1)
-    for bp, co, hl in ((sp.bezier_points[0], (x - sd * 0.45, y - 0.2, 0.12), (x - sd * 1.0, y - 0.9, 0.1)), (sp.bezier_points[1], (sd * 1.5, 0.35, 0.12), (sd * 2.0, 1.1, 0.1))):
+    for bp, co, hl in ((sp.bezier_points[0], (x - 0.42, y - 0.35, 0.12), None), (sp.bezier_points[1], (1.0, 1.15, 0.12), None)):   # from its base to the pad's rim
         bp.co = co; bp.handle_left_type = bp.handle_right_type = 'AUTO'
     co = bpy.data.objects.new(f'Cable{sd}', cu); sc.collection.objects.link(co); cu.materials.append(rubber)
 
@@ -258,16 +261,17 @@ def smoke(loc, scale, seed):
 
 if FRAME == 'idle':   # level 1: the baby sits on the pad, ready; the station hums
     place(1, STAGES[0][2], 'happy')
-elif FRAME == 'charge':   # a charge lands: arcs from both coils into its hands and antenna, it jumps, grown a stage
+elif FRAME == 'charge':   # a charge lands: the pillar's arcs feed the battery over its head (never the Brainer), and it jumps
     place(5, STAGES[4][2], 'excited')
-    hl, hr, tip = wpos('HandL'), wpos('HandR'), wpos('AntennaTip1')
-    arc(TERM[-1], hl, 1); arc(TERM[1], hr, 2); arc(TERM[1], tip, 3, radius=0.012, branches=2)
-    for k, (a, b) in enumerate(((Vector((-1.0, -0.5, PAD)), wpos('BootL')), (Vector((1.05, -0.3, PAD)), wpos('BootR')))):
-        arc(a, b, 10 + k, radius=0.008, branches=1, watts=200)
-    point(wpos('Torso') + Vector((0, -0.9, 0.2)), '#7FE9FF', 120, 0.5)
+    top = wpos('HeadShell') + Vector((0, 0, 0.55)); bat = top + Vector((0, -0.2, 0.3))   # the game's battery, in 3D: a white shell, cyan cells, a nub
+    rbox('Battery', (0.4, 0.09, 0.18), tuple(bat), 0.06, white, None)
+    rbox('BatteryCells', (0.27, 0.1, 0.12), tuple(bat + Vector((-0.08, -0.004, 0))), 0.03, material('Cells', '#C9F9FF', emit='#55E6FF', strength=7), None)
+    rbox('BatteryNub', (0.04, 0.06, 0.07), tuple(bat + Vector((0.44, 0, 0))), 0.02, white, None)
+    arc(TERM[1], bat + Vector((0.44, 0, 0.02)), 2); arc(TERM[1], bat + Vector((0.1, 0, 0.18)), 3, radius=0.012, branches=2)
+    point(bat + Vector((0, -0.5, 0)), '#7FE9FF', 160, 0.4)
 elif FRAME == 'master':   # top X: the master floats over the pad in a graduation cap and a cape, the coils glow gold
     place(10, STAGES[9][2], 'wise'); cape()
-    for sd in (-1, 1):
+    for sd in TERM:
         for k in range(2): arc(TERM[sd], TERM[sd] + Vector((-sd * 0.5 + (k - 0.5) * 0.4, -0.3, -0.5 - 0.3 * k)), 30 + k + (sd > 0) * 5, radius=0.008, mat=arc_gold, branches=1, col='#FFD56B', watts=150)
     point(wpos('Torso') + Vector((0, -1.0, 0.5)), '#FFE2A0', 250, 0.6)
 elif FRAME == 'broken':   # overcharged: slumped and sooty, smoke from its head, sparks at the neck, a red error face
@@ -288,7 +292,7 @@ elif FRAME == 'broken':   # overcharged: slumped and sooty, smoke from its head,
         p = o0 + v * t * 1.6 + Vector((0, 0, -0.9 * t * t)); q = p + v * r.uniform(0.04, 0.12)
         capsule(f'Spark{k}', tuple(p), tuple(q), 0.006, spark, None)
     point(neck + Vector((0, -0.3, 0.1)), '#FFB547', 220, 0.2); point(wpos('HeadShell') + Vector((0, -1.0, 0)), '#FF2A40', 160, 0.4)
-    arc(TERM[-1], Vector((-2.2, -0.6, 0.1)), 50, radius=0.01, branches=2, watts=500)
+    arc(TERM[1], Vector((2.4, 0.6, 0.1)), 50, radius=0.01, branches=2, watts=500)
     dm = bpy.data.materials.new('Scorch'); dm.use_nodes = True; dn = dm.node_tree.nodes; db = dn['Principled BSDF']; db.inputs['Base Color'].default_value = (0.01, 0.01, 0.01, 1)
     gt = dn.new('ShaderNodeTexGradient'); gt.gradient_type = 'SPHERICAL'; tco = dn.new('ShaderNodeTexCoord'); dm.node_tree.links.new(tco.outputs['Object'], gt.inputs['Vector'])
     dm.node_tree.links.new(gt.outputs['Fac'], db.inputs['Alpha'])

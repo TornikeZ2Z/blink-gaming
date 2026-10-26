@@ -149,8 +149,8 @@ window.BRAINER = {
       src: location.pathname.includes('/Website/') ? '../Game%20%234%20-%20Charge/index.html' : 'charge/index.html',
       tagline: 'Charge your Brainer to level it up and raise the multiplier. Overcharge its battery and it dozes off.',
       about: [
-        'A single-player instant game played in steps, in the style of Chicken Road. The Brainer starts every round at Level 1 on a charging pad between two coils, on a hilltop over the valley. Each charge either levels it up and raises the multiplier, or overcharges it.',
-        'Cash out after any charge to lock in the multiplier. The coils charge a battery that floats over the Brainer’s head: if a charge overloads, the battery overfills and pops, the Brainer gets dizzy and dozes off, and the bet is lost.',
+        'A single-player instant game played in steps, in the style of Chicken Road. The Brainer starts every round at Level 1 on a charging pad beside its charging pillar, on a hilltop over the valley. Each charge either levels it up and raises the multiplier, or overcharges it.',
+        'Cash out after any charge to lock in the multiplier. The pillar charges a battery that floats over the Brainer’s head: if a charge overloads, the battery overfills and pops, the Brainer gets dizzy and dozes off, and the bet is lost.',
         'Every safe charge changes the Brainer. Its eleven looks are spread over the charges a round can reach, from the baby to the master in graduation cap and cape on the last one, and each charge in between snaps on a random piece of gear: power bands, gloves, headphones, energy wings and more. The Brainer is live 3D and never stands still while it waits for the next charge.'
       ],
       how: [

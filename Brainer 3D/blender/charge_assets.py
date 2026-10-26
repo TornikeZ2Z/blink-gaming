@@ -169,9 +169,12 @@ cyl('PadTop', 1.3, 0.02, (0, 0, PAD - 0.005), (0, 0, 0), navy, None, verts=128)
 torus('PadRing', 1.12, 0.035, (0, 0, PAD), (0, 0, 0), ring_m, None)
 torus('PadRing2', 0.62, 0.02, (0, 0, PAD), (0, 0, 0), ring_m, None)
 torus('PadBand', 1.56, 0.05, (0, 0, 0.12), (0, 0, 0), violet, None)
+# the charging pillar (Tornike, 2026-10-27: a single pillar, visible on a phone too): behind the pad on the Brainer's right,
+# close in, so a phone's narrow crop of the set keeps all of it. TERM holds its terminal, keyed by side as when there were two.
+PILLAR = (1.6, 1.8)
 TERM = {}
-for sd in (-1, 1):
-    x, y = sd * 2.75, 0.85
+for sd in (1,):
+    x, y = PILLAR
     rbox(f'CoilBase{sd}', (0.5, 0.5, 0.26), (x, y, 0.3), 0.12, white, None)
     rbox(f'CoilBand{sd}', (0.52, 0.52, 0.04), (x, y, 0.44), 0.04, violet, None, segs=4, sub=1)
     cyl(f'CoilColumn{sd}', 0.2, 2.5, (x, y, 1.75), (0, 0, 0), white, None, bevel=0.02)
@@ -181,7 +184,7 @@ for sd in (-1, 1):
     TERM[sd] = Vector((x, y, 3.42))
     cu = bpy.data.curves.new(f'Cable{sd}', 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = 0.035; cu.bevel_resolution = 3
     sp = cu.splines.new('BEZIER'); sp.bezier_points.add(1)
-    for bp, co, hl in ((sp.bezier_points[0], (x - sd * 0.45, y - 0.2, 0.12), (x - sd * 1.0, y - 0.9, 0.1)), (sp.bezier_points[1], (sd * 1.5, 0.35, 0.12), (sd * 2.0, 1.1, 0.1))):
+    for bp, co, hl in ((sp.bezier_points[0], (x - 0.42, y - 0.35, 0.12), None), (sp.bezier_points[1], (1.0, 1.15, 0.12), None)):   # from its base to the pad's rim
         bp.co = co; bp.handle_left_type = bp.handle_right_type = 'AUTO'
     co = bpy.data.objects.new(f'Cable{sd}', cu); sc.collection.objects.link(co); cu.materials.append(rubber)
 
@@ -266,11 +269,10 @@ def ring(c, r, cam):   # a horizontal ring as the ellipse it makes in the pictur
 if MODE == 'set':
     build_land(); cam = camera(); settings(SAMPLES)
     render(os.path.join(OUTDIR, 'set.png'))
-    info = {'w': RW, 'h': RH, 'term': [px(TERM[-1], cam), px(TERM[1], cam)],
+    info = {'w': RW, 'h': RH, 'term': [px(TERM[s], cam) for s in TERM],
             'pad': ring((0, 0, PAD), 1.12, cam), 'pad2': ring((0, 0, PAD), 0.62, cam), 'padTop': ring((0, 0, PAD), 1.3, cam),
-            'coils': [[ring((sd * 2.75, 0.85, 0.85 + k * 0.42), 0.215, cam) for k in range(6)] for sd in (-1, 1)],
-            'toroid': [ring((sd * 2.75, 0.85, 3.15), 0.69, cam) for sd in (-1, 1)],
-            'ground': [px((sd * 2.2, -0.9, 0.1), cam) for sd in (-1, 1)]}   # where a coil shorts out to the ground
+            'coils': [[ring((TERM[s].x, TERM[s].y, 0.85 + k * 0.42), 0.215, cam) for k in range(6)] for s in TERM],
+            'toroid': [ring((TERM[s].x, TERM[s].y, 3.15), 0.69, cam) for s in TERM]}
     json.dump(info, open(os.path.join(OUTDIR, 'set.json'), 'w'), indent=1); print('SET JSON')
 elif MODE == 'sprites':
     cam = camera(); settings(SAMPLES); sc.render.film_transparent = True

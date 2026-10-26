@@ -288,12 +288,15 @@ function strokeBolt(pts, col, w, a) {
   ctx.strokeStyle = `rgba(${col},${0.55 * a})`; ctx.lineWidth = w * 2; ctx.stroke();
   ctx.strokeStyle = `rgba(255,255,255,${0.9 * a})`; ctx.lineWidth = w * 0.8; ctx.stroke();
 }
-function makeArcs(phase) {   // wind: crawling on the coils' rings, then streaming into the battery; feed: a last bright burst into it
+function makeArcs(phase) {   // wind: crawling round the pillar's top, then streaming into the battery; feed: a last bright burst into it
   const T = SC.set.term.map(t => P(t[0], t[1])), out = [], bw = 40 * K;
-  for (let s = 0; s < 2; s++) {
-    const r = SC.set.toroid[s], ang = Math.random() * Math.PI * 2, e = P(r.cx + Math.cos(ang) * r.rx * 1.1, r.cy + Math.sin(ang) * r.ry * 1.4 + 6);
+  for (let k = 0; k < 2; k++) {   // two crawlers, on the one pillar (or one on each, where a set has two)
+    const s = k % T.length, r = SC.set.toroid[s], ang = Math.random() * Math.PI * 2, e = P(r.cx + Math.cos(ang) * r.rx * 1.1, r.cy + Math.sin(ang) * r.ry * 1.4 + 6);
     out.push({ pts: bolt(T[s], e, 0.5, 4), col: '140,235,255', w: 1.1 });
-    if (phase !== 'crawl') out.push({ pts: bolt(T[s], [view.bx + (s ? bw : -bw), view.by], 0.3, 6), col: '120,230,255', w: phase === 'feed' ? 2.2 : 1.4 });
+  }
+  if (phase !== 'crawl') {   // into the battery: its near end and its top from one pillar, or one end from each of two
+    const ends = T.length === 1 ? [[Math.sign(T[0][0] - view.bx) * bw, 0], [0, -12 * K]] : [[-bw, 0], [bw, 0]];
+    ends.forEach(([dx, dy], i) => out.push({ pts: bolt(T[i % T.length], [view.bx + dx, view.by + dy], 0.3, 6), col: '120,230,255', w: (phase === 'feed' ? 2.2 : 1.4) * (i ? 0.75 : 1) }));
   }
   return out;
 }
