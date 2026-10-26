@@ -240,7 +240,7 @@ button{cursor:pointer}
    moves to the bottom left */
 @media (min-width:761px) and (max-width:1299px){ .readout{top:60px} .levelup{top:auto;bottom:52px} }
 @media (min-width:761px) and (max-width:1099px){ .pilot{top:auto;bottom:46px} }
-@media (max-width:374px){ .hud{justify-content:flex-end} .brand{display:none} }   /* small phones: the controls before the logo */
+@media (max-width:420px){ .hud{justify-content:flex-end} .brand{display:none} }   /* phones: the controls before the logo (five buttons and the wallet fill a 375 px bar) */
 @media (max-width:330px){ .hud-right{gap:4px} .round{width:31px;height:31px} .round svg{width:16px;height:16px} .wallet{font-size:13px;padding:4px 4px 4px 8px} .wallet button{padding:4px 7px} }   /* the smallest phones: a tighter top bar, so How to play (the only way back to the rules and the RTP note) still fits beside full screen and the wallet */
 @media (max-width:480px){ .hud.long .hud-right{gap:4px} .hud.long .round{width:31px;height:31px} .hud.long .round svg{width:16px;height:16px} .hud.long .wallet{font-size:13px;padding:4px 4px 4px 8px} .hud.long .wallet button{padding:4px 7px} }   /* a six-figure balance (game.js renderBalance() sets .long): that tighter bar on every phone, or the wallet runs off the stage just above 330 and 374 px, where the bar loosens */
 @media (max-width:760px){   /* full screen on a phone: the bet takes a little from Play, so $200.00 fits at 16 px (over shared/focus.css, loaded after) */
@@ -327,3 +327,27 @@ button{cursor:pointer}
 .board .amt span{font-size:11px;font-weight:800;color:#d5b8ff}
 .board .amt.lost b{color:#ff8a9b}
 .board .empty{display:block;text-align:center;color:var(--muted);font-weight:700;font-size:13px;padding:18px}
+
+/* ---------- the Iron Brainer (2026-10-26): the suit chip and the leaderboard column ---------- */
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.focus .col{flex:1 1 auto;min-height:0;gap:0}
+/* the suit chip, bottom left: level, the gear it just got, and how far to the next piece */
+.suit{position:absolute;left:14px;bottom:14px;z-index:3;display:flex;flex-direction:column;gap:5px;min-width:200px;padding:9px 14px 10px;border-radius:18px;background:rgba(10,19,34,.6);backdrop-filter:blur(8px);border:1px solid var(--line);pointer-events:none}
+.suit-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:13px;font-weight:700;color:#dfe3f5}
+.suit-top b{font-size:14px;font-weight:800;color:#fff;white-space:nowrap}
+.suit-next{font-size:11px;font-weight:700;color:var(--lilac);font-variant-numeric:tabular-nums}
+.suit .bar i{transition:width .25s}
+@media (max-width:760px){ .suit{left:10px;bottom:10px;min-width:0;max-width:calc(100% - 20px);padding:7px 11px 8px;gap:4px} .suit-top{font-size:12px} .suit-top b{font-size:13px} }
+/* the leaderboard: a sheet over the page on narrow screens, its own column beside the game from 1100 px (game.js syncSide) */
+.side{position:fixed;z-index:8}
+@media (min-width:1100px){
+  .app{display:grid;grid-template-columns:minmax(0,1fr) 360px;align-items:start;gap:14px}
+  .side{position:sticky;top:14px;inset:auto;z-index:auto;display:block;padding:0;background:none;backdrop-filter:none;height:calc(100dvh - 28px)}
+  .side .sheet-card{width:100%;height:100%;max-height:none;border-color:var(--line);box-shadow:none}
+  .side .sheet-head b{font-size:16px}
+  #top,#topClose{display:none}
+  .focus .app{display:grid;align-items:stretch;gap:0}
+  .focus .col{height:100dvh}
+  .focus .side{top:0;height:100dvh}
+  .focus .side .sheet-card{border-radius:0;border-width:0 0 0 1px}
+}

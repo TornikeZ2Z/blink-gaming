@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#0a1322">
-<meta name="description" content="Fly High by Brainer Games: your Brainer takes off and the multiplier climbs. Cash out before it flies away. Demo with play money.">
+<meta name="description" content="Fly High by Brainer Games: the Brainer fires its jets, suits up as the multiplier climbs, and parachutes down when the power runs out. Cash out first. Demo with play money.">
 <title>Fly High · Brainer Games</title>
 <link rel="icon" href="assets/favicon.png">
 <link rel="preload" href="assets/fonts/FiraGO-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
@@ -15,8 +15,9 @@
 </head>
 <body>
 <main class="app">
+ <div class="col">
   <section class="stage" id="stage">
-    <canvas id="cv" aria-label="Your Brainer's flight"></canvas>
+    <canvas id="cv" aria-label="The Brainer's flight"></canvas>
     <header class="hud">
       <div class="brand"><img src="assets/logo-white.png" alt="Brainer Games" class="logo"><span class="t1">Fly High</span></div>
       <div class="hud-right">
@@ -27,45 +28,17 @@
         <div class="wallet" title="Demo balance in play-money US dollars"><span id="balance">$1,000.00</span><small>DEMO</small><button type="button" id="refill" title="Reset the demo balance to $1,000">Reset</button></div>
       </div>
     </header>
-    <div class="hist" id="hist" aria-label="Where the last rounds flew away"></div>
-    <button type="button" class="pilot" id="pilot" aria-haspopup="dialog" aria-controls="picker">
-      <span class="ava"><canvas id="pilotCv" aria-hidden="true"></canvas><span class="lvnum" id="lvnum">1</span><span class="bubble" id="bubble" hidden></span></span>
-      <span class="pinfo">
-        <span class="plv"><span id="plv">Brain level 1</span><span class="chg">Change</span></span>
-        <span class="bar" aria-hidden="true"><i id="pbar"></i></span>
-        <span class="pnote" id="pnote"></span>
-      </span>
-    </button>
+    <div class="hist" id="hist" aria-label="Where the power ran out in the last rounds"></div>
+    <div class="suit" id="suit"><span class="suit-top"><b id="suitLv">Suit level 1</b><span id="suitName">Hand and foot jets</span></span><span class="bar" aria-hidden="true"><i id="suitBar"></i></span><span class="suit-next" id="suitNext"></span></div>
     <div class="readout" id="readout">
       <span class="label" id="label" aria-live="polite"></span>
       <span class="mult" id="mult"></span>
       <span class="wait" id="wait" hidden><i id="waitBar"></i></span>
     </div>
-    <div class="levelup" id="levelup" hidden><img id="luImg" alt=""><b id="luTitle"></b><span id="luSub"></span></div>
-
-    <div class="sheet" id="picker" role="dialog" aria-modal="true" aria-labelledby="pickerTitle" hidden>
-      <div class="sheet-card">
-        <div class="sheet-head"><b id="pickerTitle">Your Brainer · level <span id="pickLevel">1</span></b><button type="button" class="round" id="pickerClose" aria-label="Close">✕</button></div>
-        <p class="sheet-note">Your Brainer grows with every round you play: each one adds the same brain cells when it ends, whatever you bet. 100 levels, a new look every 10. Levels change how your Brainer looks, never the odds.</p>
-        <label class="pick-slider">Demo: set any level <input type="range" id="pickSlider" min="1" max="100" step="1" value="1"></label>
-        <div class="levels-grid" id="levelsGrid"></div>
-      </div>
-    </div>
-    <div class="sheet" id="topSheet" role="dialog" aria-modal="true" aria-labelledby="topTitle" hidden>
-      <div class="sheet-card top">
-        <div class="sheet-head"><b id="topTitle">Leaderboard <span class="demo-tag">Demo data</span></b><button type="button" class="round" id="topClose" aria-label="Close">✕</button></div>
-        <div class="tabs top-tabs" role="tablist" aria-label="Leaderboard">
-          <button type="button" role="tab" data-t="huge" aria-selected="true">Huge wins</button><button type="button" role="tab" data-t="big" aria-selected="false">Biggest wins</button><button type="button" role="tab" data-t="rounds" aria-selected="false">Top rounds</button><button type="button" role="tab" data-t="mine" aria-selected="false">My bets</button>
-        </div>
-        <div class="periods" id="periods" role="group" aria-label="Period"><button type="button" data-p="day" aria-pressed="true">Day</button><button type="button" data-p="month" aria-pressed="false">Month</button><button type="button" data-p="year" aria-pressed="false">Year</button></div>
-        <ol class="board" id="board"></ol>
-        <p class="sheet-note" id="boardNote"></p>
-      </div>
-    </div>
     <div class="sheet" id="fairSheet" role="dialog" aria-modal="true" aria-labelledby="fairTitle" hidden>
       <div class="sheet-card fair">
         <div class="sheet-head"><b id="fairTitle">Provably fair</b><button type="button" class="round" id="fairClose" aria-label="Close">✕</button></div>
-        <p class="sheet-note">Every round is fixed before take-off, by the game's server seed and your client seed. You see the SHA-256 hash of the server seed first, then set your client seed if you like; the seed is revealed when the round ends. The round rolls HMAC-SHA256(server seed, "client seed:nonce"), read as a fraction u from its first 52 bits, and flies away at 0.98 ÷ (1 − u), rounded down to the cent (1.00× at least, 10,000× at most).</p>
+        <p class="sheet-note">Every round is fixed before take-off, by the game's server seed and your client seed. You see the SHA-256 hash of the server seed first, then set your client seed if you like; the seed is revealed when the round ends. The round rolls HMAC-SHA256(server seed, "client seed:nonce"), read as a fraction u from its first 52 bits, and runs out of power at 0.98 ÷ (1 − u), rounded down to the cent (1.00× at least, 10,000× at most). Scares like a sputtering boot are only for show and are not part of the round.</p>
         <div id="fairBody"></div>
       </div>
     </div>
@@ -75,10 +48,10 @@
         <b id="tutTitle">How to play</b>
         <ol>
           <li><b>Place a bet before take-off.</b> You can place two bets at once, one in each panel.</li>
-          <li><b>Your Brainer takes off and the multiplier climbs.</b></li>
-          <li><b>Cash out before it flies away</b> to win your bet times the multiplier, up to $10,000 a round. If it flies away first, the bet is lost.</li>
+          <li><b>The Brainer fires its jets and the multiplier climbs.</b> The higher it goes, the more gear it bolts on, up to suit level 10.</li>
+          <li><b>Cash out before the battery runs out</b> to win your bet times the multiplier, up to $10,000 a round. If the power goes first, the Brainer parachutes down and the bet is lost.</li>
           <li><b>Auto</b> places your bet every round and can cash out by itself at a multiplier you choose.</li>
-          <li><b>Your Brainer grows with every round you play:</b> each one adds brain cells, whatever you bet. Levels never change the odds.</li>
+          <li><b>A sputtering boot or a glitching screen is only a scare.</b> Scares come at random and never tell you when the power will run out.</li>
         </ol>
         <p class="sheet-note tut-rtp"><b>RTP up to 98%.</b> The return is 98% before two things lower it in some rounds: payouts round down to the cent, and the $10,000 max win ends high-bet rounds early.</p>
         <div class="sheet-go"><button type="button" class="big play" id="tutGo"><span class="l1">Let's fly</span></button></div>
@@ -99,13 +72,23 @@
     <div class="bets" id="bets"></div>
   </section>
   <p class="foot">Demo with play money · RTP up to 98% · Space: bet or cash out in the first panel</p>
+ </div>
+    <aside class="sheet side" id="topSheet" role="dialog" aria-modal="true" aria-labelledby="topTitle" hidden>
+      <div class="sheet-card top">
+        <div class="sheet-head"><b id="topTitle">Leaderboard <span class="demo-tag">Demo data</span></b><button type="button" class="round" id="topClose" aria-label="Close">✕</button></div>
+        <div class="tabs top-tabs" role="tablist" aria-label="Leaderboard">
+          <button type="button" role="tab" data-t="huge" aria-selected="true">Huge wins</button><button type="button" role="tab" data-t="big" aria-selected="false">Biggest wins</button><button type="button" role="tab" data-t="rounds" aria-selected="false">Top rounds</button><button type="button" role="tab" data-t="mine" aria-selected="false">My bets</button>
+        </div>
+        <div class="periods" id="periods" role="group" aria-label="Period"><button type="button" data-p="day" aria-pressed="true">Day</button><button type="button" data-p="month" aria-pressed="false">Month</button><button type="button" data-p="year" aria-pressed="false">Year</button></div>
+        <ol class="board" id="board"></ol>
+        <p class="sheet-note" id="boardNote"></p>
+      </div>
+    </aside>
 </main>
 <div class="toast" id="toast" role="status"></div>
-<script type="importmap">{"imports":{"three":"../shared/vendor/three.module.min.js"}}</script>
 <script src="../shared/face.js"></script>
 <script src="../shared/intro.js"></script>
 <script src="../shared/focus.js"></script>
 <script src="game.js"></script>
-<script type="module">import('../shared/brainer3d.js').then(m => { window.Brainer3D = { Brainer: m.Brainer, BrainerStage: m.BrainerStage, Plane3D: m.Plane3D }; }, () => { window.Brainer3D = false; });   // false: the 2D Brainer plays, and the intro stops waiting for 3D</script>
 </body>
 </html>
