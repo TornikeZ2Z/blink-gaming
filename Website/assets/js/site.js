@@ -52,10 +52,13 @@ const oneIn = (g, c) => Math.round(1 / ((1 - g.bomb / 100) * c.chance / 100)).to
 // bet when that is lower (Hardcore: 100,000×). A difficulty the max win cuts short lists the paths it can `reach`.
 const topOf = (g, l) => g.maxWin && g.minBet ? Math.min(l.top, Math.floor(g.maxWin / g.minBet * 100 + 1e-7) / 100) : l.top;
 const pathsOf = l => l.reach ? `up to ${l.reach}` : String(l.steps);
+// A ladder game's own words: Plane Crash's bombs and paths unless the game names its own in `words` (Charge: overloads and charges).
+const wordsOf = g => Object.assign({ aBomb: 'a bomb', bomb: 'bomb', bombs: 'bombs', bombsIn: 'Bombs in 25 tiles', path: 'path', paths: 'paths', Paths: 'Paths', step: 'step', steps: 'steps', first: 'First step', make: 'fly' }, g.words || {});
 // The strip under a game's blurb: top multipliers per difficulty for a ladder game, the chests for a map game.
 function oddsStrip(g) {
   const cap = g.maxWin ? ` A ${g.round} pays at most $${g.maxWin.toLocaleString('en-US')}${g.minBet ? `, which is ${fx(g.maxWin / g.minBet)} at the $${g.minBet.toFixed(2)} minimum bet` : ''}.` : '';
-  if (g.levels && g.levels.every(l => l.top)) return `<div class="diffs" aria-label="Top multiplier per difficulty">${g.levels.map(l => `<div><span>${esc(l.name)}</span><b>${fx(topOf(g, l))}</b><small>${l.bombs} ${l.bombs === 1 ? 'bomb' : 'bombs'} · ${pathsOf(l)} paths</small></div>`).join('')}</div><p class="diffs-note">Top multiplier a ${g.round} can pay.${cap}</p>`;
+  const w = wordsOf(g);
+  if (g.levels && g.levels.every(l => l.top)) return `<div class="diffs" aria-label="Top multiplier per difficulty">${g.levels.map(l => `<div><span>${esc(l.name)}</span><b>${fx(topOf(g, l))}</b><small>${l.bombs} ${l.bombs === 1 ? w.bomb : w.bombs} · ${pathsOf(l)} ${w.paths}</small></div>`).join('')}</div><p class="diffs-note">Top multiplier a ${g.round} can pay.${cap}</p>`;
   if (g.chests) return `<div class="diffs five" aria-label="Chest multipliers and how often a new tile holds one">${g.chests.map(c => `<div><span>${esc(c.name)}</span><b>×${c.x}</b><small>1 in ${oneIn(g, c)} tiles</small></div>`).join('')}</div><p class="diffs-note">How often a new tile holds each chest; ${g.bomb}% hold a bomb.${cap}</p>`;
   return '';
 }
@@ -193,5 +196,5 @@ document.addEventListener('click', e => {
 // Content drawn by script lands after the browser's own jump to #section, so jump again once it is there.
 const jumpToHash = () => { const t = location.hash && document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); };
 
-window.Brainer = { $, $$, esc, store, toast, ICON, jumpToHash, topOf, pathsOf, SITE, GAMES };
+window.Brainer = { $, $$, esc, store, toast, ICON, jumpToHash, topOf, pathsOf, wordsOf, SITE, GAMES };
 })();

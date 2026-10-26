@@ -2,7 +2,7 @@
    Everything shown comes from the game's entry in data.js. */
 (() => {
 'use strict';
-const { $, esc, ICON, toast, jumpToHash, topOf, pathsOf, SITE, GAMES } = window.Brainer;
+const { $, esc, ICON, toast, jumpToHash, topOf, pathsOf, wordsOf, SITE, GAMES } = window.Brainer;
 const main = $('#main');
 // Multipliers to the cent, as the game's ladder rounds them (52,067.40×, never rounded up).
 const fx = m => m.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '×';
@@ -31,12 +31,12 @@ const pct = v => `${+v.toFixed(3)}%`;
 const lower = g => `the return is ${g.rtp}% before two things lower it in some ${g.round}s: payouts round down to the cent, and the $${g.maxWin.toLocaleString('en-US')} max win ends long or high-bet ${g.round}s early`;
 function odds(g) {
   const note = g.levelsNote ? `<p class="note">${ICON.info}<span>${esc(g.levelsNote)} <a href="index.html#brain">How brain levels work</a></span></p>` : '';
-  const cut = (g.levels || []).filter(l => l.reach).map(l => `a ${l.name} ${g.round} never goes past path ${l.reach}`);
+  const w = wordsOf(g), cut = (g.levels || []).filter(l => l.reach).map(l => `a ${l.name} ${g.round} never goes past ${w.path} ${l.reach}`);
   if (g.levels) return `<section id="levels"><h2>Difficulties</h2>
-        <p>Harder difficulties have fewer steps and a bigger chance of a bomb at each one, so the multipliers climb faster. The chance of a bomb also rises with every step you fly. Each multiplier is ${g.rtp / 100} divided by the chance of getting that far, so ${lower(g)}. At the $${g.minBet.toFixed(2)} minimum bet that cap is ${fx(g.maxWin / g.minBet)}${cut.length ? `, so ${cut.join(' and ')}` : ''}.</p>
+        <p>Harder difficulties have fewer ${w.steps} and a bigger chance of ${w.aBomb} at each one, so the multipliers climb faster. The chance of ${w.aBomb} also rises with every ${w.step} you ${w.make}. Each multiplier is ${g.rtp / 100} divided by the chance of getting that far, so ${lower(g)}. At the $${g.minBet.toFixed(2)} minimum bet that cap is ${fx(g.maxWin / g.minBet)}${cut.length ? `, so ${cut.join(' and ')}` : ''}.</p>
         ${note}
         <div class="tbl"><table>
-          <thead><tr><th>Difficulty</th><th>Bombs in 25 tiles</th><th>Paths</th><th>First step</th><th>Top multiplier</th></tr></thead>
+          <thead><tr><th>Difficulty</th><th>${w.bombsIn}</th><th>${w.Paths}</th><th>${w.first}</th><th>Top multiplier</th></tr></thead>
           <tbody>${g.levels.map(l => `<tr><td>${esc(l.name)}</td><td class="num">${l.bombs}</td><td class="num">${pathsOf(l)}</td><td class="num">${fx(l.first)}</td><td class="num">${fx(topOf(g, l))}</td></tr>`).join('')}</tbody>
         </table></div>
       </section>`;

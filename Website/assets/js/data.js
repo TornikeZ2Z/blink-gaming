@@ -135,6 +135,62 @@ window.BRAINER = {
       levelsNote: 'The odds and payouts are the same for every player at every brain level. A single bet pays at most the $10,000 max win.'
     },
     {
+      id: 'charge',
+      title: 'Charge',
+      workingTitle: true,
+      status: 'demo',
+      genre: 'Instant',
+      badge: 'Game #3',
+      round: 'round',
+      color: '#29C8FF',
+      // The charging station rendered in Blender (Brainer 3D/blender/charge.py, the approved charge frame), 800x1000.
+      art: 'assets/games/charge.webp',
+      // Published, the game sits at /charge/ next to the site; in the repo it is the sibling folder.
+      src: location.pathname.includes('/Website/') ? '../Game%20%234%20-%20Charge/index.html' : 'charge/index.html',
+      tagline: 'Charge your Brainer to level it up and raise the multiplier. Overcharge it and it breaks down.',
+      about: [
+        'A single-player instant game played in steps, in the style of Chicken Road. The Brainer starts every round at Level 1 on a charging pad between two coils, on a hilltop over the valley. Each charge either levels it up and raises the multiplier, or overcharges it.',
+        'Cash out after any charge to lock in the multiplier. An overcharged Brainer breaks down, its visor glitching red and smoke rising from its head, and the bet is lost.',
+        'The Brainer grows with the multiplier: eleven looks from the baby at 1.00×, through the scarf, the cap and the bow tie, to the master in graduation cap and cape at 1,000×. Easy grows it slowly; Hardcore races through the looks.'
+      ],
+      how: [
+        'Pick a difficulty and a bet in US dollars, then press Play.',
+        'Press Charge. A safe charge levels your Brainer up and raises the multiplier; the battery shows what each level pays and the chance the next charge is safe.',
+        'Cash out whenever you like. If a charge overloads, the round is over.'
+      ],
+      // Mirrors cfg and LEVELS in Game #4 - Charge/game.js: Plane Crash's ladder (25 charges hide 1, 3, 5 or 10 overloads,
+      // multiplier = RTP ÷ chance of surviving, rounded down to the cent), with a charge for each step.
+      provisional: true,
+      rtp: 98,
+      minBet: 0.1,
+      maxWin: 10000,
+      words: { aBomb: 'an overload', bomb: 'overload', bombs: 'overloads', bombsIn: 'Overloads in 25 charges', path: 'charge', paths: 'charges', Paths: 'Charges', step: 'charge', steps: 'charges', first: 'First charge', make: 'make' },
+      levels: [
+        { name: 'Easy', bombs: 1, steps: 24, first: 1.02, top: 24.5 },
+        { name: 'Medium', bombs: 3, steps: 22, first: 1.11, top: 2254 },
+        { name: 'Hard', bombs: 5, steps: 20, first: 1.22, top: 52067.4 },
+        { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.63, top: 3203384.8 }
+      ],
+      specs: [
+        ['Type', 'Instant, single player, Chicken Road style'],
+        ['RTP', 'Up to 98%, the same at every brain level. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
+        ['Brain levels', '100 in ten looks; the same 10 brain cells for every finished round. They never change odds or payouts'],
+        ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 overloads in 25 charges'],
+        ['Charges per round', '24, 22, 20, up to 14'],
+        ['Looks', 'Eleven, set by the multiplier: from 1.2× to the caped master at 1,000×. They never change odds or payouts'],
+        ['Bet range', '$0.10 to $200'],
+        ['Max win', '$10,000 per round, which caps every payout: 100,000× at the $0.10 minimum bet'],
+        ['Currency', 'US dollars in the demo, local currencies per market'],
+        ['Fairness', 'Provably fair, with a client seed the player can set; every round can be checked in the game'],
+        ['Devices', 'Mobile and desktop (HTML5)'],
+        ['Languages', 'English now, Georgian in progress'],
+        ['Certification', 'Not yet tested by a lab']
+      ],
+      fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Each charge rolls HMAC-SHA256(server seed, "client seed:nonce:charge"), and a roll at or above that charge’s safe chance overcharges the Brainer. The shield button in the game re-checks the last round charge by charge, so the player, the casino or a regulator can recompute it.',
+      demoNote: 'Demo build with play money in US dollars; the game’s final name is still being chosen. Brain levels and the Brainer’s looks never change the odds or payouts.',
+      levelsNote: 'The odds and payouts are the same for every player at every brain level. A single round pays at most the $10,000 max win.'
+    },
+    {
       id: 'fogrush',
       hidden: true,   // Tornike, 2026-10-26: hidden from the site and the deploy for now; set to false to bring it back
       title: 'FogRush',
