@@ -18,7 +18,8 @@ const cents = v => Math.round(v * 100) / 100;   // the balance stays in whole ce
 // which lower it in some rounds: "RTP up to 98%".
 const cfg = {
   rtp: 98, minBet: 0.1, maxBet: 200, maxWin: 10000, maxMult: 10000, startBalance: 1000,
-  waitMs: 6000, endMs: 3200, rate: 0.09,   // the multiplier is e^(rate × seconds): 2× after 7.7 s, 10× after 26 s
+  waitMs: 6000, endMs: 3200, rate: 0.13,   // the multiplier is e^(rate × seconds): 2× after 5.3 s, 10× after 18 s (faster, Tornike 2026-10-26)
+  preMs: 2000,   // the Brainer lights its jets and lifts off this long before the betting window closes, so the flight starts at speed
   brain: { perRound: 10 }   // each round you play adds the same brain cells, whatever you bet (Marketing's rule)
 };
 const multAt = t => Math.floor(Math.exp(cfg.rate * Math.max(0, t) / 1000) * 100 + 1e-7) / 100;   // t ms after take-off, rounded down to the cent
@@ -28,7 +29,7 @@ const brainLevel = cells => { let L = 1; while (L < 100 && cells >= CELLS[L + 1]
 const stageOf = L => Math.ceil(L / 10);
 
 /* ---------- state ---------- */
-const S = { balance: cfg.startBalance, nonce: 1, client: '', seed: '', hash: '', cells: Math.max(0, parseFloat(store.get('brainer.xp', '0')) || 0) };   // brain cells, shared by every Brainer game on this site
+const S = { balance: cfg.startBalance, nonce: 1, client: '', seed: '', hash: '', force: 0, cells: Math.max(0, parseFloat(store.get('brainer.xp', '0')) || 0) };   // brain cells, shared by every Brainer game on this site
 // Each panel's bet. st: idle, placed (in this round, before take-off), queued (pressed during a flight: for the next
 // round), live (flying), cashed or lost (this round, until the next one opens).
 const bets = [0, 1].map(i => ({ i, stake: i ? 2 : 1, st: 'idle', tab: 'bet', autoBet: false, autoCo: false, coX: 2, payout: 0, at: 0 }));
@@ -84,10 +85,11 @@ const sound = (() => {
     get on() { return on; },
     toggle() { on = !on; store.set('brainer.sound', on ? 'on' : 'off'); if (on) ctxA(); return on; },
     place() { tone(520, 780, 0.1, 'triangle', 0.09); },
+    ignite() { noise(0.5, 0.08, 300, 1600); tone(80, 160, 0.5, 'sawtooth', 0.02); },   // the jets light on the pad
     takeoff() { noise(0.9, 0.1, 500, 2800); tone(120, 260, 0.8, 'sawtooth', 0.025); },
     cash() { [660, 880, 1100, 1320].forEach((f, i) => tone(f, 0, 0.16, 'triangle', 0.09, i * 0.06)); },
     away() { tone(520, 60, 1.0, 'sawtooth', 0.04); noise(0.5, 0.1, 1200, 200); noise(0.25, 0.14, 2400, 500, 1.0); },   // the power dies, then the parachute pops
-    gear() { tone(220, 0, 0.08, 'square', 0.05); tone(880, 1320, 0.18, 'triangle', 0.08, 0.06); },   // a piece of gear clanks on
+    gear() { tone(220, 0, 0.08, 'square', 0.05); [660, 990, 1320].forEach((f, i) => tone(f, f * 1.5, 0.16, 'triangle', 0.08, 0.06 + i * 0.07)); },   // a piece of gear clanks on, then a rising chime
     sputter() { noise(0.5, 0.12, 1200, 200); tone(180, 60, 0.3, 'square', 0.03); },
     glitch() { noise(0.25, 0.08, 6000, 3000); tone(1400, 300, 0.15, 'square', 0.02); },
     dip() { tone(400, 120, 0.35, 'sawtooth', 0.03); tone(120, 400, 0.3, 'sawtooth', 0.03, 0.55); },
@@ -97,7 +99,8 @@ const sound = (() => {
 
 /* ---------- the round ---------- */
 function openRound() {   // betting opens on the seed committed (and hashed) at the end of the last round
-  R = { nonce: S.nonce++, seed: S.seed, hash: S.hash, phase: 'bet', waitT0: performance.now(), m: 1 };
+  const now = performance.now();
+  R = { nonce: S.nonce++, seed: S.seed, hash: S.hash, phase: 'bet', waitT0: now, liftT0: now + cfg.waitMs - cfg.preMs, lit: false, m: 1 };
   for (const b of bets) {
     if (b.st === 'cashed' || b.st === 'lost') b.st = 'idle';
     if (b.st === 'queued' || (b.st === 'idle' && b.autoBet)) place(b);
@@ -107,8 +110,9 @@ function openRound() {   // betting opens on the seed committed (and hashed) at 
 }
 async function takeOff() {
   R.phase = 'starting'; R.client = S.client;   // the client seed in effect at take-off is the one this round uses
-  try { R.crash = await crashOf(R.seed, R.client, R.nonce); }
+  try { R.crash = R.seedCrash = await crashOf(R.seed, R.client, R.nonce); }
   catch (e) { toast(isSecureContext ? 'Could not start the round. Reload to try again.' : 'This demo needs https (or localhost) to draw its rounds.'); return; }
+  if (S.force) { R.crash = S.force; R.forced = true; }   // test mode (?test): the power-out point typed in by hand
   R.phase = 'fly'; R.t0 = performance.now(); view.flyT0 = R.t0; scheduleScare(R.t0, true);
   for (const b of bets) if (b.st === 'placed') b.st = 'live';
   sound.takeoff(); say('Take-off.');
@@ -131,7 +135,7 @@ function flyAway(now) {
   R.phase = 'end'; R.endT0 = now; R.m = R.crash; view.awayT0 = now; scare.kind = '';
   let played = false;
   for (const b of bets) { if (b.st === 'live') b.st = 'lost'; if (b.st === 'lost' || b.st === 'cashed') played = true; }
-  rounds.unshift({ nonce: R.nonce, seed: R.seed, hash: R.hash, client: R.client, crash: R.crash, mine: bets.filter(b => b.st === 'lost' || b.st === 'cashed').map(b => ({ i: b.i, stake: b.stake, st: b.st, at: b.at, payout: b.payout })) });
+  rounds.unshift({ nonce: R.nonce, seed: R.seed, hash: R.hash, client: R.client, crash: R.crash, forced: !!R.forced, seedCrash: R.seedCrash, mine: bets.filter(b => b.st === 'lost' || b.st === 'cashed').map(b => ({ i: b.i, stake: b.stake, st: b.st, at: b.at, payout: b.payout })) });
   rounds.length = Math.min(rounds.length, 30);
   for (const b of bets) if (b.st === 'lost' || b.st === 'cashed') recordBet(b, R.crash);   // for My bets and the board
   if (played) earnCells(cfg.brain.perRound);
@@ -141,6 +145,7 @@ function flyAway(now) {
 }
 function tick(now) {
   if (!R) return;
+  if (R.phase === 'bet' && !R.lit && now >= R.liftT0) { R.lit = true; sound.ignite(); }   // the jets light before the timer runs out
   if (R.phase === 'bet' && now - R.waitT0 >= cfg.waitMs) takeOff();
   else if (R.phase === 'fly') {
     const m = multAt(now - R.t0);
@@ -164,9 +169,9 @@ const mood = { set: '', until: 0 };
 function feel(ex, ms) { mood.set = ex; mood.until = performance.now() + ms; }
 function exNow(now) {
   if (mood.set && now < mood.until) return mood.set;
-  if (!R || R.phase === 'bet' || R.phase === 'starting') return 'rest';
+  if (!R || ((R.phase === 'bet' || R.phase === 'starting') && !R.lit)) return 'smile';
   if (R.phase === 'end') return 'sleep';
-  return R.m < 2 ? 'focus' : 'happy';
+  return R.phase === 'fly' && R.m >= 3 ? 'joy' : 'happy';   // happy faces only (Tornike: "face is always angry")
 }
 
 /* ---------- the Iron Brainer: the design board's option A, "Gear up", drawn in 2D ---------- */
@@ -187,61 +192,88 @@ function rr(g, x, y, w, h, r, fill, stroke, lw) {
 function seg(g, x1, y1, x2, y2, w, col) { g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.lineWidth = w; g.lineCap = 'round'; g.strokeStyle = col; g.stroke(); }
 function dot(g, x, y, r, col) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fillStyle = col; g.fill(); }
 const FLAME = [P2('M-8 0 Q-11 22 0 46 Q11 22 8 0 Z'), P2('M-5 0 Q-7 16 0 32 Q7 16 5 0 Z'), P2('M-2.5 0 Q-3.5 9 0 18 Q3.5 9 2.5 0 Z')];
-const FLAME_C = { o: ['#ff8a1f', '#ffc93c', '#fff6d6'], b: ['#3b8bff', '#8ec5ff', '#ffffff'] };
+// the jets heat up with the suit: orange, then white-hot from level 4, blue plasma from 7, violet at 10
+const FLAME_C = { o: ['#ff8a1f', '#ffc93c', '#fff6d6'], h: ['#ffb020', '#fff07a', '#ffffff'], b: ['#3b8bff', '#8ec5ff', '#ffffff'], v: ['#a855ff', '#ff8ef0', '#ffffff'] };
+const jetOf = L => L >= 10 ? 'v' : L >= 7 ? 'b' : L >= 4 ? 'h' : 'o';
+const GLOW = { o: '255,170,60', h: '255,214,90', b: '90,170,255', v: '190,110,255' };
 function flame(g, x, y, s, rot, col, now, seed) {
   if (s <= 0.02) return;
   const j = reduced ? 1 : 0.82 + 0.36 * hsh(Math.floor(now / 45) * 7 + seed);   // a flicker, new every 45 ms
   g.save(); g.translate(x, y); g.rotate(rot); g.scale(s, s * j);
   FLAME.forEach((p, i) => { g.fillStyle = FLAME_C[col][i]; g.fill(p); }); g.restore();
 }
-// the LED faces, as dot lists on the visor (the board's faces, built the same way)
+// the LED faces, as dot lists on the visor; only happy, surprised and sleepy ones (no frowning brows)
 const arcD = (cx, cy, R, a0, a1, n) => Array.from({ length: n }, (_, i) => { const a = (a0 + (a1 - a0) * i / (n - 1)) * Math.PI / 180; return [cx + R * Math.cos(a), cy + R * Math.sin(a)]; });
 const ringD = (cx, cy, R, n) => Array.from({ length: n }, (_, i) => [cx + R * Math.cos(i / n * Math.PI * 2), cy + R * Math.sin(i / n * Math.PI * 2)]);
 const lineD = (x0, y0, x1, y1, n) => Array.from({ length: n }, (_, i) => [x0 + (x1 - x0) * i / (n - 1), y0 + (y1 - y0) * i / (n - 1)]);
+const starD = (cx, cy) => [[cx, cy], ...Array.from({ length: 10 }, (_, i) => { const a = (-90 + 36 * i) * Math.PI / 180, r = i % 2 ? 4.5 : 10; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; })];
 const FACES = {
-  rest: [...lineD(72, 80, 88, 80, 4), ...lineD(112, 80, 128, 80, 4), ...arcD(100, 88, 10, 30, 150, 5)],
-  focus: [...lineD(70, 72, 90, 78, 4), ...lineD(110, 78, 130, 72, 4), [80, 82], [120, 82], ...lineD(88, 97, 112, 97, 5)],
+  smile: [...ringD(80, 76, 6, 8), [80, 76], ...ringD(120, 76, 6, 8), [120, 76], ...arcD(100, 86, 14, 25, 155, 7)],
   happy: [...arcD(80, 82, 10, 200, 340, 5), ...arcD(120, 82, 10, 200, 340, 5), ...arcD(100, 86, 14, 25, 155, 7)],
+  joy: [...arcD(80, 82, 10, 200, 340, 5), ...arcD(120, 82, 10, 200, 340, 5), ...lineD(88, 90, 112, 90, 5), ...arcD(100, 90, 12, 20, 160, 7)],
+  star: [...starD(80, 76), ...starD(120, 76), ...lineD(88, 92, 112, 92, 5), ...arcD(100, 92, 12, 20, 160, 7)],
   wink: [...arcD(80, 82, 10, 200, 340, 5), ...lineD(111, 80, 129, 80, 4), ...arcD(100, 86, 14, 25, 155, 7)],
   shock: [...ringD(80, 74, 8, 9), ...ringD(120, 74, 8, 9), ...ringD(100, 97, 5, 7)],
   glitch: [...ringD(80, 76, 8, 9), ...lineD(110, 70, 130, 82, 5), ...lineD(110, 82, 130, 70, 5), ...lineD(86, 98, 114, 98, 5)],
   sleep: [...lineD(71, 80, 89, 80, 4), ...lineD(111, 80, 129, 80, 4), ...arcD(100, 90, 8, 30, 150, 4)]
 };
+// A new piece flies in from outside, grows down to size and snaps on with a little overshoot (o.arrive: { L, q 0..1 }).
+const backOut = x => 1 + 2.70158 * Math.pow(x - 1, 3) + 1.70158 * Math.pow(x - 1, 2);
+function piece(g, o, lv, cx, cy, fn) {
+  const a = o.arrive;
+  if (!a || a.L !== lv || a.q >= 1) { fn(); return; }
+  const q = backOut(clamp(a.q, 0, 1)), d = Math.hypot(cx - 100, cy - 140) || 1, k = (1 - q) * 150 / d, s = 1 + (1 - q) * 0.9;
+  g.save(); g.globalAlpha = clamp(a.q * 4, 0, 1);
+  g.translate(cx + (cx - 100) * k, cy + (cy - 140) * k); g.scale(s, s); g.translate(-cx, -cy);
+  fn(); g.restore();
+}
 // gear for one side; drawn again mirrored for the other
 function sideBack(g, L, o, now, sd) {
-  if (L >= 8) {   // big rockets
-    flame(g, 15, 147, 1.1 * o.thrust, 0, 'o', now, 11 + sd);
+  const jet = jetOf(L);
+  if (L >= 8) piece(g, o, 8, 15, 105, () => {   // big rockets
+    flame(g, 15, 147, 1.15 * o.thrust, 0, jet, now, 11 + sd);
     g.fillStyle = C.blue; g.fill(P2('M4 128 L-6 146 L4 142 Z')); g.fill(P2('M26 128 L36 146 L26 142 Z'));
-    rr(g, 4, 66, 22, 76, 9, C.pod, C.edge); g.fillStyle = '#ff8a1f'; g.fill(P2('M4 76 Q15 40 26 76 Z')); rr(g, 7, 140, 16, 7, 2, C.steel);
-  }
-  if (L >= 5) { g.fillStyle = C.blue; g.fill(P2('M72 146 L14 168 L20 178 L72 162 Z')); }   // wings
-  if (L >= 3) {   // back rockets
-    flame(g, 37, 164, 0.7 * o.thrust, 0, 'o', now, 21 + sd);
-    rr(g, 30, 112, 14, 46, 6, C.pod, C.edge); g.fillStyle = C.blue; g.fill(P2('M30 118 Q37 96 44 118 Z')); rr(g, 32, 156, 10, 6, 2, C.steel);
-    seg(g, 44, 128, 68, 132, 4, C.edge);   // its strap to the back
-  }
-  if (L >= 7) flame(g, 70.5, 211, 0.55 * o.thrust, 0, 'o', now, 31 + sd);   // leg boosters' flames
-  const col = L >= 2 ? 'o' : 'b', fs = (L >= 2 ? 0.85 + L * 0.05 : 0.75) * (L >= 10 ? 1.3 : 1);
-  flame(g, 88, 219, fs * o.thrust * (sd ? o.footR : o.footL), 0, col, now, 41 + sd);   // foot jet
-  flame(g, 46, 191, (L >= 2 ? 0.8 : 0.6) * o.thrust, 18 * Math.PI / 180, col, now, 51 + sd);   // hand jet, angled out
+    rr(g, 4, 66, 22, 76, 9, C.pod, C.edge); g.fillStyle = '#ff8a1f'; g.fill(P2('M4 76 Q15 40 26 76 Z'));
+    g.fillStyle = '#ff8a1f'; g.fillRect(5, 104, 20, 6); dot(g, 15, 90, 4, C.cyan); rr(g, 7, 140, 16, 7, 2, C.steel);
+  });
+  if (L >= 5) piece(g, o, 5, 43, 162, () => {   // wings, with a lighter stripe
+    g.fillStyle = C.blue; g.fill(P2('M72 146 L14 168 L20 178 L72 162 Z'));
+    g.fillStyle = C.cyan; g.fill(P2('M72 151 L24 169 L26 173 L72 157 Z'));
+  });
+  if (L >= 3) piece(g, o, 3, 37, 135, () => {   // back rockets, strapped on
+    flame(g, 37, 164, 0.75 * o.thrust, 0, jet, now, 21 + sd);
+    rr(g, 30, 112, 14, 46, 6, C.pod, C.edge); g.fillStyle = C.blue; g.fill(P2('M30 118 Q37 96 44 118 Z'));
+    g.fillStyle = '#ff8a1f'; g.fillRect(31, 134, 12, 5); rr(g, 32, 156, 10, 6, 2, C.steel);
+    seg(g, 44, 128, 68, 132, 4, C.edge);
+  });
+  if (L >= 7) piece(g, o, 7, 70, 198, () => flame(g, 70.5, 211, 0.6 * o.thrust, 0, jet, now, 31 + sd));   // leg boosters' flames
+  flame(g, 88, 219, (0.8 + L * 0.07) * o.thrust * (sd ? o.footR : o.footL), 0, jet, now, 41 + sd);   // foot jet, longer every level
+  flame(g, 46, 191, (0.62 + L * 0.04) * o.thrust, 18 * Math.PI / 180, jet, now, 51 + sd);   // hand jet, angled out
 }
 function sideBody(g, L, acc) {
   rr(g, 80, 180, 16, 34, 7, C.white, C.edge); rr(g, 77, 206, 22, 14, 6, acc);
   seg(g, 72, 136, 50, 180, 17, C.edge); seg(g, 72, 136, 50, 180, 13, C.white); dot(g, 48, 185, 8.5, acc);
 }
-function sideFront(g, L) {
-  if (L >= 7) rr(g, 65, 184, 11, 28, 5, C.blue);   // leg boosters
-  if (L >= 2) { g.beginPath(); g.ellipse(70, 129, 13, 9, 0, 0, Math.PI * 2); g.fillStyle = C.cyan; g.fill(); }   // shoulder pads
-  if (L >= 4) seg(g, 62, 158, 55, 172, 7, C.blue);   // wrist rockets
+function sideFront(g, L, o) {
+  if (L >= 7) piece(g, o, 7, 70, 198, () => { rr(g, 65, 184, 11, 28, 5, C.blue); g.fillStyle = C.cyan; g.fillRect(65, 192, 11, 4); });   // leg boosters
+  if (L >= 2) piece(g, o, 2, 70, 129, () => {   // shoulder pads
+    g.beginPath(); g.ellipse(70, 129, 13, 9, 0, 0, Math.PI * 2); g.fillStyle = C.cyan; g.fill();
+    g.beginPath(); g.ellipse(66, 126, 6, 3, -0.3, 0, Math.PI * 2); g.fillStyle = 'rgba(255,255,255,.55)'; g.fill();
+  });
+  if (L >= 4) piece(g, o, 4, 58, 165, () => { seg(g, 62, 158, 55, 172, 7, C.blue); dot(g, 54, 174, 3, '#ff8a1f'); });   // wrist rockets
 }
 const both = (g, fn) => { fn(0); g.save(); g.translate(200, 0); g.scale(-1, 1); fn(1); g.restore(); };
-// o: { L, face, thrust, footL, footR, dim, glitch, batt, chute, now }
+// o: { L, face, thrust, footL, footR, dim, glitch, batt, chute, arrive, now }
 function drawBot(g, o) {
   const L = o.L, now = o.now, acc = L >= 9 ? C.gold : C.cyan;
-  if (L >= 10) {   // energy aura, its dashes turning
-    g.beginPath(); g.arc(100, 140, 108, 0, Math.PI * 2); g.fillStyle = 'rgba(125,249,255,.22)'; g.fill();
-    g.save(); g.setLineDash([4, 8]); g.lineDashOffset = reduced ? 0 : -now / 40; g.beginPath(); g.arc(100, 140, 118, 0, Math.PI * 2); g.lineWidth = 4; g.strokeStyle = '#7df9ff'; g.stroke(); g.restore();
+  if (L >= 4 && !o.dim) {   // a glow behind the Brainer in its jets' colour
+    const c = GLOW[jetOf(L)], gl = g.createRadialGradient(100, 150, 20, 100, 150, 135); gl.addColorStop(0, `rgba(${c},.38)`); gl.addColorStop(1, `rgba(${c},0)`);
+    g.fillStyle = gl; g.fillRect(-35, 15, 270, 270);
   }
+  if (L >= 10) piece(g, o, 10, 100, 140, () => {   // energy aura, its dashes turning
+    g.beginPath(); g.arc(100, 140, 108, 0, Math.PI * 2); g.fillStyle = 'rgba(200,140,255,.2)'; g.fill();
+    g.save(); g.setLineDash([4, 8]); g.lineDashOffset = reduced ? 0 : -now / 40; g.beginPath(); g.arc(100, 140, 118, 0, Math.PI * 2); g.lineWidth = 4; g.strokeStyle = '#e3b8ff'; g.stroke(); g.restore();
+  });
   if (o.chute > 0) {   // the parachute grows out of the back and rises over the head
     const s = 0.25 + 0.75 * o.chute, cy = lerp(118, -38, o.chute);
     g.lineWidth = 1.5; g.strokeStyle = '#8a93b5';
@@ -251,7 +283,7 @@ function drawBot(g, o) {
     g.fillStyle = C.white; g.fill(P2('M84 -40 Q90 -94 100 -94 Q110 -94 116 -40 Q108 -48 100 -42 Q92 -48 84 -40 Z'));
     g.restore();
   }
-  if (L >= 6) { g.fillStyle = C.cyan; g.fill(P2('M90 40 Q100 10 112 40 Z')); }   // head fin, behind the head
+  if (L >= 6) piece(g, o, 6, 101, 25, () => { g.fillStyle = C.cyan; g.fill(P2('M90 40 Q100 10 112 40 Z')); });   // head fin, behind the head
   both(g, sd => sideBack(g, L, o, now, sd));
   seg(g, 136, 44, 146, 22, 3, C.edge); dot(g, 146, 20, 4.5, C.cyan);
   both(g, () => sideBody(g, L, acc));
@@ -264,9 +296,9 @@ function drawBot(g, o) {
   const jx = o.glitch && !reduced ? (hsh(Math.floor(now / 60)) - 0.5) * 6 : 0;
   rr(g, 52 + jx, 46, 96, 64, 28, o.dim ? '#1c2566' : C.blue);
   const fc = o.dim ? '#7f8fd8' : C.led;
-  for (const [x, y] of FACES[o.face] || FACES.focus) dot(g, x + jx, y, 2.3, fc);
+  for (const [x, y] of FACES[o.face] || FACES.smile) dot(g, x + jx, y, 2.3, fc);
   if (o.glitch) { g.fillStyle = 'rgba(159,179,255,.6)'; g.fillRect(52, 58 + hsh(Math.floor(now / 80)) * 30, 96, 5); g.fillStyle = 'rgba(13,21,80,.7)'; g.fillRect(58, 86, 84, 3); }
-  both(g, () => sideFront(g, L));
+  both(g, () => sideFront(g, L, o));
   g.font = `700 ${L >= 10 ? 13 : 14}px ui-monospace, Menlo, Consolas, monospace`; g.textAlign = 'center'; g.fillStyle = L >= 9 ? '#ffd66b' : o.dim ? '#7f8fd8' : C.led;
   g.fillText(String(L), 100, 158);
   if (o.batt && (reduced || Math.floor(now / 200) % 2 === 0)) {   // the empty battery, blinking over the head
@@ -310,142 +342,140 @@ function renderSuit(L, m) {
   $('#suitNext').textContent = next ? `Next: ${next.name.toLowerCase()} at ${fx(next.at)}` : 'Fully suited up';
 }
 
-/* ---------- the scene: the meadow world, the climb and the Iron Brainer ---------- */
+/* ---------- the scene: a simple climb from the launch pad, through the clouds and out into space ---------- */
+// Tornike, 2026-10-26: a simpler world that ends in space. All drawn here: a sky that darkens with height, flat cartoon
+// clouds and speed streaks, then stars, the curve of the Earth and a ringed planet.
 const stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
-let W = 0, H = 0, dpr = 1, HY = 0;
-const view = { gx: 0, speed: 0, flyT0: 0, awayT0: 0, wins: [], park: null, lift: null, suit: 1, gearT0: 0 };
-const clouds = Array.from({ length: 9 }, (_, i) => ({ x: (i * 0.137 % 1), y: 0.08 + (i * 0.29 % 0.5), s: 0.6 + (i * 0.43 % 0.8), p: 0.3 + (i * 0.17 % 0.7) }));
+let W = 0, H = 0, dpr = 1;
+const view = { awayT0: 0, wins: [], suit: 1, gearT0: 0, sparks: [], alt: 0, last: 0 };
 const TAU = Math.PI * 2;
-const hsh = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };   // a fixed scatter for trees and houses
-const wrapX = (x, span) => ((x % span) + span) % span;
+const hsh = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };   // a fixed scatter for clouds and stars
+const smooth = f => f * f * (3 - 2 * f);
 const lin = (y0, y1, stops) => { const l = ctx.createLinearGradient(0, y0, 0, y1); stops.forEach(([o, c]) => l.addColorStop(o, c)); return l; };
 function layout() {
   W = stage.clientWidth; H = stage.clientHeight; dpr = Math.min(2, devicePixelRatio || 1);
-  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); HY = H * 0.74;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
 }
 new ResizeObserver(layout).observe(stage);
-// The countryside (Tornike's pick, 2026-10-26): layered rolling hills, round trees, a village with windmills, and a
-// plain barrel hangar in brand stripes beside the runway (no letters). Nearer layers stream past faster.
-function puff(x, y, s) {   // a cartoon cumulus: lit top, soft violet base
-  ctx.fillStyle = '#d9d3ff'; for (const [dx, dy, r] of [[-1, 0.3, 0.75], [0, 0.35, 0.9], [1, 0.3, 0.75]]) { ctx.beginPath(); ctx.arc(x + dx * 30 * s, y + dy * 30 * s, r * 30 * s, 0, TAU); ctx.fill(); }
-  ctx.fillStyle = '#ffffff'; for (const [dx, dy, r] of [[-0.95, 0.1, 0.7], [0, -0.25, 1], [0.95, 0.05, 0.72], [0.45, -0.55, 0.62]]) { ctx.beginPath(); ctx.arc(x + dx * 30 * s, y + dy * 30 * s, r * 30 * s, 0, TAU); ctx.fill(); }
+// Height: 0 on the pad, 1 at the edge of space (30×). It follows the log of the multiplier, so the world streams past at
+// one steady speed; the 2 s lift-off before the timer ends adds the first 0.06.
+const SPACE = 30, PRE_H = 0.06, PX = 7;   // PX: stage heights scrolled per unit of height
+const SKY_STOPS = [[0, '#5ab8ff', '#d4f0ff'], [0.3, '#3a8cff', '#a3d6ff'], [0.55, '#2050c8', '#5f92f0'], [0.8, '#0d1a5c', '#2a3a9c'], [1, '#03051a', '#0b1140']];   // [height, top, horizon]
+const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const mixC = (a, b, t) => { const A = rgb(a), B = rgb(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`; };
+function skyAt(h) {
+  let i = 0; while (i < SKY_STOPS.length - 2 && h > SKY_STOPS[i + 1][0]) i++;
+  const [h0, t0, b0] = SKY_STOPS[i], [h1, t1, b1] = SKY_STOPS[i + 1], t = smooth(clamp((h - h0) / (h1 - h0), 0, 1));
+  return [mixC(t0, t1, t), mixC(b0, b1, t)];
 }
-function hills(y0, amp, f, ph, col) {
-  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, H);
-  for (let x = 0; x <= W + 10; x += 10) ctx.lineTo(x, y0 - amp * (0.6 + 0.4 * Math.sin((x + ph) * f) * Math.cos((x + ph) * f * 0.37)));
-  ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+function heightNow(now) {
+  if (!R || (R.phase === 'bet' && !R.lit)) return 0;
+  const pre = PRE_H * smooth(clamp((now - R.liftT0) / cfg.preMs, 0, 1));
+  if (R.phase === 'bet' || R.phase === 'starting') return pre;
+  const h = PRE_H + cfg.rate * Math.max(0, (R.phase === 'end' ? R.endT0 : now) - R.t0) / 1000 / Math.log(SPACE);
+  return R.phase === 'end' ? h - Math.max(0, (now - view.awayT0) / 1000 - 0.4) * 0.02 : h;   // drifting back down under the parachute
 }
-function tree(x, y, r, dark, light) {
-  ctx.fillStyle = 'rgba(40,60,30,.18)'; ctx.beginPath(); ctx.ellipse(x + r * 0.3, y + r * 0.15, r, r * 0.3, 0, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#6b4a2e'; ctx.fillRect(x - r * 0.12, y - r * 0.6, r * 0.24, r * 0.7);
-  ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(x, y - r * 1.1, r, 0, TAU); ctx.fill();
-  ctx.fillStyle = light; ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 1.35, r * 0.5, 0, TAU); ctx.fill();
+const STARS = Array.from({ length: 90 }, (_, i) => ({ x: hsh(i + 1), y: hsh(i + 101), r: 0.6 + hsh(i + 201) * 1.4, tw: hsh(i + 301) * TAU }));
+function cloud(x, y, s) {   // a flat cartoon cloud: three bumps on a rounded base, a soft blue underside
+  ctx.fillStyle = '#ffffff';
+  for (const [dx, dy, r] of [[-26, 0, 18], [0, -10, 26], [26, 0, 18]]) { ctx.beginPath(); ctx.arc(x + dx * s, y + dy * s, r * s, 0, TAU); ctx.fill(); }
+  rr(ctx, x - 44 * s, y - 4 * s, 88 * s, 22 * s, 11 * s, '#ffffff');
+  rr(ctx, x - 38 * s, y + 11 * s, 76 * s, 7 * s, 3.5 * s, 'rgba(150,185,240,.45)');
 }
-function house(x, y, w, roof) {
-  const h = w * 0.7; ctx.fillStyle = '#fff6ee'; ctx.fillRect(x - w / 2, y - h, w, h);
-  ctx.fillStyle = roof; ctx.beginPath(); ctx.moveTo(x - w * 0.62, y - h); ctx.lineTo(x, y - h - w * 0.55); ctx.lineTo(x + w * 0.62, y - h); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#ffe9a8'; ctx.fillRect(x - w * 0.22, y - h * 0.62, w * 0.18, w * 0.18); ctx.fillRect(x + w * 0.06, y - h * 0.62, w * 0.18, w * 0.18);
+function ground(gy, padX, k) {   // soft hills, grass and the launch pad
+  if (gy > H + 60) return;
+  ctx.fillStyle = '#b6e9a6';
+  for (let i = -1; i < 6; i++) { ctx.beginPath(); ctx.ellipse(i * W / 4 + (hsh(i + 9) - 0.5) * 80, gy + 4, W * 0.2, H * 0.08 * (0.7 + hsh(i + 3) * 0.6), 0, Math.PI, 0); ctx.fill(); }
+  ctx.fillStyle = '#7cd36b'; ctx.fillRect(0, gy, W, H);
+  ctx.fillStyle = '#6bc35c'; ctx.fillRect(0, gy + H * 0.06, W, H);
+  rr(ctx, padX - 70 * k, gy - 8 * k, 140 * k, 16 * k, 8 * k, '#e3e8f6', '#c3cbe2', 2);
+  ctx.fillStyle = C.blue; for (let i = -2; i <= 2; i++) ctx.fillRect(padX + (i * 24 - 6) * k, gy - 3 * k, 12 * k, 4 * k);
 }
-function windmill(x, y, s, now) {
-  ctx.fillStyle = '#fff6ee'; ctx.beginPath(); ctx.moveTo(x - 9 * s, y); ctx.lineTo(x - 5 * s, y - 46 * s); ctx.lineTo(x + 5 * s, y - 46 * s); ctx.lineTo(x + 9 * s, y); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#8447fb'; ctx.beginPath(); ctx.arc(x, y - 46 * s, 7 * s, Math.PI, 0); ctx.fill();
-  ctx.save(); ctx.translate(x, y - 44 * s); ctx.rotate(reduced ? 0.4 : now / 900); ctx.fillStyle = '#ffffff'; for (let i = 0; i < 4; i++) { ctx.rotate(TAU / 4); ctx.fillRect(-3 * s, 0, 6 * s, 30 * s); } ctx.restore();
-  ctx.fillStyle = '#5a3ffc'; ctx.beginPath(); ctx.arc(x, y - 44 * s, 3 * s, 0, TAU); ctx.fill();
-}
-function hangar(x, y, w) {   // a barrel hangar in the brand's violet stripe, door open; no letters
-  const h = w * 0.55; ctx.fillStyle = '#f4f2ff'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - h * 0.4); ctx.quadraticCurveTo(x + w / 2, y - h * 1.45, x + w, y - h * 0.4); ctx.lineTo(x + w, y); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#8447fb'; ctx.fillRect(x, y - h * 0.42, w, h * 0.1); ctx.fillStyle = '#2b2452'; ctx.fillRect(x + w * 0.3, y - h * 0.32, w * 0.4, h * 0.32);
-  ctx.fillStyle = 'rgba(255,255,255,.35)'; for (let i = 1; i < 4; i++) ctx.fillRect(x + w * 0.3 + w * 0.1 * i, y - h * 0.32, 2, h * 0.32);
-}
-function runway(x, y, w) {
-  ctx.fillStyle = '#e7e4f6'; ctx.fillRect(x, y - 5, w, 16); ctx.fillStyle = '#8447fb'; ctx.fillRect(x, y + 9, w, 3);
-  ctx.fillStyle = '#ffffff'; for (let k = x + 18; k < x + w - 20; k += 46) ctx.fillRect(k, y + 2, 22, 2.5);
-  ctx.fillStyle = '#7ff3ff'; for (let k = x + 6; k < x + w; k += 34) { ctx.beginPath(); ctx.arc(k, y - 6, 2.2, 0, TAU); ctx.fill(); }
-}
-function countryside(now, gx) {
-  ctx.fillStyle = lin(0, HY, [[0, '#6f5cff'], [0.5, '#a49cff'], [0.85, '#ffd9e8'], [1, '#fff1df']]); ctx.fillRect(0, 0, W, HY + 2);
-  const sr = Math.min(W, H) * 0.045, sx = W * 0.8, sy = HY * 0.42, sg = ctx.createRadialGradient(sx, sy, sr * 0.2, sx, sy, sr * 3);
-  sg.addColorStop(0, '#fffaf0'); sg.addColorStop(0.25, 'rgba(255,214,170,.55)'); sg.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = sg; ctx.fillRect(sx - sr * 3, sy - sr * 3, sr * 6, sr * 6);
-  ctx.fillStyle = '#fffaf0'; ctx.beginPath(); ctx.arc(sx, sy, sr, 0, TAU); ctx.fill();
-  const k = W < 600 ? 0.7 : 1;
-  for (let i = 0; i < 6; i++) puff(wrapX(i * 260 - gx * 0.12, W + 300) - 150, HY * (0.16 + 0.12 * (i % 3)), (0.8 + 0.25 * (i % 2)) * k);
-  hills(HY - H * 0.02, H * 0.05, 0.004, gx * 0.15, '#b9c7f2');
-  hills(HY + H * 0.02, H * 0.05, 0.006, gx * 0.3 + 400, '#9fdc86');
-  for (let i = 0; i < 9; i++) { const x = wrapX(i * 190 - gx * 0.3, W + 200) - 100, y = HY; if (i % 3 === 0) windmill(x, y, Math.min(1.1, W / 900), now); else if (i % 3 === 1) house(x, y + 2, (18 + 4 * (i % 2)) * k, ['#ff7a93', '#8447fb', '#ffb347'][i % 3]); }
-  hills(HY + H * 0.1, H * 0.05, 0.009, gx * 0.6 + 900, '#7fd36a');
-  for (let i = 0; i < 14; i++) tree(wrapX(i * 110 + hsh(i) * 60 - gx * 0.6, W + 160) - 80, HY + H * 0.1 + hsh(i + 7) * H * 0.04, (9 + hsh(i) * 7) * k, '#3fbf5a', '#6ad36d');
-  ctx.fillStyle = lin(HY + H * 0.12, H, [[0, '#6fcb5c'], [1, '#56b84a']]); ctx.fillRect(0, HY + H * 0.12, W, H);
-  const rx = W * 0.02 - gx; if (rx + W > 0) { runway(rx, HY, W * 0.9); hangar(rx + W * 0.6, HY - 4, Math.min(170, W * 0.24)); }   // the airfield slides away once the plane is up
-  for (let i = 0; i < 18; i++) tree(wrapX(i * 80 + hsh(i + 3) * 40 - gx * 1.1, W + 120) - 60, HY + H * 0.22 + hsh(i + 11) * (H - HY) * 0.55, (12 + hsh(i) * 9) * k, '#2fb850', '#5fd26a');
-}
-/* ---------- the climb's world: five altitude backdrops rendered in Blender, crossfaded as the multiplier rises ---------- */
-// Altitude follows the multiplier (Tornike's pick, 2026-10-26): the runway at 1.00×, over the fields by 1.6×, in the
-// clouds by 3.5×, above them by 12× and the edge of space from 120×. Each step slides the old view down and fades the
-// next in from above, and soft clouds stream past, thickest in the cloud layer, so the plane always feels it climbs.
-// The backdrops come from Brainer 3D/blender (concepts: the valley look, views ground, low, clouds, above, space).
-const SKY = ['ground', 'low', 'clouds', 'above', 'space'].map(n => { const im = new Image(); im.src = `assets/sky/${n}.webp`; return im; });
-const ALT = [1, 1.6, 3.5, 12, 120];
-const altOf = m => { if (m <= ALT[0]) return 0; for (let i = 1; i < ALT.length; i++) if (m < ALT[i]) return i - 1 + Math.log(m / ALT[i - 1]) / Math.log(ALT[i] / ALT[i - 1]); return ALT.length - 1; };
-const PARK = { x: 0.26, y: 0.73 };   // where the plane stands on the runway in the ground backdrop, as fractions of the image
-const smooth = f => f * f * (3 - 2 * f);
-function cover(im, ox, oy, a, fx = 0.5, sx = 0.5) {   // the image filling the stage, a little over-sized so it can drift; image x fx sits at stage x sx where the crop allows
-  if (!im.complete || !im.naturalWidth || a <= 0.002) return null;
-  const k = Math.max(W * 1.06 / im.naturalWidth, H * 1.42 / im.naturalHeight), w = im.naturalWidth * k, h = im.naturalHeight * k, x = clamp(W * sx - w * fx, W - w, 0) + ox, y = (H - h) / 2 + oy;   // tall enough to slide 0.2 of the stage either way with no gap
-  ctx.globalAlpha = a; ctx.drawImage(im, x, y, w, h); ctx.globalAlpha = 1;
-  return { x, y, w, h };
-}
-let alt = 0, lastSky = 0;
-const passing = Array.from({ length: 12 }, (_, i) => ({ x: (i * 0.37) % 1, y: (i * 0.61) % 1.3 - 0.15, s: 0.6 + (i * 0.29) % 0.9, v: 0.7 + (i * 0.53) % 0.8 }));
-function sky(now) {
-  const dt = Math.min(50, now - (lastSky || now)); lastSky = now;
-  const goal = R && (R.phase === 'fly' || R.phase === 'end') ? altOf(R.phase === 'end' ? R.crash : R.m) : 0;
-  alt += (goal - alt) * Math.min(1, dt * (goal < alt ? 0.004 : 0.006));   // eases to the multiplier's height; between rounds back down to the runway
-  const i = Math.min(SKY.length - 2, Math.floor(alt)), e = smooth(clamp(alt - i, 0, 1)), drift = reduced ? 0 : Math.sin(now / 9000) * W * 0.02;
-  ctx.fillStyle = '#6f5cff'; ctx.fillRect(0, 0, W, H);
-  const base = i === 0 ? cover(SKY[0], drift, e * H * 0.2, 1, 0.3, 0.38) : cover(SKY[i], drift, e * H * 0.2, 1);   // the runway view keeps the runway in frame on narrow screens
-  cover(SKY[i + 1], drift, -(1 - e) * H * 0.2, e);
-  if (!base) { countryside(now, view.gx); view.park = { x: W * 0.08 + 80, y: HY - 6 }; return; }   // until the backdrops have loaded
-  view.park = i === 0 ? { x: base.x + base.w * PARK.x, y: base.y + base.h * PARK.y } : { x: base.x + base.w * PARK.x, y: H + H * 0.4 };   // the runway falls away below as it climbs
-  // soft clouds streaming past the plane, thickest in the cloud layer
-  const thick = clamp(1 - Math.abs(alt - 1.9) / 1.3, 0, 1) * (R && R.phase === 'fly' ? 1 : 0.35);
-  if (thick > 0.02 && !reduced) for (const c of passing) {
-    c.y += dt * 0.00035 * c.v * (0.4 + view.speed); c.x -= dt * 0.00008 * c.v * view.speed;
-    if (c.y > 1.2) { c.y = -0.25; c.x = Math.random() * 1.1; }
-    if (c.x < -0.2) c.x += 1.3;
-    const r = c.s * H * 0.22, x = c.x * W, y = c.y * H, g = ctx.createRadialGradient(x, y, r * 0.1, x, y, r);
-    g.addColorStop(0, `rgba(255,255,255,${0.55 * thick})`); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+function world(now, h, padX, k) {
+  const [top, bot] = skyAt(h);
+  ctx.fillStyle = lin(0, H, [[0, top], [1, bot]]); ctx.fillRect(0, 0, W, H);
+  const sa = smooth(clamp((h - 0.5) / 0.35, 0, 1));   // stars from half way up, drifting down as it climbs
+  if (sa > 0.01) {
+    for (const s of STARS) { ctx.globalAlpha = sa * (reduced ? 0.8 : 0.55 + 0.45 * Math.sin(now / 600 + s.tw)); dot(ctx, s.x * W, ((s.y + h * 0.4) % 1) * H, s.r, '#ffffff'); }
+    ctx.globalAlpha = 1;
   }
+  const pa = smooth(clamp((h - 0.9) / 0.3, 0, 1));   // a ringed planet, high up
+  if (pa > 0.01) {
+    const r = Math.min(W, H) * 0.07, x = W * 0.16, y = H * 0.2 + (h - 0.9) * H * 0.3;
+    ctx.globalAlpha = pa; dot(ctx, x, y, r, '#ff9f6b'); ctx.fillStyle = '#ffc79e'; ctx.fillRect(x - r * 0.9, y - r * 0.15, r * 1.8, r * 0.3);
+    ctx.beginPath(); ctx.ellipse(x, y, r * 1.8, r * 0.45, -0.35, 0, TAU); ctx.lineWidth = Math.max(2, r * 0.12); ctx.strokeStyle = '#ffe2c4'; ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  const ea = smooth(clamp((h - 0.72) / 0.3, 0, 1));   // the curve of the Earth rises from below at the edge of space
+  if (ea > 0.01) {
+    const R0 = W * 1.4, cy = H + R0 - ea * H * 0.2 + Math.max(0, h - 1.4) * H * 0.15;
+    ctx.beginPath(); ctx.arc(W / 2, cy, R0 + 10, 0, TAU); ctx.fillStyle = 'rgba(120,200,255,.35)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(W / 2, cy, R0, 0, TAU); ctx.fillStyle = '#2f7de1'; ctx.fill();
+    ctx.save(); ctx.clip();
+    ctx.fillStyle = '#4cbf6a'; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.ellipse(W * (0.15 + i * 0.25), cy - R0 + H * 0.06, W * 0.07, H * 0.025, 0.2 * i, 0, TAU); ctx.fill(); }
+    ctx.restore();
+  }
+  // clouds sit at fixed heights in the world, so they stream down past the Brainer as it climbs
+  const gy0 = H * 0.86, step = 0.025, lo = h - (H + 80 - gy0) / (H * PX), hi = h + (gy0 + 80) / (H * PX);
+  const cs = Math.min(1.2, Math.max(0.6, W / 800));
+  for (let j = Math.max(1, Math.floor(lo / step)); j <= Math.ceil(hi / step); j++) {
+    const hc = j * step, dens = hc < 0.05 ? 0 : hc < 0.15 ? (hc - 0.05) / 0.1 : hc < 0.5 ? 1 : hc < 0.72 ? (0.72 - hc) / 0.22 : 0;
+    if (hsh(j * 3.1) > dens * 0.85) continue;
+    cloud((hsh(j * 7.7) * 1.2 - 0.1) * W, gy0 + (h - hc) * H * PX, cs * (0.6 + hsh(j * 1.3) * 0.8));
+  }
+  ground(gy0 + h * H * PX, padX, k);
 }
-// Where the Brainer is: standing on the runway while bets are open; in flight it lifts straight off and rises to a hover
-// spot under the multiplier (p, 0 to 1 over 3.5 s), then bobs there while the world streams past.
-function hoverAt(t) {
-  const pk = view.lift || view.park || { x: W * 0.3, y: H * 0.8 }, p = clamp(t / 3500, 0, 1), e = easeOut(p);
-  const hx = W * (W < 600 ? 0.5 : 0.66), hy = H * (W < 600 ? 0.68 : 0.62);
-  const bob = p >= 1 && !reduced ? Math.sin(t / 650) * H * 0.015 : 0;
-  return { x: lerp(pk.x, hx, e), y: lerp(pk.y, hy, e * (2 - e)) + bob };
+// Speed streaks: thin lines rushing down while the jets push, faster and brighter with every suit level.
+const streaks = Array.from({ length: 18 }, (_, i) => ({ x: hsh(i + 50), y: hsh(i + 70) }));
+function speedLines(dt, L, h) {
+  ctx.strokeStyle = h > 0.6 ? 'rgba(200,220,255,.5)' : 'rgba(255,255,255,.55)'; ctx.lineCap = 'round';
+  for (const s of streaks) {
+    s.y += dt * (0.0012 + L * 0.00018); if (s.y > 1.15) { s.y = -0.15; s.x = Math.random(); }
+    ctx.globalAlpha = 0.25 + L * 0.03; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x * W, s.y * H); ctx.lineTo(s.x * W, s.y * H + H * (0.06 + L * 0.008)); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+// Where the Brainer is: on the pad until the jets light 2 s before the timer ends, then straight up to its hover spot
+// under the multiplier in 2.2 s, then a gentle bob while the world streams past.
+function hoverAt(tl, standY) {
+  const p = clamp(tl / 2200, 0, 1), e = smooth(p);
+  const bob = p >= 1 && !reduced ? Math.sin(tl / 650) * H * 0.012 : 0;
+  return lerp(standY, H * (W < 600 ? 0.66 : 0.64), e) + bob;
+}
+function burst(x, y, L) {   // sparks flying off a new piece of gear
+  const c = ['#ffd56b', '#ffffff', `rgb(${GLOW[jetOf(L)]})`];
+  for (let i = 0; i < 18; i++) { const a = i / 18 * TAU + Math.random() * 0.3, v = 0.25 + Math.random() * 0.35; view.sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t0: performance.now(), c: c[i % 3] }); }
+}
+let gearT = 0;
+function showGear(L) {   // the banner under the multiplier: "Level 5 · Wings"
+  const el = $('#gearup'); el.textContent = `Level ${L} · ${SUIT[L - 1].name}`;
+  el.hidden = true; void el.offsetWidth; el.hidden = false;
+  clearTimeout(gearT); gearT = setTimeout(() => { el.hidden = true; }, 1700);
 }
 function draw(now) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const t = R && (R.phase === 'fly' || R.phase === 'end') ? (R.phase === 'end' ? R.endT0 : now) - R.t0 : 0;
-  const goal = R && R.phase === 'fly' ? 1 : R && R.phase === 'end' ? 0.6 : 0;
-  view.speed += (goal - view.speed) * 0.04; view.gx += view.speed * (reduced ? 1.2 : 3.2);
-  sky(now);
-  const size = clamp(Math.min(W, H) * 0.6, 180, 380), k = size / 280, inAir = R && (R.phase === 'fly' || R.phase === 'end');
-  // on the runway: feet on the ground at the park spot; the spot is kept at take-off so the climb starts from it
-  const ground = view.park ? { x: view.park.x, y: view.park.y - 80 * k } : { x: W * 0.3, y: H * 0.7 };
-  if (!inAir) view.lift = ground;
-  const o = { L: 1, face: exNow(now), thrust: 1, footL: 1, footR: 1, dim: false, glitch: false, batt: '', chute: 0, now };
-  let X = ground.x, Y = ground.y + (reduced ? 0 : Math.sin(now / 900) * 2), rot = 0;
-  if (!inAir) o.thrust = R && R.phase === 'starting' ? 0.6 : 0;   // jets light as it takes off
+  const dt = Math.min(50, now - (view.last || now)); view.last = now;
+  const goal = heightNow(now);
+  view.alt = goal >= view.alt ? goal : view.alt + (goal - view.alt) * Math.min(1, dt * 0.005);   // between rounds it sinks back to the pad
+  const size = clamp(Math.min(W, H) * 0.6, 180, 380), k = size / 280, X = W / 2;   // centred on every screen (Tornike, 2026-10-26)
+  const lifting = R && (R.lit || R.phase !== 'bet'), pushing = lifting && R.phase !== 'end';
+  world(now, view.alt, X, k);
+  const gy = H * 0.86 + view.alt * H * PX, standY = gy - 88 * k;
+  const o = { L: 1, face: exNow(now), thrust: 1, footL: 1, footR: 1, dim: false, glitch: false, batt: '', chute: 0, arrive: null, now };
+  let Y = standY + (reduced ? 0 : Math.sin(now / 900) * 2), rot = 0, pop = 1;
+  if (!lifting) o.thrust = 0;
   else {
-    const hp = hoverAt(t); X = hp.x; Y = hp.y;
-    o.L = suitOf(R.phase === 'end' ? R.crash : R.m);
-    if (R.phase === 'fly' && o.L > view.suit) {   // a new piece of gear bolts on
-      view.suit = o.L; view.gearT0 = now; sound.gear();
-      view.wins.push({ t0: now, text: SUIT[o.L - 1].name + '!', col: '#ffd56b' });
+    Y = hoverAt((R.phase === 'end' ? R.endT0 : now) - R.liftT0, standY);
+    if (R.phase === 'bet' || R.phase === 'starting') o.thrust = 0.6 + 0.4 * clamp((now - R.liftT0) / 600, 0, 1);   // the jets roar up on the pad
+    else {
+      o.L = suitOf(R.phase === 'end' ? R.crash : R.m);
+      if (R.phase === 'fly' && o.L > view.suit) {   // a new piece of gear: it flies in and snaps on, sparks, a banner, star eyes
+        view.suit = o.L; view.gearT0 = now; sound.gear(); burst(X, Y, o.L); showGear(o.L); feel('star', 1100);
+      }
     }
+    const gq = view.gearT0 ? (now - view.gearT0) / 450 : 1;
+    if (gq < 1) { o.arrive = { L: view.suit, q: gq }; pop = 1 + 0.1 * Math.sin(Math.PI * clamp(gq * 1.3, 0, 1)); }
     const sc = scareFx(now);
-    Object.assign(o, { thrust: sc.thrust, footL: sc.footL, footR: sc.footR, glitch: sc.glitch, batt: sc.batt });
+    Object.assign(o, { footL: sc.footL, footR: sc.footR, glitch: sc.glitch, batt: sc.batt }); o.thrust *= sc.thrust;
     if (sc.face) o.face = sc.face;
     rot = sc.rot; Y += sc.dy * H;
     if (R.phase === 'end') {   // power out: the jets splutter and die, the screens go dark, it drops, the parachute pops
@@ -453,25 +483,37 @@ function draw(now) {
       o.batt = a < 1.2 ? 'empty' : ''; o.face = a < 0.4 ? 'shock' : 'sleep'; o.dim = a >= 0.4;
       o.thrust = a < 0.4 ? 0.3 * (1 - a / 0.4) : 0;
       o.chute = clamp((a - 1) / 0.35, 0, 1);
-      Y += a < 0.4 ? 0 : a < 1 ? Math.pow((a - 0.4) / 0.6, 2) * H * 0.12 : H * 0.12 + (a - 1) * H * 0.05;
+      Y += a < 0.4 ? 0 : a < 1 ? Math.pow((a - 0.4) / 0.6, 2) * H * 0.12 : H * 0.12 + (a - 1) * H * 0.04;
       rot = a < 0.4 ? 0 : o.chute > 0 ? (reduced ? 0 : Math.sin(a * 2.4) * 0.08) : 0.15 * (a - 0.4) / 0.6;
+    }
+    if (pushing && !reduced) speedLines(dt, o.L, view.alt);
+    if (pushing && o.L >= 3) {   // exhaust trails under the feet
+      const c = GLOW[jetOf(o.L)];
+      for (const dx of [-12, 12]) { const x = X + dx * k, y0 = Y + 120 * k, g = ctx.createLinearGradient(0, y0, 0, H); g.addColorStop(0, `rgba(${c},.45)`); g.addColorStop(1, `rgba(${c},0)`); ctx.fillStyle = g; ctx.fillRect(x - 5 * k, y0, 10 * k, H - y0); }
     }
     // wind streaks for the spin-out, smoke for the sputtering boot
     if (sc.wind > 0.05) { ctx.strokeStyle = `rgba(255,255,255,${0.7 * sc.wind})`; ctx.lineWidth = 4; ctx.lineCap = 'round'; for (let i = 0; i < 3; i++) { const yy = Y - size * 0.25 + i * size * 0.18, x0 = X - scare.side * size * (0.95 - i * 0.05); ctx.beginPath(); ctx.moveTo(x0 - size * 0.25, yy); ctx.quadraticCurveTo(x0, yy - 14, x0 + size * 0.2 * scare.side, yy + 4); ctx.stroke(); } }
     if (sc.smoke > 0.05) for (let i = 0; i < 4; i++) { const q = ((now - scare.t0) / 260 + i / 4) % 1; ctx.fillStyle = `rgba(190,196,214,${0.75 * sc.smoke * (1 - q)})`; ctx.beginPath(); ctx.arc(X + scare.side * size * 0.06 + Math.sin(i * 2.1) * 10, Y + size * 0.32 + q * size * 0.35, size * (0.03 + q * 0.06), 0, TAU); ctx.fill(); }
   }
-  // the gear flash: a ring bursting from the Brainer when a level bolts on
-  const gq = view.gearT0 ? (now - view.gearT0) / 600 : 1;
-  if (gq < 1) { ctx.strokeStyle = `rgba(255,213,107,${1 - gq})`; ctx.lineWidth = 6 * (1 - gq) + 1; ctx.beginPath(); ctx.arc(X, Y, size * (0.3 + gq * 0.5), 0, TAU); ctx.stroke(); }
-  ctx.save(); ctx.translate(X, Y); ctx.rotate(rot); ctx.scale(k, k); ctx.translate(-100, -140);
+  // the gear flash: a ring bursting from the Brainer as a piece lands
+  const fq = view.gearT0 ? (now - view.gearT0) / 600 : 1;
+  if (fq < 1) { ctx.strokeStyle = `rgba(255,213,107,${1 - fq})`; ctx.lineWidth = 8 * (1 - fq) + 1; ctx.beginPath(); ctx.arc(X, Y, size * (0.3 + fq * 0.6), 0, TAU); ctx.stroke(); }
+  ctx.save(); ctx.translate(X, Y); ctx.rotate(rot); ctx.scale(k * pop, k * pop); ctx.translate(-100, -140);
   drawBot(ctx, o);
   ctx.restore();
+  view.sparks = view.sparks.filter(s => now - s.t0 < 800);
+  for (const s of view.sparks) {
+    const q = (now - s.t0) / 800, x = s.x + s.vx * (now - s.t0) * k, y = s.y + s.vy * (now - s.t0) * k, r = 5 * k * (1 - q);
+    ctx.globalAlpha = 1 - q; ctx.fillStyle = s.c; ctx.beginPath(); ctx.moveTo(x, y - r * 2); ctx.lineTo(x + r * 0.6, y); ctx.lineTo(x, y + r * 2); ctx.lineTo(x - r * 0.6, y); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x - r * 2, y); ctx.lineTo(x, y + r * 0.6); ctx.lineTo(x + r * 2, y); ctx.lineTo(x, y - r * 0.6); ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
   renderSuit(o.L, R && R.phase !== 'bet' && R.phase !== 'starting' ? R.m : 1);
-  // wins and new gear float up from the Brainer
+  // wins float up from the Brainer
   view.wins = view.wins.filter(w => now - w.t0 < 1400);
   view.wins.forEach((w, i) => {
     const q = (now - w.t0) / 1400, ty = Y - size * 0.62 - q * 60 - i * 26; ctx.globalAlpha = 1 - q; ctx.font = '800 22px FiraGO, system-ui, sans-serif'; ctx.textAlign = 'center';
-    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(10,19,34,.55)'; ctx.strokeText(w.text, X, ty); ctx.fillStyle = w.col || '#7dffcf'; ctx.fillText(w.text, X, ty);
+    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(10,19,34,.55)'; ctx.strokeText(w.text, X, ty); ctx.fillStyle = '#7dffcf'; ctx.fillText(w.text, X, ty);
     ctx.globalAlpha = 1;
   });
 }
@@ -493,7 +535,7 @@ function renderReadout(force) {
 }
 function histCls(c) { return c >= 10 ? 'hi' : c >= 2 ? 'mid' : ''; }
 function renderHist() {
-  $('#hist').innerHTML = rounds.slice(0, 20).map((r, k) => `<button type="button" class="${histCls(r.crash)}" data-k="${k}" aria-label="Round ${r.nonce}: power out at ${fx(r.crash)}. Check it.">${fx(r.crash)}</button>`).join('');
+  $('#hist').innerHTML = rounds.slice(0, 20).map((r, k) => `<button type="button" class="${histCls(r.crash)}${r.forced ? ' test' : ''}" data-k="${k}" aria-label="Round ${r.nonce}: power out at ${fx(r.crash)}${r.forced ? ', a test round' : ''}. Check it.">${fx(r.crash)}</button>`).join('');
 }
 function panelHTML(b) {
   const n = b.i + 1;
@@ -585,6 +627,7 @@ function renderFair() {
     const r = shown && rounds.includes(shown) ? shown : rounds[0]; shown = r;
     h += `<h4>Recent rounds</h4><div class="rounds">${rounds.slice(0, 12).map(x => `<button type="button" data-n="${x.nonce}" aria-pressed="${x === r}">${fx(x.crash)}</button>`).join('')}</div>`
       + `<h4>Round ${r.nonce}: power out at ${fx(r.crash)}${r.mine.length ? ` · ${r.mine.map(m => m.st === 'cashed' ? `bet ${m.i + 1} cashed out at ${fx(m.at)}` : `bet ${m.i + 1} lost`).join(', ')}` : ''}</h4>`
+      + (r.forced ? `<p class="sheet-note">Test round: the power-out point was set by hand to ${fx(r.crash)}. The seeds give ${fx(r.seedCrash)}.</p>` : '')
       + `${kv('Server seed hash', r.hash)}${kv('Server seed, revealed', r.seed)}${kv('Client seed', r.client)}${kv('Nonce', r.nonce)}`
       + '<button type="button" class="big ghost" id="fairCheck">Check this round</button><div id="fairOut" aria-live="polite"></div>';
   }
@@ -599,10 +642,10 @@ function setClient(v) {   // the player's client seed: 1–64 characters (code p
 }
 async function checkFair() {
   const r = shown; if (!r) return;
-  const hashOk = (await sha256(r.seed)) === r.hash, c = await crashOf(r.seed, r.client, r.nonce), crashOk = c === r.crash;
+  const hashOk = (await sha256(r.seed)) === r.hash, c = await crashOf(r.seed, r.client, r.nonce), crashOk = c === (r.forced ? r.seedCrash : r.crash);
   const ok = (good, text) => `<p class="fair-ok${good ? '' : ' bad'}">${good ? '✓' : '✕'} ${text}</p>`;
   $('#fairOut').innerHTML = ok(hashOk, hashOk ? 'SHA-256 of the seed matches the hash shown before take-off' : 'The seed does not match the hash')
-    + ok(crashOk, crashOk ? `Recomputed from the seeds, the power runs out at ${fx(c)}, as it did` : `Recomputed: ${fx(c)}, but the power ran out at ${fx(r.crash)}`);
+    + ok(crashOk, crashOk ? `Recomputed from the seeds, the power runs out at ${fx(c)}, as ${r.forced ? 'the seeds gave (this test round was set by hand)' : 'it did'}` : `Recomputed: ${fx(c)}, but the power ran out at ${fx(r.crash)}`);
 }
 
 /* ---------- leaderboard: demo players, with your own real results merged in ---------- */
@@ -707,6 +750,21 @@ document.addEventListener('keydown', e => {
   e.preventDefault(); act(bets[0]);
 });
 
+/* ---------- test mode (?test): set the power-out point by hand ---------- */
+// For testing the demo only (Tornike, 2026-10-26); hidden unless the address has ?test. While a point is set, every round
+// from the next take-off powers out there instead of at its seeded point, and is marked as a test round.
+if (new URLSearchParams(location.search).has('test')) {
+  const box = $('#test'), inp = $('#forceIn');
+  box.hidden = false;
+  const setForce = () => {
+    const v = parseFloat(inp.value);
+    S.force = Number.isFinite(v) && v >= 1 ? clamp(Math.floor(v * 100 + 1e-7) / 100, 1, cfg.maxMult) : 0;
+    inp.value = S.force ? S.force.toFixed(2) : ''; box.classList.toggle('on', !!S.force);
+  };
+  inp.addEventListener('change', setForce);
+  $('#forceClear').addEventListener('click', () => { inp.value = ''; setForce(); });
+}
+
 /* ---------- loop and boot ---------- */
 function loop(now) {
   if (W && H) { tick(now); draw(now); renderReadout(); if (flying()) renderCash(); }
@@ -716,15 +774,14 @@ S.client = randHex(8);
 rotateSeed().catch(() => {});   // without crypto.subtle (plain http) the round says why instead
 layout(); renderBalance(); renderBets(); renderSound(); renderHist(); renderReadout(true); syncSide();
 const bootT = performance.now();
-function loadProgress() {   // the fonts and the sky backdrops; a slow network never holds the player past 9 s
+function loadProgress() {   // the fonts (the world is drawn, nothing else to load); a slow network never holds the player past 9 s
   if (performance.now() - bootT > 9000) return 1;
-  const sky = SKY.filter(im => im.complete).length / SKY.length, font = !document.fonts || document.fonts.status === 'loaded' ? 1 : 0;
-  return (sky + font) / 2;
+  return !document.fonts || document.fonts.status === 'loaded' ? 1 : 0;
 }
 function introActor(g, w, h, now, ex) {   // the intro's actor: the Iron Brainer hovering on its jets, suit level 1
   const k = Math.min(w, h) / 330;
   g.save(); g.translate(w / 2, h / 2 + (reduced ? 0 : Math.sin(now / 520) * 8 * k)); g.scale(k, k); g.translate(-100, -130);
-  drawBot(g, { L: 1, face: ex === 'wink' || ex === 'happy' ? 'happy' : 'focus', thrust: 1, footL: 1, footR: 1, dim: false, glitch: false, batt: '', chute: 0, now });
+  drawBot(g, { L: 1, face: ex === 'wink' || ex === 'happy' ? 'happy' : 'smile', thrust: 1, footL: 1, footR: 1, dim: false, glitch: false, batt: '', chute: 0, now });
   g.restore();
   return true;
 }

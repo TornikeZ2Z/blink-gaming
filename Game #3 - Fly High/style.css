@@ -256,7 +256,7 @@ button{cursor:pointer}
 .hist button.hi{color:#ffd56b}
 .hist button:hover{background:rgba(10,19,34,.85)}
 .pilot{top:auto;bottom:14px}
-.readout{top:38%;transform:translate(-50%,-50%);width:min(520px,90%)}
+.readout{top:26%;transform:translate(-50%,-50%);width:min(520px,90%)}
 .readout .label{font-size:13px;background:rgba(10,19,34,.7)}
 .readout .mult{font-size:clamp(52px,9vw,96px);text-shadow:0 4px 0 rgba(75,54,252,.6),0 0 26px rgba(10,19,34,.6),0 0 60px rgba(10,19,34,.35)}   /* a dark glow: white clouds drift behind it */
 .readout .mult.flew{color:#ff7a93;font-size:clamp(44px,7.4vw,80px)}
@@ -351,3 +351,12 @@ button{cursor:pointer}
   .focus .side{top:0;height:100dvh}
   .focus .side .sheet-card{border-radius:0;border-width:0 0 0 1px}
 }
+/* the gear-up banner under the multiplier, and the ?test power-out field */
+.readout .sub.gear{background:linear-gradient(135deg,#ffc147,#ff8a3d);color:var(--navy);border-color:transparent;font-weight:800;animation:gearpop 1.7s ease-out forwards}
+@keyframes gearpop{0%{transform:scale(.4);opacity:0}12%{transform:scale(1.15);opacity:1}20%{transform:scale(1)}85%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){ .readout .sub.gear{animation:none} }
+.test{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:12px;padding:10px 12px;border:1px dashed rgba(255,193,71,.55);border-radius:14px;font-size:13px;font-weight:700;color:#ffd56b}
+.test.on{background:rgba(255,193,71,.1)}
+.test button{border:1px solid var(--line);border-radius:10px;padding:6px 12px;background:var(--navy-3);font-size:13px;font-weight:700}
+.test small{flex-basis:100%;font-size:11px;font-weight:600;color:var(--muted)}
+.hist button.test{box-shadow:inset 0 0 0 1px #ffd56b}
