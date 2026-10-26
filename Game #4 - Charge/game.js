@@ -52,14 +52,12 @@ const lookImg = k => `assets/look/${k}.webp`;   // 256 px pictures of the eleven
 // Brain cells, shared by every Brainer game: quick levels at first, then slower; ten stages of ten levels.
 const CELLS = (() => { const c = [0, 0]; for (let n = 1; n < 100; n++) c.push(c[n] + Math.round(10 + 8 * Math.pow(n, 1.4))); return c; })();
 const brainLevel = cells => { let L = 1; while (L < 100 && cells >= CELLS[L + 1]) L++; return L; };
-const stageOf = L => Math.ceil(L / 10);
 
 /* ---------- state ---------- */
 const S = { balance: cfg.startBalance, stake: 10, level: 1, nonce: 1, client: '', seed: '', hash: '', cells: Math.max(0, parseFloat(store.get('brainer.xp', '0')) || 0) };
 // round.status: ready (waiting for Charge or Cash out), charging, broken (overcharged: lost), cashed
 let round = null, lastRound = null, starting = false, booted = false;
 const live = () => !!round && (round.status === 'ready' || round.status === 'charging');
-const myLevel = () => brainLevel(S.cells);
 const TEST = new URLSearchParams(location.search).has('test');   // ?test: window.chargeTest.next = 'safe' or 'boom' forces the next charge (marked in the fairness sheet)
 if (TEST) window.chargeTest = { next: null };
 
@@ -83,9 +81,17 @@ function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h
 // Synthesised with Web Audio, so there are no files to load. Starts on the first tap; the HUD button mutes it.
 // The background music (music.js) plays under it all, very low, from the first tap; every effect ducks it a little.
 const sound = (() => {
-  let ac = null, on = store.get('brainer.sound', 'on') !== 'off', music = null, mood = ['idle', 0];
+  let ac = null, out = null, on = store.get('brainer.sound', 'on') !== 'off', music = null, mood = ['idle', 0];
   const ctxA = () => {
-    if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A(); if (window.BrainerMusic) { music = window.BrainerMusic(ac, ac.destination); music.mood(...mood); } }
+    if (!ac) {
+      const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A();
+      // every sound goes through one master level, +12 dB, and a limiter, so desktop speakers hear it as a phone does
+      // (the mix peaked near -21 dB before; Fly High's fix, measured by its session) and nothing clips
+      out = ac.createGain(); out.gain.value = 4;
+      const lim = ac.createDynamicsCompressor(); Object.entries({ threshold: -14, knee: 8, ratio: 6, attack: 0.003, release: 0.2 }).forEach(([k, v]) => { lim[k].value = v; });
+      out.connect(lim).connect(ac.destination);
+      if (window.BrainerMusic) { music = window.BrainerMusic(ac, out); music.mood(...mood); }
+    }
     if (ac.state === 'suspended' && !document.hidden) ac.resume();
     if (on && music && !music.running && !document.hidden) music.start();
     return ac;
@@ -96,7 +102,7 @@ const sound = (() => {
     const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
     o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+    o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.05);
   };
   const noise = (dur, vol, f0, f1, delay, type) => {
     const a = on && ctxA(); if (!a) return;
@@ -105,7 +111,7 @@ const sound = (() => {
     const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
     src.buffer = buf; f.type = type || 'lowpass'; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f).connect(g).connect(a.destination); src.start(t);
+    src.connect(f).connect(g).connect(out); src.start(t);
   };
   return {
     get on() { return on; },
@@ -121,8 +127,8 @@ const sound = (() => {
     safe() { tone(880, 0, 0.14, 'sine', 0.12, 0.05); tone(1320, 0, 0.22, 'sine', 0.1, 0.13); },
     look() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0, 0.2, 'triangle', 0.09, 0.15 + i * 0.07)); },
     overcharge() { tone(500, 1700, 0.65, 'sine', 0.05); tone(1000, 2600, 0.65, 'triangle', 0.02); noise(0.2, 0.12, 2600, 600, 0.7); tone(720, 90, 1.0, 'sine', 0.06, 0.8); },   // the battery whines up, pops, and the Brainer powers down
-    cash() { [660, 880, 1100, 1320].forEach((f, i) => tone(f, 0, 0.16, 'triangle', 0.09, i * 0.06)); },
-    level() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0, 0.22, 'sine', 0.1, i * 0.08)); }
+    cash() { [660, 880, 1100, 1320].forEach((f, i) => tone(f, 0, 0.16, 'triangle', 0.09, i * 0.06)); }
+
   };
 })();
 
@@ -133,7 +139,7 @@ async function play() {
   const d = LEVELS[S.level];
   if (S.stake < cfg.minBet || S.stake > cfg.maxBet) { toast(`Bet between ${money(cfg.minBet)} and ${money(cfg.maxBet)}.`); return; }
   if (S.stake > S.balance) { toast('Not enough demo balance for this bet. Lower it or press Reset.'); return; }
-  starting = true; renderControls(); flushLevelUp();
+  starting = true; renderControls();
   const r = { stake: S.stake, d, n: 0, rtp: cfg.rtp, reach: reachAt(d, S.stake), client: S.client, nonce: S.nonce++, status: 'ready', payout: 0, forced: [] };   // the client seed in effect as it starts
   try { await commit; r.seed = S.seed; r.hash = S.hash; r.rolls = await drawRolls(r.seed, r.client, r.nonce, d); }
   catch (e) { S.nonce--; toast(window.isSecureContext ? 'Could not start the round. Please try again.' : 'This demo needs https (or localhost) for its provably fair draw.'); return; }
@@ -166,7 +172,6 @@ function settle() {
   lastRound = round; earnCells(cfg.brain.perRound);
   rotateSeed().then(() => { if (!$('#fairSheet').hidden) renderFair(); });
   renderBalance(); renderControls(); renderBattery(); renderNextLook();
-  clearTimeout(luDelay); luDelay = setTimeout(flushLevelUp, 1700);   // a brain level-up waits until the result has played out
 }
 function advance(now) {
   const r = round;
@@ -190,49 +195,14 @@ function advance(now) {
   }
 }
 
-/* ---------- brain cells and levels ---------- */
-let luT = 0, luDelay = 0, pendingLevel = 0, levelFrom = 0;
+/* ---------- brain cells: still earned for the website's brain level, never shown here ---------- */
+// Charge's own LVL is the Brainer's growth in a round (Tornike, 2026-10-27, "we took it in game"), so there is no brain
+// level card. Each round played still adds the same brain cells, whatever the bet, shared with the other games.
 function earnCells(k) {
   const saved = parseFloat(store.get('brainer.xp', ''));
   if (saved >= 0) S.cells = saved;   // another Brainer game open in another tab may have added cells since this one loaded
-  const before = myLevel();
   S.cells = Math.round((S.cells + k) * 10) / 10;
-  store.set('brainer.xp', String(S.cells)); store.set('brainer.level', String(myLevel()));   // the website reads brainer.level
-  earnFloat(k); renderPilot();
-  if (myLevel() > before) { if (!pendingLevel) levelFrom = before; pendingLevel = myLevel(); }
-}
-function flushLevelUp() {
-  if (!pendingLevel) return;
-  const L = pendingLevel, from = levelFrom, el = $('#levelup'); pendingLevel = 0;
-  const newStage = stageOf(L) > stageOf(from);
-  $('#luImg').src = lookImg(stageOf(L)); $('#luTitle').textContent = `Brain level ${L}`;
-  $('#luSub').textContent = newStage ? `New look: stage ${stageOf(L)} of 10` : L - from > 1 ? `Up ${L - from} levels` : 'Your Brainer grew new brain cells';
-  el.classList.toggle('lu-big', newStage);
-  el.hidden = true; void el.offsetWidth; el.hidden = false;
-  clearTimeout(luT); luT = setTimeout(() => { el.hidden = true; }, 2800);
-  sound.level();
-}
-function setBrainLevel(L) {   // demo picker: jump straight to a brain level
-  S.cells = CELLS[L]; store.set('brainer.xp', String(S.cells)); store.set('brainer.level', String(L));
-  pendingLevel = 0; renderPilot(); renderPicker();
-}
-function earnFloat(k) {
-  if (reduced || W < 10 || getComputedStyle($('#pilot')).display === 'none') return;
-  const sr = stage.getBoundingClientRect(), pr = $('#pilot .ava').getBoundingClientRect();
-  const el = document.createElement('span'); el.className = 'earn';
-  el.innerHTML = `<i></i>+${k < 10 ? k.toFixed(1) : Math.round(k).toLocaleString('en-US')} brain cells`;
-  const x0 = W / 2 - 60, y0 = H * 0.3;
-  el.style.left = x0 + 'px'; el.style.top = y0 + 'px';
-  stage.appendChild(el);
-  const dx = pr.left - sr.left + pr.width / 2 - x0, dy = pr.top - sr.top + pr.height / 2 - y0;
-  el.animate([{ transform: 'translate(0,0) scale(1)', opacity: 0 }, { transform: 'translate(0,-24px) scale(1)', opacity: 1, offset: 0.25 }, { transform: `translate(${dx}px,${dy}px) scale(.5)`, opacity: 0.2 }], { duration: 1100, delay: 900, fill: 'backwards', easing: 'cubic-bezier(.5,0,.3,1)' }).onfinish = () => { el.remove(); const p = $('#pilot'); p.classList.remove('r-gain'); void p.offsetWidth; p.classList.add('r-gain'); };
-}
-function renderPilot() {
-  const L = myLevel(), next = L < 100 ? CELLS[L + 1] : null, have = S.cells - CELLS[L], cells = Math.floor(S.cells);
-  $('#lvnum').textContent = L; $('#plv').textContent = `Brain level ${L}`; $('#pilotImg').src = lookImg(stageOf(L));
-  $('#pilot').setAttribute('aria-label', `Brain level ${L}, ${cells.toLocaleString('en-US')} brain cells. Open your Brainer.`);
-  $('#pbar').style.width = (next == null ? 100 : Math.round(have / (next - CELLS[L]) * 100)) + '%';
-  $('#pnote').textContent = next == null ? `${cells.toLocaleString('en-US')} brain cells · top level` : `${Math.floor(have).toLocaleString('en-US')} / ${(next - CELLS[L]).toLocaleString('en-US')} cells to level ${L + 1}`;
+  store.set('brainer.xp', String(S.cells)); store.set('brainer.level', String(brainLevel(S.cells)));   // the website reads brainer.level
 }
 
 /* ---------- the scene: the Blender set, the live 3D Brainer on it (bot.js), and the station's power drawn in 2D ---------- */
@@ -264,10 +234,12 @@ function askBot() {
   if (navigator.connection && navigator.connection.saveData) { window.ChargeBotFailed = true; return; }
   window.loadChargeBot().catch(() => { window.ChargeBotFailed = true; });
 }
+const PHONE = matchMedia('(max-width:760px), (orientation:landscape) and (max-height:500px)');   // as in style.css
 function layout() {
   const b = stage.getBoundingClientRect(); W = b.width; H = b.height; DPR = Math.min(2, devicePixelRatio || 1);
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
-  K = Math.max(W / SC.set.w, H / SC.set.h); OX = (W - SC.set.w * K) * 0.5; OY = (H - SC.set.h * K) * (W > 760 ? 0.62 : 0.5);   // a wide stage crops the sky more than the pad
+  const phone = PHONE.matches;   // a phone: a little closer in, the sky cropped before the pad, so the Brainer stands big between the readout and the battery
+  K = Math.max(W / SC.set.w, H / SC.set.h) * (phone ? 1.08 : 1); OX = (W - SC.set.w * K) * 0.5; OY = (H - SC.set.h * K) * (phone ? 0.75 : W > 760 ? 0.62 : 0.5);   // a wide stage crops the sky more than the pad
   renderBattery();
 }
 const P = (x, y) => [x * K + OX, y * K + OY];   // a point of the render, on the stage
@@ -403,7 +375,7 @@ function draw(now, dt) {
   // the battery floats over its head; a tall Brainer would push it into the multiplier, so then it moves beside the head
   if (now - (view.measT || 0) > 400) { view.measT = now; const rb = $('#readout').getBoundingClientRect(), sb = stage.getBoundingClientRect(); view.minY = rb.bottom - sb.top + 34 * Math.max(K, 0.6); }
   let tx = top[0], ty = top[1] - 46 * K;
-  if (ty < view.minY) { ty = Math.max(view.minY, top[1] + 40 * K); tx = top[0] - 185 * K; }
+  if (ty < view.minY) { const bw = 76 * K * Math.max(1.35, 0.9 / K); ty = Math.max(view.minY, top[1] + 40 * K); tx = top[0] - 145 * K - bw / 2 - 6; }
   if (!view.bx) { view.bx = tx; view.by = ty; }
   view.bx += (tx - view.bx) * Math.min(1, dt / 90); view.by += (ty - view.by) * Math.min(1, dt / 90);
   // the coils feed the battery: crawling arcs first, then streams into it
@@ -524,13 +496,6 @@ function renderNextLook() {   // the next look ahead, how many charges away it i
     $('#nlSub').textContent = 'Graduation cap and cape';
   }
 }
-function renderPicker() {   // your Brainer: brain level, progress and the ten stages
-  const L = myLevel(), st = stageOf(L), f = document.activeElement, keep = f && f.dataset && f.dataset.b ? `#levelsGrid [data-b="${f.dataset.b}"]` : '';
-  $('#pickLevel').textContent = L; $('#pickSlider').value = L;
-  $('#pickNote').textContent = L < 100 ? `${Math.floor(S.cells - CELLS[L]).toLocaleString('en-US')} of ${(CELLS[L + 1] - CELLS[L]).toLocaleString('en-US')} brain cells to level ${L + 1}.` : 'Top level reached.';
-  $('#levelsGrid').innerHTML = Array.from({ length: 10 }, (_, i) => `<button type="button" data-b="${i * 10 + 1}" aria-pressed="${i + 1 === st}"${i + 1 > st ? ' class="ahead"' : ''}><img src="${lookImg(i + 1)}" alt=""><b>Stage ${i + 1}</b><span>Levels ${i * 10 + 1}–${i * 10 + 10}</span></button>`).join('');
-  if (keep && $(keep)) $(keep).focus({ preventScroll: true });
-}
 function renderBalance() { $('#balance').textContent = money(S.balance); $('.hud').classList.toggle('long', S.balance >= 1e5); }
 function renderSound() { const b = $('#sound'); b.setAttribute('aria-pressed', String(sound.on)); b.setAttribute('aria-label', sound.on ? 'Sound on, tap to mute' : 'Sound off, tap to unmute'); }
 let toastT = 0;
@@ -576,15 +541,11 @@ async function checkFair() {
     + `<p class="sheet-note">The cyan bar is each charge's safe chance and the white mark its roll: a roll inside the bar is safe.${shown > played ? ' The faded row is the next charge you skipped by cashing out.' : ''}</p>`;
 }
 
-/* ---------- sheets: brain-level picker, fairness and how to play ---------- */
-const sheetOpen = () => !$('#picker').hidden || !$('#tutorial').hidden || !$('#agegate').hidden || !$('#fairSheet').hidden;
+/* ---------- sheets: fairness and how to play ---------- */
+const sheetOpen = () => !$('#tutorial').hidden || !$('#agegate').hidden || !$('#fairSheet').hidden;
 let lastFocus = null;
 function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; const f = $(id).querySelector('button[aria-pressed=true], button'); if (f) f.focus({ preventScroll: true }); }   // no scroll: inside the website's frame it would scroll the parent page
 function closeSheet(id) { $(id).hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true }); }
-$('#pilot').addEventListener('click', () => { renderPicker(); openSheet('#picker'); });
-$('#pickerClose').addEventListener('click', () => closeSheet('#picker'));
-$('#levelsGrid').addEventListener('click', e => { const b = e.target.closest('button[data-b]'); if (b) setBrainLevel(+b.dataset.b); });
-$('#pickSlider').addEventListener('input', e => setBrainLevel(+e.target.value));
 $('#help').addEventListener('click', () => openSheet('#tutorial'));
 $('#fair').addEventListener('click', () => { renderFair(); openSheet('#fairSheet'); });
 $('#fairClose').addEventListener('click', () => closeSheet('#fairSheet'));
@@ -621,7 +582,7 @@ document.addEventListener('keydown', e => {
     if (s) { const f = [...s.querySelectorAll('button, input')].filter(b => !b.disabled && b.getClientRects().length), i = f.indexOf(document.activeElement); if (!f.length) e.preventDefault(); else if (i < 0 || (e.shiftKey ? i === 0 : i === f.length - 1)) { e.preventDefault(); f[e.shiftKey ? f.length - 1 : 0].focus({ preventScroll: true }); } }
     return;
   }
-  if (e.key === 'Escape') { for (const id of ['#picker', '#fairSheet', '#tutorial']) if (!$(id).hidden) { if (id === '#tutorial') store.set('brainer.ch.tutorial', 'seen'); closeSheet(id); } return; }
+  if (e.key === 'Escape') { for (const id of ['#fairSheet', '#tutorial']) if (!$(id).hidden) { if (id === '#tutorial') store.set('brainer.ch.tutorial', 'seen'); closeSheet(id); } return; }
   if (!booted) { if (e.code === 'Space') e.preventDefault(); return; }   // no game keys under the intro (the 18+ check comes first)
   if (sheetOpen()) return;
   const tag = document.activeElement && document.activeElement.tagName;
@@ -642,7 +603,7 @@ if (window.ResizeObserver) new ResizeObserver(layout).observe(stage);
 S.level = clamp(parseInt(store.get('brainer.ch.level', '1'), 10) || 0, 0, LEVELS.length - 1);
 S.client = randHex(8);
 rotateSeed().catch(() => {});   // without crypto.subtle (plain http) Play says why instead
-setStake(S.stake); renderLevels(); renderBalance(); renderControls(); renderPilot(); renderSound(); layout(); renderBattery(); renderNextLook();
+setStake(S.stake); renderLevels(); renderBalance(); renderControls(); renderSound(); layout(); renderBattery(); renderNextLook();
 const bootT = performance.now();
 // The intro waits for what the game needs to be seen: the set, the first still and the fonts; then up to 2.5 s more
 // for the 3D Brainer, which takes over from the still whenever it arrives. A slow line never holds the player past 9 s:
@@ -660,7 +621,7 @@ $('.brand .t1').textContent = 'Charge';
 for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);
 if ($('#boot')) $('#boot').remove();   // the page's own loading screen hands over to the intro
 document.addEventListener('visibilitychange', () => sound.hide(document.hidden));
-(window.BrainerIntro ? window.BrainerIntro.start({ title: 'Charge', mark: 'CHARGE', theme: 'plane', what: 'the charging station', progress: loadProgress, logo: 'assets/logo.webp', fallback: `assets/look/${stageOf(myLevel())}-lg.webp` }) : Promise.resolve()).then(() => {
+(window.BrainerIntro ? window.BrainerIntro.start({ title: 'Charge', mark: 'CHARGE', theme: 'plane', what: 'the charging station', progress: loadProgress, logo: 'assets/logo.webp', fallback: 'assets/look/1-lg.webp' }) : Promise.resolve()).then(() => {   // the intro shows the baby every round starts with
   booted = true;
   if (store.get('brainer.age-ok', '') !== '1') openSheet('#agegate');
   else if (store.get('brainer.ch.tutorial', '') !== 'seen') openSheet('#tutorial');

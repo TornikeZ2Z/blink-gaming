@@ -9,7 +9,7 @@
 (() => {
 'use strict';
 const BPM = 84, Q = 60 / BPM, S16 = Q / 4, BAR = Q * 4, SWING = 0.14;
-const LEVEL = 0.1;   // the whole mix: about -39 dB RMS, peaks near -28 dB, some 11 dB under the effects (which peak near -16 dB)
+const LEVEL = 0.1;   // the whole mix, some 11 dB under the effects; game.js lifts both together by 12 dB through its master level
 const hz = m => 440 * Math.pow(2, (m - 69) / 12);
 // two bars each; the pad's voicing, the bass note, and the notes the piano picks from
 const CHORDS = [

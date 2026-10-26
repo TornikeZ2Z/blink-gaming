@@ -20,7 +20,7 @@ body{min-height:100dvh;background:radial-gradient(90% 60% at 50% 0%,#24206e 0%,v
 button,input{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid #8447fb;outline-offset:2px}
-.hud :focus-visible,.pilot:focus-visible{outline-color:#fff;box-shadow:0 0 0 8px #0a1322}   /* over the sky a violet ring all but vanishes: white with a navy halo reads on any backdrop */
+.hud :focus-visible{outline-color:#fff;box-shadow:0 0 0 8px #0a1322}   /* over the sky a violet ring all but vanishes: white with a navy halo reads on any backdrop */
 .app{max-width:1640px;margin:0 auto;padding:14px 16px 12px;display:flex;flex-direction:column;gap:12px}
 
 .stage{position:relative;height:var(--stage-h);border-radius:26px;overflow:hidden;background:#9fb7c9;box-shadow:0 20px 60px rgba(75,54,252,.35),0 0 0 1px var(--line);touch-action:manipulation;user-select:none}
@@ -87,45 +87,12 @@ button{cursor:pointer}
 .newlook.cape{border-color:#ffc147;box-shadow:0 0 44px rgba(255,193,71,.55)} .newlook.cape small{color:#ffd56b}
 @keyframes newlook{0%{opacity:0;transform:translate(-50%,16px) scale(.8)}12%{opacity:1;transform:translate(-50%,0) scale(1.05)}20%{transform:translate(-50%,0) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-12px)}}   /* over the front of the pad, clear of the Brainer's face */
 
-/* your Brainer: the brain level every Brainer game shares */
-.pilot{position:absolute;right:14px;bottom:14px;z-index:3;display:flex;align-items:center;gap:10px;padding:6px 14px 6px 6px;border-radius:20px;background:rgba(10,19,34,.6);backdrop-filter:blur(8px);border:1px solid var(--line);text-align:left}
-.pilot:hover{border-color:rgba(132,71,251,.8);background:rgba(10,19,34,.72)}
-.ava{position:relative;width:54px;height:54px;flex:none;border-radius:15px;background:radial-gradient(circle at 50% 40%,#ffffff 0%,#d9d0ff 70%)}
-.ava img{position:absolute;left:-6px;top:-8px;width:66px;height:66px;object-fit:contain}
-.lvnum{position:absolute;right:-6px;bottom:-6px;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:var(--grad);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--navy)}
-.pinfo{display:flex;flex-direction:column;gap:4px;min-width:150px}
-.plv{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-weight:800;font-size:14px}
-.chg{font-size:11px;font-weight:700;color:var(--lilac);text-decoration:underline;text-underline-offset:2px}
-.bar{display:block;height:7px;border-radius:7px;background:rgba(255,255,255,.15);overflow:hidden}
-.bar i{display:block;height:100%;width:0;background:var(--green);border-radius:7px;transition:width .5s}
-.pnote{font-size:11px;font-weight:700;color:var(--lilac);font-variant-numeric:tabular-nums}
-.pilot.r-gain .ava{animation:gain .5s ease-out}
-@keyframes gain{0%,100%{box-shadow:none}40%{box-shadow:0 0 0 4px rgba(51,214,109,.7),0 0 22px rgba(0,235,192,.8)}}
-.earn{position:absolute;z-index:4;pointer-events:none;font-weight:800;font-size:14px;color:#7dffcf;text-shadow:0 2px 8px rgba(10,19,34,.6);white-space:nowrap}
-.earn i{display:inline-block;width:9px;height:9px;margin-right:5px;border-radius:50%;background:var(--green);box-shadow:0 0 10px #00ebc0}
-.levelup{position:absolute;right:14px;bottom:86px;z-index:3;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;padding:8px 16px 8px 8px;border-radius:20px;background:rgba(10,19,34,.82);backdrop-filter:blur(10px);border:1px solid rgba(132,71,251,.7);box-shadow:0 0 40px rgba(132,71,251,.55);pointer-events:none;animation:lvl 2.8s ease-out forwards}
-.levelup img{grid-row:span 2;width:62px;height:62px;object-fit:contain}
-.levelup b{font-size:17px;font-weight:800;align-self:end}
-.levelup span{font-size:12px;font-weight:700;color:var(--lilac);align-self:start}
-.levelup.lu-big{border-color:#ffc147;box-shadow:0 0 0 2px rgba(255,193,71,.5),0 14px 40px rgba(10,19,34,.5)}
-@keyframes lvl{0%{opacity:0;transform:translateY(14px) scale(.85)}10%{opacity:1;transform:translateY(-2px) scale(1.04)}18%{transform:none}85%{opacity:1}100%{opacity:0}}
 
 .sheet{position:absolute;inset:0;z-index:6;display:grid;place-items:center;padding:16px;background:rgba(10,19,34,.55);backdrop-filter:blur(6px)}
 .sheet-card{width:min(560px,100%);max-height:100%;overflow:auto;padding:18px;border-radius:22px;background:var(--navy-2);border:1px solid rgba(132,71,251,.5);box-shadow:0 20px 60px rgba(10,19,34,.6)}
 .sheet-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .sheet-head b{font-size:18px;font-weight:800}
 .sheet-note{margin:8px 0 14px;font-size:13px;color:var(--muted);line-height:1.45}
-.levels-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
-.levels-grid button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px 10px;border:1px solid var(--line);border-radius:16px;background:var(--navy-3)}
-.levels-grid button:hover{border-color:rgba(132,71,251,.8)}
-.levels-grid button[aria-pressed=true]{background:var(--grad);border-color:transparent}
-.levels-grid img{width:64px;height:64px;object-fit:contain}
-.levels-grid b{font-size:13px;font-weight:800}
-.levels-grid span{font-size:11px;font-weight:700;color:var(--lilac);font-variant-numeric:tabular-nums}
-.levels-grid button[aria-pressed=true] span{color:#fff}
-.levels-grid button.ahead img{filter:grayscale(.7) brightness(.8);opacity:.7}
-.pick-slider{display:grid;gap:6px;margin:4px 0 12px;font-size:12px;font-weight:700;color:var(--lilac)}
-.pick-slider input{width:100%;accent-color:#8447fb}
 .tut{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;width:min(480px,100%)}
 .tut-robot{width:110px;height:110px;object-fit:contain;margin-top:-6px}
 .tut > b{font-size:22px;font-weight:800}
@@ -209,40 +176,7 @@ button{cursor:pointer}
   .setup:not(.live) #go{grid-column:1/-1}
   .setup .big{min-height:64px}
 }
-@media (min-width:761px) and (max-width:1299px){ .pinfo{display:none} .pilot{padding:6px} .readout{top:62px;width:min(380px,44%)} }   /* under the top bar, which fills the width */
-@media (max-width:760px){
-  :root{--stage-h:clamp(330px,calc(100dvh - 380px),118vw)}
-  .app{padding:10px 10px 12px;gap:10px}
-  .stage{border-radius:22px}
-  .brand .t1{display:none}
-  .readout{top:56px;width:94%}
-  .readout .lvl{font-size:12px}
-  /* the battery lies down: one row of levels along the stage's foot */
-  .battery{left:8px;right:8px;top:auto;bottom:8px;width:auto;height:46px;padding:5px;flex-direction:row;border-radius:14px}
-  .battery::before{display:none}
-  .cells{-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 22px),transparent)}
-  .cells-in{top:0;bottom:0;left:0;right:auto;flex-direction:row;gap:4px}
-  .cell{height:34px;padding:0 8px;gap:5px;font-size:11px}
-  .cell b{font-size:13px;margin-left:4px}
-  .cell img,.cell .safe{display:none}
-  .nextlook{display:none}
-  .pilot{right:auto;left:8px;top:56px;bottom:auto;padding:3px;border-radius:16px;display:none}
-  .pinfo{display:none}
-  .levelup{right:auto;left:10px;bottom:62px}
-  .newlook{bottom:62px;padding:6px 18px 8px} .newlook b{font-size:19px}   /* above the battery */
-  .levelup img{width:52px;height:52px}
-  .setup{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;min-height:0}
-  .setup > .field{grid-column:1/-1}
-  .setup #go{grid-column:1/-1}
-  .setup.live #go{grid-column:2}
-  .setup.live .chips{display:none}
-  .lv button{min-height:54px}
-  .big{min-height:64px}
-  .levels-grid{gap:6px}
-  .levels-grid img{width:46px;height:46px}
-  .levels-grid button{padding:6px 2px 8px}
-  .foot{display:none}
-}
+@media (min-width:761px) and (max-width:1299px){ .readout{top:62px;width:min(380px,44%)} }   /* under the top bar, which fills the width */
 @media (max-width:480px){
   .hud{left:10px;right:10px;gap:6px} .hud-right{gap:5px} .round{width:34px;height:34px}
   .wallet{gap:4px;padding:4px 4px 4px 10px;font-size:14px} .wallet small{display:none} .wallet button{padding:4px 9px}
@@ -250,7 +184,7 @@ button{cursor:pointer}
 @media (max-width:374px){ .hud{justify-content:flex-end} .brand{display:none} }
 @media (max-width:330px){ .hud-right{gap:4px} .round{width:31px;height:31px} .round svg{width:16px;height:16px} .wallet{font-size:13px;padding:4px 4px 4px 8px} .wallet button{padding:4px 7px} }
 @media (max-height:700px) and (min-width:761px){ .foot{display:none} :root{--stage-h:clamp(360px,calc(100dvh - 206px),640px)} }
-@media (prefers-reduced-motion:reduce){ .readout .mult.pop,.readout .mult.gold,.levelup,.newlook{animation:none!important} .big,.toast,.cells-in{transition:none} }
+@media (prefers-reduced-motion:reduce){ .readout .mult.pop,.readout .mult.gold,.newlook{animation:none!important} .big,.toast,.cells-in{transition:none} }
 /* full screen: shared/focus.css loads after this file, so these say html.focus to stay on top of it. Charge's four
    controls stay in one row on a computer, two rows on a tablet; on a phone the bet and difficulty sit over Cash out and
    Charge (focus.css puts a single big button beside the bet, and Charge has two). */
@@ -259,10 +193,59 @@ html.focus .setup > .field,html.focus .setup > .big{grid-row:auto}
 html.focus .setup > .field:nth-of-type(2){grid-column:auto}
 html.focus .setup:not(.live) #go{grid-column:span 2}
 @media (min-width:761px) and (max-width:1099px){ html.focus .setup{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr)} html.focus .setup:not(.live) #go{grid-column:1/-1} }
-@media (max-width:760px){
+
+/* Phones (Tornike, 2026-10-27: on a real phone it was "no where near how it should be"). The page is exactly the space
+   the browser leaves (100dvh, inside the website's game frame too) and never scrolls: the controls take what they need,
+   compact, and the stage takes the rest. Held sideways, the controls stand in a column beside the stage. */
+@media (max-width:760px), (orientation:landscape) and (max-height:500px){
+  .app{height:100dvh;min-height:500px;padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));gap:8px}
+  .stage{flex:1 1 auto;height:auto;min-height:240px;border-radius:20px}
+  .controls{flex:none;padding:10px;border-radius:20px}
+  .brand .t1{display:none}
+  .readout{top:50px;width:94%}
+  .readout .lvl{font-size:11.5px}
+  .readout .mult{font-size:clamp(30px,10vw,42px)}
+  .readout .mult.idle,.readout .mult.bust{font-size:clamp(26px,8vw,34px)}
+  .readout .sub{font-size:12.5px;padding:3px 10px}
+  /* the battery lies down: one row of levels along the stage's foot */
+  .battery{left:6px;right:6px;top:auto;bottom:6px;width:auto;height:42px;padding:4px;flex-direction:row;border-radius:13px}
+  .battery::before{display:none}
+  .cells{-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 22px),transparent)}
+  .cells-in{top:0;bottom:0;left:0;right:auto;flex-direction:row;gap:4px}
+  .cell{height:32px;padding:0 8px;gap:5px;font-size:11px}
+  .cell b{font-size:13px;margin-left:4px}
+  .cell img,.cell .safe{display:none}
+  .nextlook{display:none}
+  .newlook{bottom:54px;padding:5px 16px 7px} .newlook b{font-size:18px}   /* above the battery */
+  .setup{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;min-height:0}
+  .setup > .field{grid-column:1/-1;gap:6px}
+  .setup:not(.live) #go{grid-column:1/-1}
+  .setup.live #cash{grid-column:1} .setup.live #go{grid-column:2}
+  .field label,.flabel{display:none}   /* the bet and the four difficulties speak for themselves */
+  .bet-row{grid-template-columns:40px minmax(0,1fr) 40px}
+  .step,.money-in input{height:40px}
+  .chips button{height:32px}
+  .lv button{min-height:40px;padding:2px}
+  .lv button span{display:none}   /* the readout shows the chosen difficulty's top win */
+  .big{min-height:54px;border-radius:16px}
+  .big .l1{font-size:22px}
+  .foot{display:none}
+}
+@media (orientation:landscape) and (max-height:500px){   /* a phone held sideways */
+  .app{flex-direction:row;max-width:none;min-height:0}
+  .controls{width:clamp(220px,32vw,290px);overflow-y:auto;display:flex;flex-direction:column;justify-content:center}
+  .lv{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lv button{min-height:32px}
+  .chips button{height:30px}
+  .step,.money-in input{height:36px}
+  .big{min-height:46px}
+  .big .l1{font-size:19px}
+}
+/* full screen on a phone: shared/focus.css loads after this file, so these say html.focus */
+@media (max-width:760px), (orientation:landscape) and (max-height:500px){
+  html.focus .app{padding:0}
   html.focus .setup{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   html.focus .setup > .field,html.focus .setup > .field:nth-of-type(2){grid-column:1/-1}
   html.focus .setup #cash{grid-column:1}
-  html.focus .setup #go{grid-column:1/-1} html.focus .setup.live #go{grid-column:2}
+  html.focus .setup:not(.live) #go{grid-column:1/-1} html.focus .setup.live #go{grid-column:2}
 }
-@media (max-width:380px){ .readout{top:50px} .readout .mult{font-size:36px} .readout .sub{font-size:12.5px;padding:3px 10px} }   /* the smallest phones: a shorter stage, so the readout stays clear of the Brainer's head */

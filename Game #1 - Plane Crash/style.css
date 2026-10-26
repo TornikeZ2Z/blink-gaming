@@ -247,3 +247,42 @@ button{cursor:pointer}
   .focus .controls .setup{grid-template-columns:minmax(0,1.05fr) minmax(0,.85fr)}
   .focus .controls .bet-row{grid-template-columns:36px minmax(0,1fr) 36px;gap:4px}
 }
+
+/* Phones (Tornike, 2026-10-27: every game must sit well on a real phone). The page is exactly the space the browser
+   leaves (100dvh, inside the website's game frame too) and never scrolls: the controls take what they need, compact,
+   and the stage takes the rest. The controls keep one height before and during a flight, so the scene never jumps at
+   take-off. Held sideways, they stand in a column beside the stage. */
+@media (max-width:760px), (orientation:landscape) and (max-height:500px){
+  .app{height:100dvh;min-height:500px;padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));gap:8px}
+  .stage{flex:1 1 auto;height:auto;min-height:240px;border-radius:20px}
+  .controls{flex:none;padding:10px;border-radius:20px}
+  .setup,.flight{min-height:190px}
+  .setup{grid-template-columns:minmax(0,1fr);gap:8px}
+  .field{gap:6px}
+  .field label,.flabel{display:none}   /* the bet and the four difficulties speak for themselves */
+  .bet-row{grid-template-columns:40px minmax(0,1fr) 40px}
+  .step,.money-in input{height:40px}
+  .chips button{height:32px}
+  .lv button{min-height:40px;padding:2px}
+  .lv button span{display:none}   /* the readout shows the chosen difficulty's top win */
+  .big{min-height:54px;border-radius:16px}
+  .big .l1{font-size:22px}
+  .flight{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:8px}
+  .paths button{min-height:0}
+  .paths button .nm{display:none}
+  .foot{display:none}
+}
+@media (orientation:landscape) and (max-height:500px){   /* a phone held sideways */
+  .app{flex-direction:row;max-width:none;min-height:0}
+  .controls{width:clamp(240px,34vw,300px);overflow-y:auto;display:flex;flex-direction:column;justify-content:center}
+  .setup,.flight{min-height:0}
+  .lv{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lv button{min-height:32px}
+  .chips button{height:30px}
+  .step,.money-in input{height:36px}
+  .big{min-height:46px}
+  .big .l1{font-size:19px}
+  .paths{gap:5px}
+  .paths button{min-height:64px}
+  .paths button .n{font-size:17px}
+}

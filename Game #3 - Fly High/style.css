@@ -328,16 +328,9 @@ button{cursor:pointer}
 .board .amt.lost b{color:#ff8a9b}
 .board .empty{display:block;text-align:center;color:var(--muted);font-weight:700;font-size:13px;padding:18px}
 
-/* ---------- the Iron Brainer (2026-10-26): the suit chip and the leaderboard column ---------- */
+/* ---------- the Iron Brainer (2026-10-26): the leaderboard column ---------- */
 .col{display:flex;flex-direction:column;gap:12px;min-width:0}
 .focus .col{flex:1 1 auto;min-height:0;gap:0}
-/* the suit chip, bottom left: level, the gear it just got, and how far to the next piece */
-.suit{position:absolute;left:14px;bottom:14px;z-index:3;display:flex;flex-direction:column;gap:5px;min-width:200px;padding:9px 14px 10px;border-radius:18px;background:rgba(10,19,34,.6);backdrop-filter:blur(8px);border:1px solid var(--line);pointer-events:none}
-.suit-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:13px;font-weight:700;color:#dfe3f5}
-.suit-top b{font-size:14px;font-weight:800;color:#fff;white-space:nowrap}
-.suit-next{font-size:11px;font-weight:700;color:var(--lilac);font-variant-numeric:tabular-nums}
-.suit .bar i{transition:width .25s}
-@media (max-width:760px){ .suit{left:10px;bottom:10px;min-width:0;max-width:calc(100% - 20px);padding:7px 11px 8px;gap:4px} .suit-top{font-size:12px} .suit-top b{font-size:13px} }
 /* the leaderboard: a sheet over the page on narrow screens, its own column beside the game from 1100 px (game.js syncSide) */
 .side{position:fixed;z-index:8}
 @media (min-width:1100px){

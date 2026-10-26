@@ -173,8 +173,7 @@ window.BRAINER = {
       ],
       specs: [
         ['Type', 'Instant, single player, Chicken Road style'],
-        ['RTP', 'Up to 98%, the same at every brain level. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
-        ['Brain levels', '100 in ten looks; the same 10 brain cells for every finished round. They never change odds or payouts'],
+        ['RTP', 'Up to 98%, the same for every player. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
         ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 overloads in 25 charges'],
         ['Charges per round', '24, 22, 20, up to 14'],
         ['Looks', 'Eleven, spread over the charges a round can reach, and a random piece of gear on every charge between. They never change odds or payouts'],
@@ -187,8 +186,7 @@ window.BRAINER = {
         ['Certification', 'Not yet tested by a lab']
       ],
       fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Each charge rolls HMAC-SHA256(server seed, "client seed:nonce:charge"), and a roll at or above that charge’s safe chance overcharges the Brainer. The shield button in the game re-checks the last round charge by charge, so the player, the casino or a regulator can recompute it.',
-      demoNote: 'Demo build with play money in US dollars; the game’s final name is still being chosen. Brain levels and the Brainer’s looks never change the odds or payouts.',
-      levelsNote: 'The odds and payouts are the same for every player at every brain level. A single round pays at most the $10,000 max win.'
+      demoNote: 'Demo build with play money in US dollars; the game’s final name is still being chosen. The Brainer’s looks and gear never change the odds or payouts.'
     },
     {
       id: 'fogrush',

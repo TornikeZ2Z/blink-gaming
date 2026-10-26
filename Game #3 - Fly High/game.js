@@ -456,17 +456,6 @@ function scareFx(now) {
   return fx0;
 }
 
-/* ---------- the suit chip: the level, the latest piece, and when the next one comes ---------- */
-let lastSuit = '';
-function renderSuit(L, m, name) {
-  const next = LV_AT[L], key = L + '|' + name + '|' + (next ? Math.round(m * 50) : '');
-  if (key === lastSuit) return; lastSuit = key;
-  const lo = LV_AT[L - 1], p = next ? clamp(Math.log(Math.max(m, lo) / lo) / Math.log(next / lo), 0, 1) : 1;
-  $('#suitLv').textContent = `Suit level ${L}`; $('#suitName').textContent = name;
-  $('#suitBar').style.width = Math.round(p * 100) + '%';
-  $('#suitNext').textContent = next ? `Next: mystery gear at ${fx(next)}` : 'Fully suited up';
-}
-
 /* ---------- the scene: from the launch pad, through the clouds and out into space ---------- */
 // Tornike, 2026-10-26: simple, drawn, and ending in space. Layers with depth: far mountains and hills round the pad
 // (with its tower and launch smoke), birds and a balloon, three layers of shaded clouds (the near one passing in front),
@@ -748,8 +737,6 @@ function draw(now) {
     ctx.beginPath(); ctx.moveTo(x - r * 2, y); ctx.lineTo(x, y + r * 0.6); ctx.lineTo(x + r * 2, y); ctx.lineTo(x, y - r * 0.6); ctx.closePath(); ctx.fill();
   }
   ctx.globalAlpha = 1;
-  const latest = o.gear && o.gear.length ? R.build[o.L - 1] : null;
-  renderSuit(o.L, R && R.phase !== 'bet' && R.phase !== 'starting' ? R.m : 1, latest ? latest.name : 'Hand and foot jets');
   // wins float up from the Brainer
   view.wins = view.wins.filter(w => now - w.t0 < 1400);
   view.wins.forEach((w, i) => {
