@@ -62,12 +62,18 @@ let commit = null;
 function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h => { S.seed = s; S.hash = h; })); }
 
 /* ---------- sound ---------- */
-// Synthesised with Web Audio, so there are no files to load. Starts on the first tap; the HUD button mutes it.
+// Synthesised with Web Audio, so there are no files to load. Starts on the first tap or key; the HUD button mutes it.
+// Every sound goes through one master: lifted 12 dB into a compressor that keeps the peaks under full scale. Without it
+// the mix peaked near -22 dBFS, fine on a phone at full volume but barely audible on desktop speakers (2026-10-27).
 const sound = (() => {
-  let ac = null, on = store.get('brainer.sound', 'on') !== 'off';
+  let ac = null, out = null, on = store.get('brainer.sound', 'on') !== 'off';
   const ctxA = () => {
-    if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A(); }
-    if (ac.state === 'suspended') ac.resume();
+    if (!ac) {
+      const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A();
+      const comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.knee.value = 8; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.2;
+      out = ac.createGain(); out.gain.value = 4; out.connect(comp).connect(ac.destination);
+    }
+    if (ac.state === 'suspended' && !document.hidden) ac.resume();
     return ac;
   };
   const tone = (f0, f1, dur, type, vol, delay) => {
@@ -75,7 +81,7 @@ const sound = (() => {
     const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
     o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+    o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.05);
   };
   const noise = (dur, vol, f0, f1, delay) => {
     const a = on && ctxA(); if (!a) return;
@@ -84,11 +90,12 @@ const sound = (() => {
     const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
     src.buffer = buf; f.type = 'lowpass'; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f).connect(g).connect(a.destination); src.start(t);
+    src.connect(f).connect(g).connect(out); src.start(t);
   };
   return {
     get on() { return on; },
     toggle() { on = !on; store.set('brainer.sound', on ? 'on' : 'off'); if (on) ctxA(); return on; },
+    wake() { if (on) ctxA(); },   // browsers let a page make sound only after a tap or a key, so the first one unlocks it
     place() { tone(520, 780, 0.1, 'triangle', 0.09); },
     ignite() { noise(0.5, 0.08, 300, 1600); tone(80, 160, 0.5, 'sawtooth', 0.02); },   // the jets light on the pad
     takeoff() { noise(0.9, 0.1, 500, 2800); tone(120, 260, 0.8, 'sawtooth', 0.025); },
@@ -101,6 +108,8 @@ const sound = (() => {
     spin() { noise(0.7, 0.08, 800, 2400); }
   };
 })();
+
+for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);
 
 /* ---------- the round ---------- */
 function openRound() {   // betting opens on the seed committed (and hashed) at the end of the last round
@@ -683,7 +692,7 @@ function draw(now) {
   const dt = Math.min(50, now - (view.last || now)); view.last = now;
   const goal = heightNow(now);
   view.alt = goal >= view.alt ? goal : view.alt + (goal - view.alt) * Math.min(1, dt * 0.005);   // between rounds it sinks back to the pad
-  const size = clamp(Math.min(W, H) * 0.6, 180, 380), k = size / 280, X = W / 2;   // centred on every screen (Tornike, 2026-10-26)
+  const size = clamp(Math.min(W, H) * 0.6, 120, 380), k = size / 280, X = W / 2;   // centred on every screen (Tornike, 2026-10-26)
   const lifting = R && (R.lit || R.phase !== 'bet'), pushing = lifting && R.phase !== 'end';
   const fast = R && R.phase === 'fly' ? clamp((speedAt(now - R.t0) - cfg.grow[0]) / (2 * cfg.grow[1] * 23), 0, 1) : 0;   // 0 at take-off, 1 by 10,000×
   world(now, dt, view.alt, X, k, fast, lifting, pushing);
