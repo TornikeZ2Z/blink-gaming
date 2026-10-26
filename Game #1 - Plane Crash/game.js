@@ -33,6 +33,12 @@ for (const d of LEVELS) {
   for (let n = 1; n <= d.steps; n++) { const sv = (25 - d.bombs - (n - 1)) / (25 - (n - 1)); d.safe.push(sv); d.cum.push(d.cum[n - 1] * sv); }
 }
 const PATHS = [['Far left', -60], ['Left', -30], ['Ahead', 0], ['Right', 30], ['Far right', 60]];
+// Aim & Break, a second mode on trial (?mode=aim, or the Mode switch on the stage). Same flight, bets and maths; but
+// each step is one armoured target dead ahead, not five hoops. The Brainer fires: a safe roll breaks the target and the
+// plane flies through the pieces; a bomb roll means the shot glances off and the target fires back. The shot uses path
+// 1's roll, so the fairness check is unchanged. It flies at night, as in Tornike's storyboard (2026-10-27).
+let AIM = false;
+const offC = k => AIM ? 0 : k - 2;   // how far a path lies left or right of centre; the one target is dead ahead
 // Brain cells needed to reach each brain level (CELLS[L]): quick at first, then slower. At 10 cells a flight, level 10
 // takes about 80 flights and level 100 about 20,000. Ten stages of ten levels; each stage is one look from the brand book.
 const CELLS = (() => { const c = [0, 0]; for (let n = 1; n < 100; n++) c.push(c[n] + Math.round(10 + 8 * Math.pow(n, 1.4))); return c; })();
@@ -77,12 +83,18 @@ let commit = null;
 function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h => { S.seed = s; S.hash = h; })); }
 
 /* ---------- sound ---------- */
-// Synthesised with Web Audio, so there are no files to load. Starts on the first tap; the HUD button mutes it.
+// Synthesised with Web Audio, so there are no files to load. Starts on the first tap or key; the HUD button mutes it.
+// Every sound goes through one master: lifted 12 dB into a compressor that keeps the peaks under full scale. Without it
+// the mix peaked near -22 dBFS, fine on a phone at full volume but barely audible on desktop speakers (2026-10-27).
 const sound = (() => {
-  let ac = null, on = store.get('brainer.sound', 'on') !== 'off';
+  let ac = null, out = null, on = store.get('brainer.sound', 'on') !== 'off';
   const ctxA = () => {
-    if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A(); }
-    if (ac.state === 'suspended') ac.resume();
+    if (!ac) {
+      const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A();
+      const comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.knee.value = 8; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.2;
+      out = ac.createGain(); out.gain.value = 4; out.connect(comp).connect(ac.destination);
+    }
+    if (ac.state === 'suspended' && !document.hidden) ac.resume();
     return ac;
   };
   const tone = (f0, f1, dur, type, vol, delay) => {
@@ -90,7 +102,7 @@ const sound = (() => {
     const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
     o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+    o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.05);
   };
   const noise = (dur, vol, f0, f1, delay) => {
     const a = on && ctxA(); if (!a) return;
@@ -99,19 +111,25 @@ const sound = (() => {
     const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
     src.buffer = buf; f.type = 'lowpass'; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f).connect(g).connect(a.destination); src.start(t);
+    src.connect(f).connect(g).connect(out); src.start(t);
   };
   return {
     get on() { return on; },
     toggle() { on = !on; store.set('brainer.sound', on ? 'on' : 'off'); if (on) ctxA(); return on; },
+    wake() { if (on) ctxA(); },   // browsers let a page make sound only after a tap or a key, so the first one unlocks it
     takeoff() { noise(0.7, 0.1, 500, 2600); tone(120, 240, 0.6, 'sawtooth', 0.025); },
     pick() { tone(520, 780, 0.1, 'triangle', 0.1); tone(1500, 480, 0.75, 'sine', 0.035, 0.05); },
+    fire() { noise(0.22, 0.22, 5000, 600); tone(1100, 160, 0.3, 'square', 0.05); },
+    clang() { tone(2300, 1700, 0.35, 'triangle', 0.1); tone(3100, 2600, 0.25, 'sine', 0.05, 0.02); noise(0.12, 0.12, 7000, 2000); },
+    shatter() { noise(0.7, 0.32, 7000, 250); tone(180, 60, 0.4, 'sine', 0.16); [1320, 1760, 2093].forEach((f, i) => tone(f, 0, 0.18, 'sine', 0.06, 0.06 + i * 0.05)); },
     safe() { tone(880, 0, 0.12, 'sine', 0.12); tone(1320, 0, 0.2, 'sine', 0.1, 0.08); },
     boom() { noise(1, 0.45, 1000, 50); tone(95, 38, 0.7, 'sine', 0.25); },
     jump() { noise(0.25, 0.12, 3000, 700); [660, 880, 1100, 1320].forEach((f, i) => tone(f, 0, 0.16, 'triangle', 0.09, 0.12 + i * 0.07)); },
     level() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0, 0.22, 'sine', 0.1, i * 0.08)); }
   };
 })();
+
+for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);
 
 /* ---------- round flow ---------- */
 const FLY_MS = 1100, IMPACT = 0.68;
@@ -132,10 +150,10 @@ async function play() {
 }
 function choose(k) {
   const r = round;
-  if (!r || r.status !== 'choose' || k < 0 || k >= cfg.paths || sheetOpen()) return;
-  r.pick = k; r.picks[r.n] = k; r.status = 'flying'; r.t0 = performance.now(); r.hit = r.bombs[r.n][k]; r.struck = false;
+  if (!r || r.status !== 'choose' || k < 0 || k >= (AIM ? 1 : cfg.paths) || sheetOpen()) return;
+  r.pick = k; r.picks[r.n] = k; r.status = 'flying'; r.t0 = performance.now(); r.hit = r.bombs[r.n][k]; r.struck = false; r.landed = false;
   sceneFly(k, r.bombs[r.n], r.t0);
-  react('shake', 'Gulp…'); sound.pick();
+  if (AIM) { react('shake', 'Fire!'); sound.fire(); } else { react('shake', 'Gulp…'); sound.pick(); }
   renderControls();
 }
 function jump(auto) {
@@ -154,6 +172,7 @@ function advance(now) {
   const r = round;
   if (!r || r.status !== 'flying') return;
   const p = (now - r.t0) / FLY_MS;
+  if (AIM && !r.landed && p >= SHOT) { r.landed = true; shotLands(now, r.hit); }
   if (!r.struck && p >= IMPACT) {
     r.struck = true; sceneImpact(now);
     if (r.hit) {
@@ -161,7 +180,7 @@ function advance(now) {
       if (navigator.vibrate) navigator.vibrate(120);
       settle(); return;
     }
-    sound.safe();
+    if (AIM) sound.shatter(); else sound.safe();
   }
   if (p >= 1) {
     r.n++; r.status = 'choose'; r.pick = -1; r.popAt = now;
@@ -306,7 +325,7 @@ function render3D(now) {
   if (!k) return;
   const wA = Math.round(clamp(700 * PS * dpr, 240, 1400)), hA = Math.round(wA * 0.62), B = Math.round(clamp(Math.min(W, H) * 0.56 * dpr, 160, 900)), C = Math.round(clamp(400 * PS * dpr, 160, 900));
   if (wA !== k.wA || B !== k.B || C !== k.C) { Object.assign(k, { wA, hA, B, C }); k.stage.setSize(wA + B + C, Math.max(hA, B, C)); }
-  const m = moodNow(now), side = round && round.status === 'choose' && view.hover >= 0 ? Math.sign(view.hover - 2) : 0;
+  const m = moodNow(now), side = round && round.status === 'choose' && view.hover >= 0 ? Math.sign(offC(view.hover)) : 0;
   k.seat.setLevel(plane.brain); k.seat.update(now, m.ex, { seat: true, side, lookX: lookNow(now), noFace: true, reduced });
   const tk = view.takeoff ? now - view.takeoff.t0 : -1, gear = view.parked ? 1 : tk >= 0 ? 1 - clamp((tk - 1500) / 600, 0, 1) : 0, pitch = tk >= 0 ? -0.14 * Math.sin(clamp((tk - 800) / 1400, 0, 1) * Math.PI) : 0;
   k.plane.update(now, { yaw: view.bank * 0.5, pitch, gear, idle: view.parked, level: plane.brain, soot: plane.state === 'fall', pilot: plane.state !== 'empty' && plane.state !== 'gone', reduced });
@@ -346,7 +365,7 @@ function moodNow(now) {
   if (ex !== mood.ex) { mood.ex = ex; mood.t0 = now; }
   return mood;
 }
-const lookNow = now => round && round.status === 'choose' ? (view.hover >= 0 ? (view.hover - 2) / 2 : Math.sin(now / 1700) * 0.5) : round && round.status === 'flying' ? (view.pick - 2) / 2 : Math.sin(now / 2300) * 0.4;
+const lookNow = now => round && round.status === 'choose' ? (view.hover >= 0 ? offC(view.hover) / 2 : Math.sin(now / 1700) * 0.5) : round && round.status === 'flying' ? offC(view.pick) / 2 : Math.sin(now / 2300) * 0.4;
 const pcv = $('#pilotCv'), pcx = pcv.getContext('2d');
 function drawPilot(now) {   // the live portrait in the HUD
   const w = pcv.clientWidth, h = pcv.clientHeight;
@@ -676,7 +695,7 @@ function setWorld(key) {
   document.querySelectorAll('#worlds button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.w === worldKey)));
 }
 
-const gateX = k => (k - 2) * SPREAD;
+const gateX = k => offC(k) * SPREAD;
 const projX = (x, z) => W / 2 + (x - view.camX) * F / z;
 const altY = (alt, z) => HY + alt * F / z;
 const H_GATE = () => (PY - HY) * ZP / F;   // gates fly at the plane's height
@@ -788,7 +807,7 @@ function robotSeat(t, L) {
   ctx.restore();
 }
 function robotHands(t) {   // hands on the cockpit rim; the one on the side you're hovering lifts toward that path
-  const side = round && round.status === 'choose' && view.hover >= 0 ? Math.sign(view.hover - 2) : 0, cheer = mood.ex === 'phew' || mood.ex === 'wink';
+  const side = round && round.status === 'choose' && view.hover >= 0 ? Math.sign(offC(view.hover)) : 0, cheer = mood.ex === 'phew' || mood.ex === 'wink';
   for (const sd of [-1, 1]) {
     const lift = cheer ? -34 + Math.sin(t / 90 + sd) * 6 : side === sd ? -16 : 0, hb = (reduced ? 0 : Math.sin(t / 300 + sd) * 1.5) + lift;
     ctx.save(); ctx.translate(sd * (cheer ? 66 : 58), 0 + hb); ctx.rotate(sd * (cheer ? 0.5 : side === sd ? 0.8 : 0.25));
@@ -999,7 +1018,7 @@ function update(now, dt) {
     view.gz = lerp(Z_WAIT, ZP * 0.45, ease(pp)); view.camX = gateX(view.pick) * ease(clamp(pp / 0.8, 0, 1));
   } else if (!(r && r.status === 'crashed')) view.gz = lerp(Z_FAR, Z_WAIT, easeOut(clamp((now - view.introT) / 450, 0, 1)));
   // the plane leans toward the path you're about to take, and toward the hoop you're hovering while you decide
-  const bankTo = flying ? clamp((gateX(view.pick) - view.camX) / SPREAD * 0.22, -0.45, 0.45) : choosing && view.hover >= 0 ? (view.hover - 2) * 0.07 : 0;
+  const bankTo = flying ? clamp((gateX(view.pick) - view.camX) / SPREAD * 0.22, -0.45, 0.45) : choosing && view.hover >= 0 ? offC(view.hover) * 0.07 : 0;
   view.bank += (bankTo - view.bank) * Math.min(1, dt * 0.008);
   // bombs keep falling far behind the hoops while the pilot decides; never in line with a hoop, so they hint nothing
   if ((!r || choosing) && !view.parked && !view.takeoff && now > nextDropAt && W) {
