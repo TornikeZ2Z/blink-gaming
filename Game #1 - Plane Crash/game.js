@@ -438,6 +438,11 @@ function standing(img, u, z, wUnits, hz) {
 }
 function groundFields() {
   const D = 3.2, road = roadAt, HAZE = ['rgba(226,232,246,.92)', 0.2], tall = [];
+  const stripe = (za, zb, hw, col) => {   // a painted stripe on the road's centre line, in perspective: it narrows with distance
+    if (zb <= za) return;
+    const ra = road(za + view.scroll), rb = road(zb + view.scroll);
+    poly([gpt(ra - hw, za), gpt(ra + hw, za), gpt(rb + hw, zb), gpt(rb - hw, zb)], col);
+  };
   groundTexture();
   forRows(D, 64, (row, z0, z1) => {
     if (groundY(z1) > H) return;
@@ -449,14 +454,14 @@ function groundFields() {
       if (w1 > a.zw - 5 && w0 < a.zw + 40) {
         const za = Math.max(z0, a.zw - 5 - view.scroll), zb = Math.min(z1, a.zw + 40 - view.scroll);
         poly([gpt(d0 - 1.3, za), gpt(d0 + 1.3, za), gpt(d1 + 1.3, zb), gpt(d1 - 1.3, zb)], '#44474f');
-        if (row % 2 === 0) { const [x, y] = gpt(d0, z0 + D * 0.3), [x2, y2] = gpt(d0, z0 + D * 0.8); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.lineWidth = Math.max(1, 0.12 * F / zm); ctx.strokeStyle = '#f2f2f2'; ctx.stroke(); }
+        if (row % 2 === 0) stripe(Math.max(za, z0 + D * 0.1), Math.min(zb, z0 + D * 0.9), 0.07, '#f2f2f2');   // the centre-line dash, on the runway only
         for (const sd of [-1, 1]) { const [x, y] = gpt(d0 + sd * 1.42, z0), r = Math.max(1, 0.06 * F / zm); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fillStyle = '#bff8ff'; ctx.fill(); }   // runway lights
       }
       for (const [img, du, dz, wu] of [[AIRFIELD.tower, 3.2, 8, 1.3], [AIRFIELD.hangar, -3.8, 3.2, 3.4]]) {
         const zh = a.zw + dz - view.scroll; if (zh >= z0 && zh < z1) tall.push([img, a.u + du, zh, wu]);   // drawn after the haze
       }
     }
-    if (near && row % 2 === 0) { const za = z0 + D * 0.15, zb = z0 + D * 0.55, ra = road(za + view.scroll), rb = road(zb + view.scroll); ctx.beginPath(); ctx.moveTo(...gpt(ra, za)); ctx.lineTo(...gpt(rb, zb)); ctx.lineWidth = Math.max(1, 0.05 * F / zm); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.stroke(); }
+    if (near && row % 2 === 0) stripe(z0 + D * 0.15, z0 + D * 0.55, 0.025, 'rgba(255,255,255,.35)');   // the road's own faint dash
   });
   for (const c of clouds) {   // the drifting clouds' shadows on the land
     if (c.alt < 0.5 || c.z < 1.5) continue;
