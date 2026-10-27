@@ -41,7 +41,7 @@ window.BRAINER = {
       genre: 'Instant',
       badge: 'New',
       round: 'round',
-      color: '#7A5CFF',
+      color: '#8A7BE3',
       // A frame of the game: five shield drones ahead of the Brainer's pod jet in a violet and cyan nebula, 800x1000.
       art: 'assets/games/space-crash.webp',
       // Published, the game sits at /space-crash/ next to the site; in the repo it is the sibling folder.
@@ -96,7 +96,7 @@ window.BRAINER = {
       genre: 'Instant',
       badge: 'New',
       round: 'round',
-      color: '#29C8FF',
+      color: '#8A7BE3',
       // A frame of the game: the Brainer on its pad in the lab, charging from one of the five pillars, 800x1000.
       art: 'assets/games/multi-charge.webp',
       // Published, the game sits at /multi-charge/ next to the site; in the repo it is the sibling folder.
@@ -152,7 +152,7 @@ window.BRAINER = {
       genre: 'Crash',
       badge: 'Game #1',
       round: 'flight',
-      color: '#2E8BD8',
+      color: '#8A7BE3',
       art: 'assets/games/plane-crash.webp',
       // Published, the game sits at /plane-crash/ next to the site; in the repo it is the sibling folder.
       src: location.pathname.includes('/Website/') ? '../Game%20%231%20-%20Plane%20Crash/index.html' : 'plane-crash/index.html',
@@ -207,7 +207,7 @@ window.BRAINER = {
       genre: 'Crash',
       badge: 'Game #2',
       round: 'round',
-      color: '#5A3FFC',
+      color: '#8A7BE3',
       art: 'assets/games/fly-high.webp',
       // Published, the game sits at /fly-high/ next to the site; in the repo it is the sibling folder.
       src: location.pathname.includes('/Website/') ? '../Game%20%233%20-%20Fly%20High/index.html' : 'fly-high/index.html',
@@ -254,7 +254,7 @@ window.BRAINER = {
       genre: 'Instant',
       badge: 'Game #3',
       round: 'round',
-      color: '#29C8FF',
+      color: '#8A7BE3',
       // The charging station rendered in Blender (Brainer 3D/blender/charge.py, the approved charge frame), 800x1000.
       art: 'assets/games/charge.webp',
       // Published, the game sits at /charge/ next to the site; in the repo it is the sibling folder.
