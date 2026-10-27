@@ -84,54 +84,19 @@ let commit = null;
 function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h => { S.seed = s; S.hash = h; })); }
 
 /* ---------- sound ---------- */
-// Synthesised with Web Audio, so there are no files to load. Starts on the first tap or key; the HUD button mutes it.
-// Every sound goes through one master: lifted 12 dB into a compressor that keeps the peaks under full scale. Without it
-// the mix peaked near -22 dBFS, fine on a phone at full volume but barely audible on desktop speakers (2026-10-27).
-const sound = (() => {
-  let ac = null, out = null, on = store.get('brainer.sound', 'on') !== 'off';
-  const ctxA = () => {
-    if (!ac) {
-      const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A();
-      const comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.knee.value = 8; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.2;
-      out = ac.createGain(); out.gain.value = 4; out.connect(comp).connect(ac.destination);
-    }
-    if (ac.state === 'suspended' && !document.hidden) ac.resume();
-    return ac;
-  };
-  const tone = (f0, f1, dur, type, vol, delay) => {
-    const a = on && ctxA(); if (!a) return;
-    const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
-    o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.05);
-  };
-  const noise = (dur, vol, f0, f1, delay) => {
-    const a = on && ctxA(); if (!a) return;
-    const t = a.currentTime + (delay || 0), len = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, len, a.sampleRate), ch = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
-    const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
-    src.buffer = buf; f.type = 'lowpass'; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f).connect(g).connect(out); src.start(t);
-  };
-  return {
-    get on() { return on; },
-    toggle() { on = !on; store.set('brainer.sound', on ? 'on' : 'off'); if (on) ctxA(); return on; },
-    wake() { if (on) ctxA(); },   // browsers let a page make sound only after a tap or a key, so the first one unlocks it
-    takeoff() { noise(0.7, 0.1, 500, 2600); tone(120, 240, 0.6, 'sawtooth', 0.025); },
-    pick() { tone(520, 780, 0.1, 'triangle', 0.1); tone(1500, 480, 0.75, 'sine', 0.035, 0.05); },
-    fire() { noise(0.22, 0.22, 5000, 600); tone(1100, 160, 0.3, 'square', 0.05); },
-    warp() { noise(0.9, 0.22, 400, 6000); tone(90, 520, 0.7, 'sawtooth', 0.05); tone(180, 1040, 0.6, 'sine', 0.06, 0.05); },   // the launch kick
-    down() { tone(420, 60, 1.1, 'sawtooth', 0.05); tone(210, 40, 1.2, 'sine', 0.12); noise(0.5, 0.06, 900, 120, 0.1); },   // engines winding down
-    clang() { tone(2300, 1700, 0.35, 'triangle', 0.1); tone(3100, 2600, 0.25, 'sine', 0.05, 0.02); noise(0.12, 0.12, 7000, 2000); },
-    gear() { tone(220, 0, 0.08, 'square', 0.05); [660, 990, 1320].forEach((f, i) => tone(f, f * 1.5, 0.16, 'triangle', 0.08, 0.06 + i * 0.07)); },   // a piece clanks on, then a rising chime (as in Fly High)
-    shatter() { noise(0.7, 0.32, 7000, 250); tone(180, 60, 0.4, 'sine', 0.16); [1320, 1760, 2093].forEach((f, i) => tone(f, 0, 0.18, 'sine', 0.06, 0.06 + i * 0.05)); },
-    safe() { tone(880, 0, 0.12, 'sine', 0.12); tone(1320, 0, 0.2, 'sine', 0.1, 0.08); },
-    boom() { noise(1, 0.45, 1000, 50); tone(95, 38, 0.7, 'sine', 0.25); },
-    jump() { noise(0.25, 0.12, 3000, 700); [660, 880, 1100, 1320].forEach((f, i) => tone(f, 0, 0.16, 'triangle', 0.09, 0.12 + i * 0.07)); },
-    level() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0, 0.22, 'sine', 0.1, i * 0.08)); }
-  };
-})();
+// Made live with Web Audio by ../shared/sound.js, the calm set every game shares (Tornike, 2026-10-27), so there are no
+// files to load. Starts on the first tap or key; the HUD button mutes it. The background music (../shared/music.js)
+// plays under it all, very low, and every sound ducks it a little.
+const sound = BrainerSound(store, v => ({
+  takeoff() { v.whoosh(0.9, 0.07, 200, 1100); v.soft(90, 150, 0.8, 0.04); },
+  fire() { v.soft(880, 330, 0.18, 0.06); v.whoosh(0.05, 0.03, 2000, 800); },   // a short soft "pew"
+  warp() { v.whoosh(1.0, 0.07, 200, 1600); v.soft(110, 220, 0.8, 0.05); },   // the launch kick
+  down() { v.soft(330, 98, 1.1, 0.06); v.whoosh(0.6, 0.035, 500, 80, 0.1); },   // engines winding down
+  clang() { v.soft(523, 494, 0.25, 0.09, 0, 'triangle'); v.soft(784, 0, 0.18, 0.035, 0.01); },   // a muted "tunk" off the shield
+  gear() { v.bell(784, 0.035); },
+  shatter(n) { v.whoosh(0.35, 0.05, 1500, 250, 0.02); v.thud(0.08); v.bell(v.step(n), 0.045, 0.06); },   // a bell one note higher for every shield broken
+  jump() { v.whoosh(0.4, 0.04, 500, 1600); [523, 659, 784, 1047].forEach((f, i) => v.bell(f, 0.05, 0.12 + i * 0.09)); }
+}));
 
 for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);
 
@@ -149,7 +114,7 @@ async function play() {
   finally { starting = false; renderControls(); }
   S.balance = cents(S.balance - r.stake); round = r;
   sceneStart(d);
-  feel('wink', 900); sound.takeoff();
+  feel('wink', 900); sound.takeoff(); sound.mood('round', 0);
   renderBalance(); renderControls(); renderLadder();
 }
 function choose(k) {
@@ -168,7 +133,7 @@ function jump(auto) {
   r.payout = payAt(r, r.n); r.status = 'cashed'; r.auto = auto;   // auto: the game jumped (last path or max win), so no step was skipped
   S.balance = cents(S.balance + r.payout);
   sceneJump(performance.now(), m);
-  if (m >= 10) feel('amazed', 1700); sound.jump();
+  if (m >= 10) feel('amazed', 1700); sound.jump(); sound.mood('idle');
   if (auto) toast(r.n >= r.d.steps ? 'Last row broken, so your Brainer cashed out automatically.' : `Max win of ${money(cfg.maxWin)} reached, so your Brainer cashed out automatically.`);
   settle();
 }
@@ -181,11 +146,11 @@ function advance(now) {
   if (!r.struck && p >= IMPACT) {
     r.struck = true; sceneImpact(now);
     if (r.hit) {
-      r.status = 'crashed'; sceneCrash(now); sound.down();
+      r.status = 'crashed'; sceneCrash(now); sound.down(); sound.dip();
       if (navigator.vibrate) navigator.vibrate(120);
       settle(); return;
     }
-    sound.shatter();
+    sound.shatter(r.n); sound.mood('round', (r.n + 1) / r.reach);
   }
   if (p >= 1) {
     r.n++; r.status = 'choose'; r.pick = -1; r.popAt = now;

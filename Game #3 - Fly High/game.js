@@ -62,52 +62,21 @@ let commit = null;
 function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h => { S.seed = s; S.hash = h; })); }
 
 /* ---------- sound ---------- */
-// Synthesised with Web Audio, so there are no files to load. Starts on the first tap or key; the HUD button mutes it.
-// Every sound goes through one master: lifted 12 dB into a compressor that keeps the peaks under full scale. Without it
-// the mix peaked near -22 dBFS, fine on a phone at full volume but barely audible on desktop speakers (2026-10-27).
-const sound = (() => {
-  let ac = null, out = null, on = store.get('brainer.sound', 'on') !== 'off';
-  const ctxA = () => {
-    if (!ac) {
-      const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A();
-      const comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.knee.value = 8; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.2;
-      out = ac.createGain(); out.gain.value = 4; out.connect(comp).connect(ac.destination);
-    }
-    if (ac.state === 'suspended' && !document.hidden) ac.resume();
-    return ac;
-  };
-  const tone = (f0, f1, dur, type, vol, delay) => {
-    const a = on && ctxA(); if (!a) return;
-    const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
-    o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.05);
-  };
-  const noise = (dur, vol, f0, f1, delay) => {
-    const a = on && ctxA(); if (!a) return;
-    const t = a.currentTime + (delay || 0), len = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, len, a.sampleRate), ch = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
-    const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
-    src.buffer = buf; f.type = 'lowpass'; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f).connect(g).connect(out); src.start(t);
-  };
-  return {
-    get on() { return on; },
-    toggle() { on = !on; store.set('brainer.sound', on ? 'on' : 'off'); if (on) ctxA(); return on; },
-    wake() { if (on) ctxA(); },   // browsers let a page make sound only after a tap or a key, so the first one unlocks it
-    place() { tone(520, 780, 0.1, 'triangle', 0.09); },
-    ignite() { noise(0.5, 0.08, 300, 1600); tone(80, 160, 0.5, 'sawtooth', 0.02); },   // the jets light on the pad
-    takeoff() { noise(0.9, 0.1, 500, 2800); tone(120, 260, 0.8, 'sawtooth', 0.025); },
-    cash() { [660, 880, 1100, 1320].forEach((f, i) => tone(f, 0, 0.16, 'triangle', 0.09, i * 0.06)); },
-    away() { noise(0.9, 0.14, 700, 5000); tone(300, 1800, 0.7, 'sawtooth', 0.03); },   // a rising whoosh as it flies away
-    gear() { tone(220, 0, 0.08, 'square', 0.05); [660, 990, 1320].forEach((f, i) => tone(f, f * 1.5, 0.16, 'triangle', 0.08, 0.06 + i * 0.07)); },   // a piece of gear clanks on, then a rising chime
-    sputter() { noise(0.5, 0.12, 1200, 200); tone(180, 60, 0.3, 'square', 0.03); },
-    glitch() { noise(0.25, 0.08, 6000, 3000); tone(1400, 300, 0.15, 'square', 0.02); },
-    dip() { tone(400, 120, 0.35, 'sawtooth', 0.03); tone(120, 400, 0.3, 'sawtooth', 0.03, 0.55); },
-    spin() { noise(0.7, 0.08, 800, 2400); }
-  };
-})();
+// Made live with Web Audio by ../shared/sound.js, the calm set every game shares (Tornike, 2026-10-27), so there are no
+// files to load. Starts on the first tap or key; the HUD button mutes it. The background music (../shared/music.js)
+// plays under it all, very low, and every sound ducks it a little.
+const sound = BrainerSound(store, v => ({
+  place() { v.pluck(784, 0.06); },
+  ignite() { v.whoosh(0.7, 0.1, 150, 600); },   // the jets light on the pad
+  takeoff() { v.whoosh(1.1, 0.06, 200, 1300); v.soft(80, 150, 1.0, 0.06); },
+  cash() { [523, 659, 784].forEach((f, i) => v.bell(f, 0.055, i * 0.08)); },
+  away() { v.whoosh(0.9, 0.05, 1100, 180); v.soft(392, 220, 0.7, 0.045, 0, 'triangle'); },   // a falling whoosh as it flies away
+  gear() { v.bell(784, 0.04); v.bell(1175, 0.03, 0.09); },
+  sputter() { v.whoosh(0.25, 0.12, 500, 150); v.whoosh(0.25, 0.1, 450, 140, 0.3); },   // the scares: two soft puffs,
+  glitch() { v.soft(880, 0, 0.06, 0.05); v.soft(660, 0, 0.06, 0.05, 0.09); },   // two quiet blips,
+  swoop() { v.soft(330, 200, 0.35, 0.045); v.soft(200, 330, 0.35, 0.045, 0.45); },   // a swoop down and up,
+  spin() { v.whoosh(0.8, 0.08, 300, 900); }   // and a whoosh
+}));
 
 for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);
 
@@ -129,7 +98,7 @@ async function takeOff() {
   if (S.force) { R.crash = S.force; R.forced = true; }   // a test flight: the fly-away point typed in by hand
   R.phase = 'fly'; R.t0 = performance.now(); view.flyT0 = R.t0; scheduleScare(R.t0, true);
   for (const b of bets) if (b.st === 'placed') b.st = 'live';
-  sound.takeoff(); say('Take-off.');
+  sound.takeoff(); sound.mood('round', 0); say('Take-off.');
   renderBets(); if (!$('#fairSheet').hidden) renderFair();
 }
 function place(b) {
@@ -147,13 +116,13 @@ function cashOut(b, m) {
 }
 function flyAway(now) {
   R.phase = 'end'; R.endT0 = now; R.m = R.crash; view.awayT0 = now; scare.kind = '';
-  let played = false;
-  for (const b of bets) { if (b.st === 'live') b.st = 'lost'; if (b.st === 'lost' || b.st === 'cashed') played = true; }
+  let played = false, lost = false;
+  for (const b of bets) { if (b.st === 'live') { b.st = 'lost'; lost = true; } if (b.st === 'lost' || b.st === 'cashed') played = true; }
   rounds.unshift({ nonce: R.nonce, seed: R.seed, hash: R.hash, client: R.client, crash: R.crash, forced: !!R.forced, seedCrash: R.seedCrash, mine: bets.filter(b => b.st === 'lost' || b.st === 'cashed').map(b => ({ i: b.i, stake: b.stake, st: b.st, at: b.at, payout: b.payout })) });
   rounds.length = Math.min(rounds.length, 30);
   for (const b of bets) if (b.st === 'lost' || b.st === 'cashed') recordBet(b, R.crash);   // for My bets and the board
   if (played) earnCells(cfg.brain.perRound);
-  sound.away(); say(`Flew away at ${fx(R.crash)}.`);
+  sound.away(); if (lost) sound.dip(); else sound.mood('idle'); say(`Flew away at ${fx(R.crash)}.`);
   rotateSeed().then(() => { if (!$('#fairSheet').hidden) renderFair(); });   // the next round's commit, before its betting opens
   renderHist(); renderBets(); if (!$('#fairSheet').hidden) renderFair(); if (!$('#topSheet').hidden) renderBoard();
 }
@@ -443,7 +412,7 @@ function scareFx(now) {
   if (!flying()) return fx0;
   if (!scare.kind && now >= scare.next) {
     const kinds = Object.keys(SCARES); scare.kind = kinds[Math.floor(Math.random() * kinds.length)];
-    scare.t0 = now; scare.dur = SCARES[scare.kind]; scare.side = Math.random() < 0.5 ? -1 : 1; sound[scare.kind === 'boot' ? 'sputter' : scare.kind]();
+    scare.t0 = now; scare.dur = SCARES[scare.kind]; scare.side = Math.random() < 0.5 ? -1 : 1; sound[{ boot: 'sputter', dip: 'swoop' }[scare.kind] || scare.kind]();
   }
   if (!scare.kind) return fx0;
   const q = (now - scare.t0) / scare.dur;
@@ -697,7 +666,7 @@ function draw(now) {
       if (R.phase === 'fly' && o.L > view.suit) {   // a new piece: it arrives its own way, sparks, a banner, and the Brainer reacts
         const it = R.build[o.L - 1];
         view.suit = o.L; view.gearT0 = now; view.arrive = { it, style: pick(STYLES) }; view.react = pick(REACTS);
-        sound.gear(); burst(X, Y, o.L); showGear(o.L, it.name);
+        sound.gear(); sound.mood('round', o.L / 10); burst(X, Y, o.L); showGear(o.L, it.name);
       }
     }
     const gq = view.gearT0 ? (now - view.gearT0) / 550 : 1;

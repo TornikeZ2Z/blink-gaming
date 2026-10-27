@@ -78,59 +78,19 @@ let commit = null;
 function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h => { S.seed = s; S.hash = h; })); }
 
 /* ---------- sound ---------- */
-// Synthesised with Web Audio, so there are no files to load. Starts on the first tap; the HUD button mutes it.
-// The background music (music.js) plays under it all, very low, from the first tap; every effect ducks it a little.
-const sound = (() => {
-  let ac = null, out = null, on = store.get('brainer.sound', 'on') !== 'off', music = null, mood = ['idle', 0];
-  const ctxA = () => {
-    if (!ac) {
-      const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A();
-      // every sound goes through one master level, +12 dB, and a limiter, so desktop speakers hear it as a phone does
-      // (the mix peaked near -21 dB before; Fly High's fix, measured by its session) and nothing clips
-      out = ac.createGain(); out.gain.value = 4;
-      const lim = ac.createDynamicsCompressor(); Object.entries({ threshold: -14, knee: 8, ratio: 6, attack: 0.003, release: 0.2 }).forEach(([k, v]) => { lim[k].value = v; });
-      out.connect(lim).connect(ac.destination);
-      if (window.BrainerMusic) { music = window.BrainerMusic(ac, out); music.mood(...mood); }
-    }
-    if (ac.state === 'suspended' && !document.hidden) ac.resume();
-    if (on && music && !music.running && !document.hidden) music.start();
-    return ac;
-  };
-  const tone = (f0, f1, dur, type, vol, delay) => {
-    const a = on && ctxA(); if (!a) return;
-    if (music && !delay) music.duck();
-    const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
-    o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.05);
-  };
-  const noise = (dur, vol, f0, f1, delay, type) => {
-    const a = on && ctxA(); if (!a) return;
-    const t = a.currentTime + (delay || 0), len = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, len, a.sampleRate), ch = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
-    const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
-    src.buffer = buf; f.type = type || 'lowpass'; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f).connect(g).connect(out); src.start(t);
-  };
-  return {
-    get on() { return on; },
-    toggle() { on = !on; store.set('brainer.sound', on ? 'on' : 'off'); if (on) ctxA(); else if (music) music.stop(); return on; },
-    wake() { if (on) ctxA(); },   // browsers let a page make sound only after a tap or a key: the music starts on the first one
-    hide(hidden) { if (!ac) return; if (hidden) { if (music) music.stop(); ac.suspend(); } else if (on) ctxA(); },   // quiet while the tab is away
-    mood(m, f = 0) { mood = [m, f]; if (music) music.mood(m, f); },
-    dip() { mood = ['idle', 0]; if (music) music.dip(); },
-    place() { tone(520, 780, 0.1, 'triangle', 0.09); tone(180, 360, 0.35, 'sawtooth', 0.02, 0.05); },   // the pad powers up
-    hum(ms) { const s = ms / 1000; tone(70, 240, s, 'sawtooth', 0.035); tone(140, 480, s, 'square', 0.012); noise(s, 0.06, 300, 3000, 0, 'bandpass'); },   // the coils winding up
-    zap() { noise(0.16, 0.08, 7000, 1500, 0, 'highpass'); tone(1600, 600, 0.14, 'triangle', 0.03); },
-    gear() { tone(330, 0, 0.06, 'square', 0.035); [784, 1175].forEach((f, i) => tone(f, f * 1.5, 0.14, 'triangle', 0.08, 0.06 + i * 0.07)); },
-    safe() { tone(880, 0, 0.14, 'sine', 0.12, 0.05); tone(1320, 0, 0.22, 'sine', 0.1, 0.13); },
-    look() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, 0, 0.2, 'triangle', 0.09, 0.15 + i * 0.07)); },
-    overcharge() { tone(500, 1700, 0.65, 'sine', 0.05); tone(1000, 2600, 0.65, 'triangle', 0.02); noise(0.2, 0.12, 2600, 600, 0.7); tone(720, 90, 1.0, 'sine', 0.06, 0.8); },   // the battery whines up, pops, and the Brainer powers down
-    cash() { [660, 880, 1100, 1320].forEach((f, i) => tone(f, 0, 0.16, 'triangle', 0.09, i * 0.06)); }
-
-  };
-})();
+// Made live with Web Audio by ../shared/sound.js, the calm set every game shares (Tornike, 2026-10-27), so there are no
+// files to load. Starts on the first tap or key; the HUD button mutes it. The background music (../shared/music.js)
+// plays under it all, very low, and every sound ducks it a little.
+const sound = BrainerSound(store, v => ({
+  place() { v.pluck(523, 0.07); },   // the pad powers up
+  hum(ms) { const s = ms / 1000; v.soft(196, 262, s, 0.035); v.soft(294, 392, s, 0.02); },   // the coils winding up, a soft rising pad
+  zap() { v.whoosh(0.07, 0.05, 2500, 1200); },
+  gear() { v.bell(784, 0.035, 0.15); },
+  safe(n) { v.bell(v.step(n), 0.05, 0.04); },   // a bell one note higher for every safe charge
+  look() { [523, 659, 784, 1047].forEach((f, i) => v.bell(f, 0.045, 0.15 + i * 0.08)); },
+  overcharge() { v.soft(330, 520, 0.55, 0.06); v.whoosh(0.12, 0.12, 1600, 300, 0.6); v.soft(392, 196, 0.8, 0.07, 0.7, 'triangle'); },   // a swell, a polite pop, and the Brainer powers down
+  cash() { [523, 659, 784, 1047].forEach((f, i) => v.bell(f, 0.05, i * 0.09)); }
+}));
 
 /* ---------- round flow ---------- */
 const CHARGE_MS = reduced ? 700 : 1150, STRIKE = 0.62;   // the coils feed the battery for 62% of a charge, then it's decided
@@ -185,7 +145,7 @@ function advance(now) {
       settle(); return;
     }
     const before = lookAt(r.n, r.reach); r.n++; const after = lookAt(r.n, r.reach);
-    sceneSafe(now, after !== before ? after : 0); sound.zap(); sound.safe(); sound.mood('round', r.n / r.reach);
+    sceneSafe(now, after !== before ? after : 0); sound.zap(); sound.safe(r.n - 1); sound.mood('round', r.n / r.reach);
     r.popAt = now; renderBattery();
   }
   if (p >= 1) {
@@ -608,7 +568,6 @@ function loadProgress() {
 $('.brand .t1').textContent = 'Charge';
 for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);
 if ($('#boot')) $('#boot').remove();   // the page's own loading screen hands over to the intro
-document.addEventListener('visibilitychange', () => sound.hide(document.hidden));
 (window.BrainerIntro ? window.BrainerIntro.start({ title: 'Charge', mark: 'CHARGE', theme: 'plane', what: 'the charging station', progress: loadProgress, logo: 'assets/visor.png', fallback: 'assets/look/1-lg.webp' }) : Promise.resolve()).then(() => {   // the intro shows the baby every round starts with
   booted = true;
   if (store.get('brainer.age-ok', '') !== '1') openSheet('#agegate');

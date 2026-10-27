@@ -99,6 +99,8 @@
 <script src="../shared/face.js"></script>
 <script src="../shared/intro.js"></script>
 <script src="../shared/focus.js"></script>
+<script src="../shared/sound.js"></script>
+<script src="../shared/music.js"></script>
 <script src="game.js"></script>
 <script type="module">Promise.all([import('../shared/brainer3d.js'), import('./aim3d.js')]).then(([m, A]) => { window.Brainer3D = { Brainer: m.Brainer, BrainerStage: m.BrainerStage, Plane3D: m.Plane3D, Chute3D: m.Chute3D, PodJet: A.PodJet, POD_UPGRADES: A.POD_UPGRADES, POD_PAINTS: A.POD_PAINTS }; }, () => { window.Brainer3D = false; });   // false: the 2D Brainer plays, and the intro stops waiting for 3D</script>
 </body>
