@@ -28,7 +28,7 @@ esc = lambda s: html.escape(s, quote=True)
 
 def block(title, desc, url, image, alt):
     return '\n'.join([START,
-        '<meta property="og:type" content="website">', '<meta property="og:site_name" content="Brainer Games">',
+        '<meta property="og:type" content="website">', '<meta property="og:site_name" content="Brainer">',
         f'<meta property="og:title" content="{esc(title)}">', f'<meta property="og:description" content="{esc(desc)}">',
         f'<meta property="og:url" content="{esc(url)}">', f'<meta property="og:image" content="{esc(image)}">',
         '<meta property="og:image:type" content="image/jpeg">', '<meta property="og:image:width" content="1200">', '<meta property="og:image:height" content="630">',
@@ -46,7 +46,7 @@ def tag(src, title, desc, url, image, alt):
 
 
 SITE_IMG = f'{ORIGIN}/assets/share/brainer-games.jpg'
-SITE_ALT = 'Brainer Games: instant games for casinos, with the Brainer in Plane Crash and Space Crash'
+SITE_ALT = 'Brainer: instant games for casinos, with the Brainer in Plane Crash and Space Crash'
 for p in sorted(SITE.glob('*.html')):
     if p.name.startswith('game-'): continue
     s = p.read_text(encoding='utf-8')
@@ -61,10 +61,10 @@ gpath = SITE / 'game.html'
 base = untag(gpath.read_text(encoding='utf-8'))
 for old in SITE.glob('game-*.html'): old.unlink()
 for g in games:
-    title, desc = f"{g['title']} · Brainer Games", f"{g['tagline']} A playable demo with play money, for 18+."
-    s = base.replace('<title>Game · Brainer Games</title>', f'<title>{esc(title)}</title>')
+    title, desc = f"{g['title']} · Brainer", f"{g['tagline']} A playable demo with play money, for 18+."
+    s = base.replace('<title>Game · Brainer</title>', f'<title>{esc(title)}</title>')
     s = re.sub(r'<meta name="description" content="[^"]*">', lambda m: f'<meta name="description" content="{esc(desc)}">', s)
     s = s.replace('<body data-page="games">', f'<body data-page="games" data-game="{g["id"]}">')
-    s = tag(s, title, desc, f"{ORIGIN}/game-{g['id']}.html", f"{ORIGIN}/assets/share/{g['id']}.jpg", f"{g['title']} by Brainer Games, with the Brainer in the game")
+    s = tag(s, title, desc, f"{ORIGIN}/game-{g['id']}.html", f"{ORIGIN}/assets/share/{g['id']}.jpg", f"{g['title']} by Brainer, with the Brainer in the game")
     (SITE / f"game-{g['id']}.html").write_text(s, encoding='utf-8', newline=nl(gpath))
     print('wrote', f"game-{g['id']}.html")

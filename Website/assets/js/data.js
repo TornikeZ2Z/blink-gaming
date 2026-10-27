@@ -2,9 +2,7 @@
    An empty value (email, licence) means it is not final yet, and the pages say so instead of showing a placeholder. */
 window.BRAINER = {
   SITE: {
-    brand: 'Brainer Games',
-    // The brand book's drawn wordmark (B + "Brainer"), 154x36 px until a designer redraws it as a vector with "Games".
-    logo: 'assets/brainer/logo/logo-mono.png',
+    brand: 'Brainer',   // the name everywhere; "Games" is only in the domain (Tornike, 2026-10-27)
     minAge: 18,
     email: '',
     legal: 'Licensing in progress. The demos use play money only.'

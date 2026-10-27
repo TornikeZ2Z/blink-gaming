@@ -149,7 +149,7 @@ async function loadDetail(id) {
   const r = await call('/api/requests/' + id);
   const rows = state.meta.fields.filter(f => !['name', 'company'].includes(f.key)).map(f => [f.label, f.key in r ? r[f.key] : r.data[f.key]]).filter(([, v]) => v);
   rows.push(['Received', full(r.created_at)], ['Country (from IP)', r.country || 'unknown'], ['Sent from', r.page || '']);
-  const subject = encodeURIComponent(`Brainer Games demo for ${r.company}`);
+  const subject = encodeURIComponent(`Brainer demo for ${r.company}`);
   $('#detail').innerHTML = `<button class="btn back" id="back">← All requests</button>
     <h2>${esc(r.company)}</h2><div class="sub">${esc(r.name)} · <a href="mailto:${esc(r.email)}">${esc(r.email)}</a></div>
     <div class="bar">

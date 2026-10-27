@@ -1,4 +1,4 @@
-# Brainer Games website
+# Brainer website
 
 B2B studio site for aggregators and casino operators, in Brainer direction A ("brand book, light"), which Tornike picked on 2026-10-25. It uses Tornike's core palette (2026-10-27, see Colours below), with the Brainer visor logo and the 3D Brainer's ten looks. Pages are light or dark: dark mode follows the system setting, and the switch in the header overrides it (kept in `localStorage` `brainer.theme`). Plain HTML, CSS and JavaScript with no build step, same as the games.
 
@@ -30,7 +30,7 @@ Header, footer, menu drawer and the 18+ check are drawn by `assets/js/site.js` o
 
 ## Brand assets
 
-`assets/fonts/firago/` holds FiraGO Regular, Bold and ExtraBold (see Typeface below). `assets/brainer/logo/` holds files downloaded from Tornike's Brainer Drive on 2026-10-25 with his OK (`logo-white.png` is the B on the gradient tile, `logo-blue.png` the gradient B on white, `logo-mono.png` a small B + "Brainer" lockup, `favicon.png`). `assets/brainer/robots/1.webp` to `10.webp` are the ten stage stills, Baby to Master, one per ten brain levels: the game team's renders of the 3D Brainer (`Brainer 3D/renders/stages/`), re-rendered on 2026-10-27 at 800×800 with a transparent background and no shadow haze, about 37 to 64 KB each. They replaced the brand book's flat robots on 2026-10-25.
+`assets/fonts/firago/` holds FiraGO Regular, Bold and ExtraBold (see Typeface below). `assets/brainer/logo/` holds the visor: `visor.svg`, the tab icon `favicon.svg` and `favicon.png` (192×192, for browsers without SVG icons). The brand book's B is retired everywhere (Tornike, 2026-10-27), and its PNGs are gone. `assets/brainer/robots/1.webp` to `10.webp` are the ten stage stills, Baby to Master, one per ten brain levels: the game team's renders of the 3D Brainer (`Brainer 3D/renders/stages/`), re-rendered on 2026-10-27 at 800×800 with a transparent background and no shadow haze, about 37 to 64 KB each. They replaced the brand book's flat robots on 2026-10-25.
 
 ## Link previews
 
@@ -49,7 +49,7 @@ Every page carries Open Graph and Twitter tags (between `<!-- link preview -->` 
 python -m fontTools.subset FiraGO-Medium.woff2 --unicodes="U+0000-00FF,U+0100-017F,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0300-0304,U+0308-0309,U+0323,U+2000-206F,U+2070-209F,U+20A0-20CF,U+2100-214F,U+2190-2199,U+2212,U+2215,U+2248,U+2260,U+2264-2265,U+FEFF,U+FFFD,U+10A0-10FF,U+1C90-1CBF,U+2D00-2D2F" --layout-features='*' --flavor=woff2 --output-file=FiraGO-Medium.subset.woff2
 ```
 - **Colours:** Tornike's core palette (2026-10-27), five roles plus the stage scale, everything else retired. Brainer violet `#532aff` (`--main`), with `#4b36fc` to `#8447fb` (`--g1`) as the only brand gradient and lighter tints where contrast needs them (dark mode's `#A493FF`); screen blue `#3550F0` for the visor logo and the robot's face; ink `#1B1838` and night `#0B0F1E` (`--dark`: the footer, the frame, shadows and fades); white and the tint family (`--tint`, `--tint-2`, `--line`); win gold `#FFC147` only for wins and game titles, never the logo (the site uses none). The ten stage colours, Baby to Master, are `BRAIN.colours` in `data.js`: the ladder colours each stage with its own, and the five tiers show their two. Every game's `color` (the tile's colour while its poster loads, and the carousel glow) is the brand violet. Success green and error red (`--green`, `--red`) are state colours, not brand; the compliance ticks are green because they mean done. Tokens are at the top of `site.css`, with the dark-mode set below them.
-- **Name and logo:** `SITE.brand` in `data.js` names the site; the logo is the visor (see Logo at the end). `SITE.logo` still points at the brand book's wordmark PNG, but nothing reads it any more.
+- **Name and logo:** the name is "Brainer" everywhere: page titles, previews, copy and the inbox (Tornike, 2026-10-27: "Games" is only in the domain, brainer.games; the Georgian name will be ბრეინერი). `SITE.brand` in `data.js` holds it. The logo is the visor (see Logo at the end); Tornike designs the master lockup himself.
 - **Email and legal line:** the address is partners@brainer.games (Cloudflare Email Routing forwards it to Tornike), written straight into `contact.html` and `assets/js/contact.js`; `SITE.email` is empty and unused. `SITE.legal` is the footer's status line ("Licensing in progress"). Name the company, licence and lab there once they are final.
 
 ## Not real yet
@@ -66,4 +66,4 @@ python -m fontTools.subset FiraGO-Medium.woff2 --unicodes="U+0000-00FF,U+0100-01
 - FogRush is hidden from the site and the deploy (`hidden: true` in its `data.js` entry, filtered out at the end of the file); its entry and code stay, so setting it back to `false` (and restoring its copy step in the Pages workflow) brings it back.
 - Every page is `noindex` until launch.
 
-Logo (Tornike's pick, 2026-10-27): the Brainer's visor, `assets/brainer/logo/visor.svg`, its screen flat screen blue `#3550F0` (core palette, same day), with the name set in FiraGO ExtraBold. `site.js` draws it inline so its screen lights up from black and the eyes blink open on load; `favicon.svg` is the same mark for the tab (the old `favicon.png` stays as a fallback). The brand book's B logo PNGs stay in `assets/brainer/logo/` but no page uses them.
+Logo (Tornike's pick, 2026-10-27): the Brainer's visor, `assets/brainer/logo/visor.svg`, its screen flat screen blue `#3550F0` (core palette, same day) with the line above the eyes always solid white (Tornike: it shouldn't change colour), and the name set in FiraGO ExtraBold. `site.js` draws it inline so its screen lights up and the eyes blink open on load; `favicon.svg` and `favicon.png` are the same mark for the tab. The B is retired.

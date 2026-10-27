@@ -172,7 +172,7 @@ const NAV = [
 const cur = key => (key === page ? ' aria-current="page"' : '');
 // The logo is the Brainer's visor (assets/brainer/logo/visor.svg) and the name in FiraGO. It is drawn inline so the screen
 // can light up and the eyes blink open when a page loads. The screen is the palette's screen blue, #3550F0.
-const visor = () => `<svg class="visor" viewBox="0 0 64 44" aria-hidden="true"><rect class="off" width="64" height="44" rx="19"/><rect class="screen" width="64" height="44" rx="19" fill="#3550F0"/><path class="gloss" d="M12 7.5h40" stroke="#fff" stroke-opacity=".3" stroke-width="2.6" stroke-linecap="round"/><rect class="eye" x="17" y="14" width="9" height="15" rx="3.6" fill="#fff"/><rect class="eye" x="38" y="14" width="9" height="15" rx="3.6" fill="#fff"/></svg>`;
+const visor = () => `<svg class="visor" viewBox="0 0 64 44" aria-hidden="true"><rect class="off" width="64" height="44" rx="19"/><rect class="screen" width="64" height="44" rx="19" fill="#3550F0"/><path class="gloss" d="M12 7.5h40" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><rect class="eye" x="17" y="14" width="9" height="15" rx="3.6" fill="#fff"/><rect class="eye" x="38" y="14" width="9" height="15" rx="3.6" fill="#fff"/></svg>`;
 const logo = () => `<a class="logo" href="index.html" aria-label="${esc(SITE.brand)} home">${visor()}<span class="word">Brainer</span></a>`;
 
 const header = $('#site-header');

@@ -98,7 +98,7 @@ def visor(h):
     m = Image.new('L', (w, h), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, w - 1, h - 1], 19 * s, fill=255)
     out = Image.new('RGBA', (w, h), (0, 0, 0, 0)); out.paste(g, (0, 0), m)
     d = ImageDraw.Draw(out)
-    d.line([(12 * s, 7.5 * s), (52 * s, 7.5 * s)], fill=(255, 255, 255, 77), width=round(2.6 * s))
+    d.line([(12 * s, 7.5 * s), (52 * s, 7.5 * s)], fill=(255, 255, 255, 255), width=round(2.6 * s))   # the line above the eyes: solid white, always
     for x0 in (17, 38): d.rounded_rectangle([x0 * s, 14 * s, (x0 + 9) * s, 29 * s], 3.6 * s, fill=(255, 255, 255, 255))
     # a soft white halo so the blue visor stands off the violet
     halo = Image.new('RGBA', (w + 60, h + 60), (0, 0, 0, 0))
@@ -121,9 +121,9 @@ def lockup(base, x, y, vh, size):
     v = visor(vh); base.alpha_composite(v, (x - 30, y - 30))
     vw = v.width - 60
     f = font('ExtraBold', size)
-    tb = ImageDraw.Draw(base).textbbox((0, 0), 'Brainer Games', font=f)
+    tb = ImageDraw.Draw(base).textbbox((0, 0), 'Brainer', font=f)
     ty = y + (vh - (tb[3] - tb[1])) / 2 - tb[1]
-    return text(base, (x + vw + round(vh * .32), ty), 'Brainer Games', size, 'ExtraBold')
+    return text(base, (x + vw + round(vh * .32), ty), 'Brainer', size, 'ExtraBold')
 
 
 def save(img, name):

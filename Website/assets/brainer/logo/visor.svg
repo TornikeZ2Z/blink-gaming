@@ -2,7 +2,7 @@
   <!-- The Brainer's visor: the lit LED screen and two LED eyes (Tornike's pick, logo 2, 2026-10-27; no dark shell since that day).
        The screen is the palette's screen blue #3550F0, flat (Tornike's core palette, 2026-10-27). -->
   <rect width="64" height="44" rx="19" fill="#3550F0"/>
-  <path d="M12 7.5h40" stroke="#fff" stroke-opacity=".3" stroke-width="2.6" stroke-linecap="round"/>
+  <path d="M12 7.5h40" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
   <rect x="17" y="14" width="9" height="15" rx="3.6" fill="#fff"/>
   <rect x="38" y="14" width="9" height="15" rx="3.6" fill="#fff"/>
 </svg>
