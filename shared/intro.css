@@ -35,7 +35,7 @@
 .intro-cells i{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.28);transition:background .25s,box-shadow .25s,transform .25s}
 .intro-cells i.on{background:#fff;box-shadow:0 0 10px #c9b8ff;transform:scale(1.15)}
 .intro-cells i.on:nth-child(3n){background:#33d66d;box-shadow:0 0 10px #33d66d}
-.intro-cells i.on:nth-child(4n){background:#ffc147;box-shadow:0 0 10px #ffc147}
+.intro-cells i.on:nth-child(4n){background:#58b7ff;box-shadow:0 0 10px #58b7ff}
 .intro-note{margin-top:6px;font-weight:700;font-size:13px;letter-spacing:.03em;opacity:.9}
 .intro-skip{position:absolute;right:16px;bottom:16px;padding:8px 14px;border:1px solid rgba(255,255,255,.35);border-radius:999px;background:rgba(255,255,255,.12);color:#fff;font:700 13px FiraGO,system-ui,sans-serif}
 /* the opening: black with only the visor; its screen flickers on, the eyes blink open, then its light floods out into the
