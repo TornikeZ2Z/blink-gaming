@@ -40,7 +40,7 @@ function start(cfg) {
   const root = document.createElement('div');
   root.className = `intro t-${cfg.theme || cfg.mark || 'plane'}`;
   root.innerHTML = `<div class="intro-sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="intro-mark">${visor('mark-visor')}<span>BRAINER<small>GAMES</small></span></div>
+    <div class="intro-mark">${visor('mark-visor')}<span>BRAINER</span></div>
     <div class="intro-center">
       <canvas class="intro-actor" aria-hidden="true"></canvas>
       <div class="intro-title">${wordmark(cfg.mark || cfg.title)}</div>
