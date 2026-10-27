@@ -20,7 +20,7 @@ const SC = window.CHARGE_SCENE;   // assets/scene.js: where the station's parts 
 // charge returns up to the RTP: less where a payout rounds down to the cent, or where the $10,000 max win ends a long or
 // high-bet round early.
 const cfg = {
-  rtp: 98, minBet: 0.1, maxBet: 200, maxWin: 10000, startBalance: 1000,
+  rtp: 97, minBet: 0.1, maxBet: 200, maxWin: 10000, startBalance: 1000,
   brain: { perRound: 10 }   // each round played adds the same brain cells when it ends, whatever the bet (Marketing's rule)
 };
 const LEVELS = [

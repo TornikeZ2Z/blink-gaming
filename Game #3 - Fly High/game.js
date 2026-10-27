@@ -13,11 +13,11 @@ const cents = v => Math.round(v * 100) / 100;   // the balance stays in whole ce
 /* ---------- config & math ---------- */
 // Aviator's rules with the Iron Brainer (Tornike, 2026-10-26): rounds run on their own, a betting window, take-off on
 // hand and foot jets, and the multiplier climbs until the Brainer flies away at a point fixed before take-off. A bet
-// cashed out at x pays x, so with the fly-away point 0.98 ÷ (1 − u)
-// (u uniform, rounded down to the cent) every cash-out point returns 98% before rounding down and the $10,000 max win,
-// which lower it in some rounds: "RTP up to 98%".
+// cashed out at x pays x, so with the fly-away point 0.97 ÷ (1 − u)
+// (u uniform, rounded down to the cent) every cash-out point returns 97% before rounding down and the $10,000 max win,
+// which lower it in some rounds: "RTP up to 97%" (98% until Tornike moved every game to 97%, 2026-10-27).
 const cfg = {
-  rtp: 98, minBet: 0.1, maxBet: 200, maxWin: 10000, maxMult: 10000, startBalance: 1000,
+  rtp: 97, minBet: 0.1, maxBet: 200, maxWin: 10000, maxMult: 10000, startBalance: 1000,
   waitMs: 6000, endMs: 3200,
   // Aviator's pace (Tornike, 2026-10-27: "same as Aviator, it is too fast now"). Timed on Spribe's own demo, the
   // multiplier there is a steady exponential, ln(multiplier) = 0.083·s, s seconds after take-off: 2× at 8.4 s, 10× at
@@ -50,7 +50,7 @@ const hex = b => Array.from(new Uint8Array(b), x => x.toString(16).padStart(2, '
 const randHex = n => hex(crypto.getRandomValues(new Uint8Array(n)));
 const sha256 = async s => hex(await crypto.subtle.digest('SHA-256', enc.encode(s)));
 // The round rolls HMAC-SHA256(server seed, "client seed:nonce"), read as a fraction u from its first 52 bits, and flies
-// away at 0.98 ÷ (1 − u) rounded down to the cent: 1.00× at least (about 3 rounds in 100 fly away at once), 10,000× at most.
+// away at 0.97 ÷ (1 − u) rounded down to the cent: 1.00× at least (about 4 rounds in 100 fly away at once), 10,000× at most.
 async function crashOf(seed, client, nonce) {
   const key = await crypto.subtle.importKey('raw', enc.encode(seed), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const u = parseInt(hex(await crypto.subtle.sign('HMAC', key, enc.encode(`${client}:${nonce}`))).slice(0, 13), 16) / 2 ** 52;

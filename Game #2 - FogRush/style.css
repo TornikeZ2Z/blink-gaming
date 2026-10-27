@@ -298,7 +298,7 @@ button{cursor:pointer}
 @media (max-width:374px){ .hud{justify-content:flex-end} .brand{display:none} .readout{min-width:94%;padding:8px 10px 10px} }   /* small phones: the controls before the logo, and a round's lines on one line each, so the readout leaves the Brainer room */
 @media (max-width:389px){ .hud-right{gap:4px} .hud .round{width:31px;height:31px} .hud .round svg{width:16px;height:16px} .wallet{font-size:13px;padding:4px 4px 4px 8px} .wallet button{padding:4px 7px} }   /* phones under 390 px: a tighter top bar, so How to play (the only way back to the rules and the RTP note), full screen and a seven-figure wallet all fit, beside the logo from 375 px */
 @media (max-width:330px){ .hud-right{gap:3px} }   /* 320 px: $1,000,000.00 inside the bar's own margins too */
-@media (max-width:340px){ .focus #playSub{font-size:11px} }   /* full screen: "$200.00 · RTP up to 98%" on one line */
+@media (max-width:340px){ .focus #playSub{font-size:11px} }   /* full screen: "$200.00 · RTP up to 97%" on one line */
 @media (max-width:400px){   /* full screen on a phone: slimmer − and + and a 16 px amount (iPhone zooms into less), so "200.00" fits */
   .focus .field .bet-row{grid-template-columns:32px minmax(0,1fr) 32px;gap:4px}
   .focus .money-in span{left:8px;font-size:16px} .focus .money-in input{padding:0 4px 0 18px;font-size:16px}

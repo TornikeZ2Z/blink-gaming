@@ -18,7 +18,7 @@ const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return
 // chance, rounded down to the cent, so a jump at any step returns up to the RTP: less where a payout rounds down to the
 // cent, or where the $10,000 max win ends a long or high-bet flight early. Every path at a step has the same odds.
 const cfg = {
-  rtp: 98, minBet: 0.1, maxBet: 200, maxWin: 10000, startBalance: 1000, paths: 5,
+  rtp: 97, minBet: 0.1, maxBet: 200, maxWin: 10000, startBalance: 1000, paths: 5,
   // Brain levels are the Brainer's growth only and never change the odds. Each flight earns the same brain cells when
   // it ends, whatever the bet or difficulty, so progress never asks for bigger bets (Marketing's responsible-gambling
   // advice, pending legal review). perFlight: false would earn the bet times the difficulty factor instead.

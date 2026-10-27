@@ -1,6 +1,6 @@
-/* FogRush by Brainer Games. The player's 3D Brainer walks a 25 x 25 map of grass plots in a valley hidden under fog. Every
+/* FogRush by Brainer. The player's 3D Brainer walks a 25 x 25 map of grass plots in a valley hidden under fog. Every
    new tile clears its clouds: most are plain and nudge the multiplier up, some hold a chest (x1.3 to x25), 8% hold a
-   bomb that ends the round. Tiles already cleared are safe to cross. Cash out any time. RTP up to 98%, provably fair,
+   bomb that ends the round. Tiles already cleared are safe to cross. Cash out any time. RTP up to 97%, provably fair,
    play money in US dollars. */
 import * as THREE from 'three';
 import { RoomEnvironment } from '../shared/vendor/RoomEnvironment.js';
@@ -22,11 +22,11 @@ const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return
 /* ---------- config & math ---------- */
 // Each new tile is a bomb with chance `bomb`; otherwise plain or a chest by the weights below. A safe tile multiplies the
 // multiplier by BASE x the chest's factor (1 for plain). BASE is set so every step is fair on average:
-// (1 - bomb) x BASE x E[factor] = 1. The 98% RTP is applied once, at the start, like Chicken Road's. So the return is
-// 98% before two things lower it in some rounds: payouts round down to the cent, and the $10,000 max win ends long or
-// high-bet rounds early. Hence "RTP up to 98%".
+// (1 - bomb) x BASE x E[factor] = 1. The 97% RTP is applied once, at the start, like Chicken Road's. So the return is
+// 97% before two things lower it in some rounds: payouts round down to the cent, and the $10,000 max win ends long or
+// high-bet rounds early. Hence "RTP up to 97%".
 const cfg = {
-  rtp: 98, bomb: 0.08, grid: 25, minBet: 0.1, maxBet: 200, maxWin: 10000, startBalance: 1000, stepMs: 280,
+  rtp: 97, bomb: 0.08, grid: 25, minBet: 0.1, maxBet: 200, maxWin: 10000, startBalance: 1000, stepMs: 280,
   chests: [
     { name: 'Small chest', f: 1.3, w: 0.03, trim: 0xc98a4e, body: 0x8a5a34, ex: 'happy' },
     { name: 'Silver chest', f: 2, w: 0.012, trim: 0xe3e9f7, body: 0x8a5a34, ex: 'excited' },
