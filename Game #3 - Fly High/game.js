@@ -19,14 +19,14 @@ const cents = v => Math.round(v * 100) / 100;   // the balance stays in whole ce
 const cfg = {
   rtp: 98, minBet: 0.1, maxBet: 200, maxWin: 10000, maxMult: 10000, startBalance: 1000,
   waitMs: 6000, endMs: 3200,
-  // The climb speeds up the higher it goes (Tornike, 2026-10-26: "the higher the X, the faster"): ln(multiplier) =
-  // a·s + b·s², s seconds after take-off. 2× at 3.5 s, 10× at 9 s, 100× at 14.6 s, 1,000× at 19 s, 10,000× at 23 s.
-  grow: [0.161, 0.0105],
+  // Aviator's pace (Tornike, 2026-10-27: "same as Aviator, it is too fast now"). Timed on Spribe's own demo, the
+  // multiplier there is a steady exponential, ln(multiplier) = 0.083·s, s seconds after take-off: 2× at 8.4 s, 10× at
+  // 28 s, 100× at 56 s, 10,000× at 111 s. Kept as ln = a·s + b·s² so a later change of pace stays a one-line edit.
+  grow: [0.083, 0],
   preMs: 2000,   // the Brainer lights its jets and lifts off this long before the betting window closes, so the flight starts at speed
   brain: { perRound: 10 }   // each round you play adds the same brain cells, whatever you bet (Marketing's rule)
 };
 const lnAt = t => { const s = Math.max(0, t) / 1000; return cfg.grow[0] * s + cfg.grow[1] * s * s; };   // ln of the multiplier, t ms after take-off
-const speedAt = t => cfg.grow[0] + 2 * cfg.grow[1] * Math.max(0, t) / 1000;   // how fast it climbs then, in ln units a second
 const multAt = t => Math.floor(Math.exp(lnAt(t)) * 100 + 1e-7) / 100;   // rounded down to the cent
 const payOf = (stake, m) => Math.min(Math.floor(stake * m * 100 + 1e-6) / 100, cfg.maxWin);
 const CELLS = (() => { const c = [0, 0]; for (let n = 1; n < 100; n++) c.push(c[n] + Math.round(10 + 8 * Math.pow(n, 1.4))); return c; })();
@@ -683,7 +683,7 @@ function draw(now) {
   view.alt = goal >= view.alt ? goal : view.alt + (goal - view.alt) * Math.min(1, dt * 0.005);   // between rounds it sinks back to the pad
   const size = clamp(Math.min(W, H) * 0.6, 120, 380), k = size / 280, X = W / 2;   // centred on every screen (Tornike, 2026-10-26)
   const lifting = R && (R.lit || R.phase !== 'bet'), pushing = lifting && R.phase !== 'end';
-  const fast = R && R.phase === 'fly' ? clamp((speedAt(now - R.t0) - cfg.grow[0]) / (2 * cfg.grow[1] * 23), 0, 1) : 0;   // 0 at take-off, 1 by 10,000×
+  const fast = R && R.phase === 'fly' ? clamp(lnAt(now - R.t0) / Math.log(cfg.maxMult), 0, 1) : 0;   // how far up the climb is: 0 at take-off, 1 at 10,000×
   world(now, dt, view.alt, X, k, fast, lifting, pushing);
   const gy = H * 0.86 + view.alt * H * PX, standY = gy - 88 * k;
   const o = { L: 1, gear: null, face: exNow(now), visor: '', thrust: 1, footL: 1, footR: 1, dim: false, glitch: false, batt: '', arrive: null, now };
