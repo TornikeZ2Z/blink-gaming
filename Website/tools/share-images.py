@@ -92,14 +92,9 @@ def paste_with_shadow(base, card, x, y):
 
 
 def visor(h):
-    """The site's visor logo (assets/brainer/logo/visor.svg, 64x44), drawn at height h."""
+    """The site's visor logo (assets/brainer/logo/visor.svg, 64x44, screen blue #3550F0), drawn at height h."""
     s = h / 44; w = round(64 * s)
-    g = Image.new('RGBA', (w, h))
-    a, b = hexrgb('#3f7bff'), hexrgb('#5a32fb')
-    gp = g.load()
-    for y in range(h):
-        for x in range(w):
-            gp[x, y] = lerp(a, b, (x / w + y / h) / 2) + (255,)
+    g = Image.new('RGBA', (w, h), hexrgb('#3550F0') + (255,))   # the palette's screen blue, flat
     m = Image.new('L', (w, h), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, w - 1, h - 1], 19 * s, fill=255)
     out = Image.new('RGBA', (w, h), (0, 0, 0, 0)); out.paste(g, (0, 0), m)
     d = ImageDraw.Draw(out)

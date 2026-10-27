@@ -134,17 +134,18 @@ $$('[data-hero-stats]').forEach(el => {
 });
 // The brain-level teaser on the home page: the ten looks in one line, small, linking to the full ladder on the operators page.
 $$('[data-brain-strip]').forEach(el => {
-  el.innerHTML = Array.from({ length: BRAIN.stages }, (_, i) => `<img src="${BRAIN.robot(i + 1)}" alt="" loading="lazy" decoding="async" style="--tier:${BRAIN.tiers[Math.floor(i / 2)].css}">`).join('');
+  el.innerHTML = Array.from({ length: BRAIN.stages }, (_, i) => `<img src="${BRAIN.robot(i + 1)}" alt="" loading="lazy" decoding="async" style="--tier:${BRAIN.colours[i]}">`).join('');
 });
 
-/* ---------- brain-level ladder: [data-ladder] gets the ten stages (one robot look per ten levels), [data-tiers] the five colour tiers ---------- */
-const per = BRAIN.levels / BRAIN.stages, tierOf = n => BRAIN.tiers[Math.floor((n - 1) / 2)];// The demo keeps the visitor's brain level (1-100) under this key on the same site, so their own stage can be marked.
+/* ---------- brain-level ladder: [data-ladder] gets the ten stages (one robot look per ten levels, each in its stage colour), [data-tiers] the five tiers ---------- */
+const per = BRAIN.levels / BRAIN.stages;
+// The demo keeps the visitor's brain level (1-100) under this key on the same site, so their own stage can be marked.
 const myLevel = parseInt(store.get('brainer.level'), 10), mine = myLevel >= 1 ? Math.min(BRAIN.stages, Math.ceil(myLevel / per)) : 0;
 $$('[data-ladder]').forEach(el => {
   el.innerHTML = Array.from({ length: BRAIN.stages }, (_, i) => i + 1).map(n => {
     const lo = (n - 1) * per + 1, hi = n * per, unlock = BRAIN.unlocks.find(u => u.at >= lo && u.at <= hi);
     const name = BRAIN.names[n - 1];
-    return `<div class="lv${n === mine ? ' me' : ''}" style="--tier:${tierOf(n).css}">${n === mine ? '<span class="you">Your Brainer</span>' : ''}<img src="${BRAIN.robot(n)}" alt="The Brainer at stage ${n}, ${esc(name)}, for brain levels ${lo} to ${hi}" loading="lazy" decoding="async">`
+    return `<div class="lv${n === mine ? ' me' : ''}" style="--tier:${BRAIN.colours[n - 1]}">${n === mine ? '<span class="you">Your Brainer</span>' : ''}<img src="${BRAIN.robot(n)}" alt="The Brainer at stage ${n}, ${esc(name)}, for brain levels ${lo} to ${hi}" loading="lazy" decoding="async">`
       + `<b>${esc(name)}</b><span class="cells">Levels ${lo}–${hi}</span>${unlock ? `<span class="unlock">${esc(unlock.name)} at ${unlock.at}</span>` : ''}</div>`;
   }).join('');
 });
@@ -170,9 +171,8 @@ const NAV = [
 ];
 const cur = key => (key === page ? ' aria-current="page"' : '');
 // The logo is the Brainer's visor (assets/brainer/logo/visor.svg) and the name in FiraGO. It is drawn inline so the screen
-// can light up and the eyes blink open when a page loads; each copy gets its own gradient id.
-let logoN = 0;
-const visor = () => { const id = `vg${++logoN}`; return `<svg class="visor" viewBox="0 0 64 44" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3f7bff"/><stop offset="1" stop-color="#5a32fb"/></linearGradient></defs><rect class="off" width="64" height="44" rx="19"/><rect class="screen" width="64" height="44" rx="19" fill="url(#${id})"/><path class="gloss" d="M12 7.5h40" stroke="#fff" stroke-opacity=".3" stroke-width="2.6" stroke-linecap="round"/><rect class="eye" x="17" y="14" width="9" height="15" rx="3.6" fill="#fff"/><rect class="eye" x="38" y="14" width="9" height="15" rx="3.6" fill="#fff"/></svg>`; };
+// can light up and the eyes blink open when a page loads. The screen is the palette's screen blue, #3550F0.
+const visor = () => `<svg class="visor" viewBox="0 0 64 44" aria-hidden="true"><rect class="off" width="64" height="44" rx="19"/><rect class="screen" width="64" height="44" rx="19" fill="#3550F0"/><path class="gloss" d="M12 7.5h40" stroke="#fff" stroke-opacity=".3" stroke-width="2.6" stroke-linecap="round"/><rect class="eye" x="17" y="14" width="9" height="15" rx="3.6" fill="#fff"/><rect class="eye" x="38" y="14" width="9" height="15" rx="3.6" fill="#fff"/></svg>`;
 const logo = () => `<a class="logo" href="index.html" aria-label="${esc(SITE.brand)} home">${visor()}<span class="word">Brainer</span></a>`;
 
 const header = $('#site-header');

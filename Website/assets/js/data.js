@@ -14,20 +14,22 @@ window.BRAINER = {
   // Brainer (stills from the game team's Brainer 3D/renders/stages, named as in shared/brainer-showcase.js). Every finished round (a Plane Crash flight or a FogRush round) earns the same 10 brain cells at any bet or
   // difficulty, and brain levels never change the odds or payouts: they change the Brainer's look and, in Plane Crash,
   // unlock worlds. Progress lives in localStorage brainer.xp (cells) and brainer.level (1-100), shared by every game on
-  // the site. Tiers colour the stages in pairs with the brand book's level gradients.
+  // the site. Each stage has its colour from the core palette (Tornike, 2026-10-27), the robot's colour at that stage in
+  // the games; the five tiers pair the stages and show both colours.
   BRAIN: {
     robot: n => `assets/brainer/robots/${n}.webp`,
     names: ['Baby', 'Toddler', 'Kid', 'School kid', 'Teen', 'Student', 'Young pro', 'Pro', 'Expert', 'Master'],
+    colours: ['#58B7FF', '#16C79A', '#F2703F', '#F59A2A', '#E3488F', '#8447FB', '#5A3FFC', '#3B3A8F', '#9B2C5A', '#4A1C9E'],
     levels: 100,
     stages: 10,
     perFlight: 10,
     unlocks: [{ at: 20, name: 'Cloud sea' }, { at: 40, name: 'City at dusk' }],
     tiers: [
-      { label: 'Levels 1–20', css: 'var(--l2)' },
-      { label: 'Levels 21–40', css: 'var(--l3)' },
-      { label: 'Levels 41–60', css: 'var(--l4)' },
-      { label: 'Levels 61–80', css: 'var(--l5)' },
-      { label: 'Levels 81–100', css: 'var(--g1)' }
+      { label: 'Levels 1–20', css: 'linear-gradient(90deg,#58B7FF 50%,#16C79A 50%)' },
+      { label: 'Levels 21–40', css: 'linear-gradient(90deg,#F2703F 50%,#F59A2A 50%)' },
+      { label: 'Levels 41–60', css: 'linear-gradient(90deg,#E3488F 50%,#8447FB 50%)' },
+      { label: 'Levels 61–80', css: 'linear-gradient(90deg,#5A3FFC 50%,#3B3A8F 50%)' },
+      { label: 'Levels 81–100', css: 'linear-gradient(90deg,#9B2C5A 50%,#4A1C9E 50%)' }
     ]
   },
 
@@ -41,7 +43,7 @@ window.BRAINER = {
       genre: 'Instant',
       badge: 'New',
       round: 'round',
-      color: '#8A7BE3',
+      color: '#532AFF',
       // A frame of the game: five shield drones ahead of the Brainer's pod jet in a violet and cyan nebula, 800x1000.
       art: 'assets/games/space-crash.webp',
       // Published, the game sits at /space-crash/ next to the site; in the repo it is the sibling folder.
@@ -96,7 +98,7 @@ window.BRAINER = {
       genre: 'Instant',
       badge: 'New',
       round: 'round',
-      color: '#8A7BE3',
+      color: '#532AFF',
       // A frame of the game: the Brainer on its pad in the lab, charging from one of the five pillars, 800x1000.
       art: 'assets/games/multi-charge.webp',
       // Published, the game sits at /multi-charge/ next to the site; in the repo it is the sibling folder.
@@ -152,7 +154,7 @@ window.BRAINER = {
       genre: 'Crash',
       badge: 'Game #1',
       round: 'flight',
-      color: '#8A7BE3',
+      color: '#532AFF',
       art: 'assets/games/plane-crash.webp',
       // Published, the game sits at /plane-crash/ next to the site; in the repo it is the sibling folder.
       src: location.pathname.includes('/Website/') ? '../Game%20%231%20-%20Plane%20Crash/index.html' : 'plane-crash/index.html',
@@ -207,7 +209,7 @@ window.BRAINER = {
       genre: 'Crash',
       badge: 'Game #2',
       round: 'round',
-      color: '#8A7BE3',
+      color: '#532AFF',
       art: 'assets/games/fly-high.webp',
       // Published, the game sits at /fly-high/ next to the site; in the repo it is the sibling folder.
       src: location.pathname.includes('/Website/') ? '../Game%20%233%20-%20Fly%20High/index.html' : 'fly-high/index.html',
@@ -254,7 +256,7 @@ window.BRAINER = {
       genre: 'Instant',
       badge: 'Game #3',
       round: 'round',
-      color: '#8A7BE3',
+      color: '#532AFF',
       // The charging station rendered in Blender (Brainer 3D/blender/charge.py, the approved charge frame), 800x1000.
       art: 'assets/games/charge.webp',
       // Published, the game sits at /charge/ next to the site; in the repo it is the sibling folder.
@@ -308,7 +310,7 @@ window.BRAINER = {
       genre: 'Mines',
       badge: 'Game #2',
       round: 'round',
-      color: '#9BE06E',
+      color: '#532AFF',
       // The game team's card render Brainer 3D/renders/cards/fogrush.png (Blender, world.py view card_fog), 800x1000.
       art: 'assets/games/fogrush.webp',
       // Published, the game sits at /fogrush/ next to the site; in the repo it is the sibling folder.
