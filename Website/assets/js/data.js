@@ -83,7 +83,7 @@ window.BRAINER = {
         ['Currency', 'US dollars in the demo, local currencies per market'],
         ['Fairness', 'Provably fair, with a client seed the player can set; every round can be checked in the game'],
         ['Devices', 'Mobile and desktop (HTML5)'],
-        ['Languages', 'English now, Georgian in progress'],
+        ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
       fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Every drone in every row rolls HMAC-SHA256(server seed, "client seed:nonce:row:drone"), and its shield holds when its roll is at or above that row’s safe chance, so whichever drone the player shoots breaks with exactly that chance. The shield button in the game re-checks the last round and redraws every drone of every row, so the player, the casino or a regulator can recompute it.',
@@ -138,7 +138,7 @@ window.BRAINER = {
         ['Currency', 'US dollars in the demo, local currencies per market'],
         ['Fairness', 'Provably fair, with a client seed the player can set; every round can be checked in the game'],
         ['Devices', 'Mobile and desktop (HTML5)'],
-        ['Languages', 'English now, Georgian in progress'],
+        ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
       fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Every pillar at every charge rolls HMAC-SHA256(server seed, "client seed:nonce:charge:pillar"), and a pillar is overloaded when its roll is at or above that charge’s safe chance, so whichever pillar the player picks is safe with exactly that chance. The shield button in the game re-checks the last round and redraws every pillar of every charge, so the player, the casino or a regulator can recompute it.',
@@ -192,7 +192,7 @@ window.BRAINER = {
         ['Currency', 'US dollars in the demo, local currencies per market'],
         ['Fairness', 'Provably fair, with a client seed the player can set; every flight can be checked in the game'],
         ['Devices', 'Mobile and desktop (HTML5)'],
-        ['Languages', 'English now, Georgian in progress'],
+        ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
       fairness: 'Every flight is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the flight ends. The shield button in the game re-checks the hash and redraws every bomb of your last flight, so the player, the casino or a regulator can recompute it.',
@@ -239,7 +239,7 @@ window.BRAINER = {
         ['Currency', 'US dollars in the demo, local currencies per market'],
         ['Fairness', 'Provably fair, with a client seed the player can set; every recent round can be checked in the game'],
         ['Devices', 'Mobile and desktop (HTML5)'],
-        ['Languages', 'English now, Georgian in progress'],
+        ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
       fairness: 'Every round is fixed before take-off: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. The round rolls HMAC-SHA256(server seed, "client seed:nonce") and flies away at 0.97 ÷ (1 − u). The shield button in the game, or any pill in the round history, re-checks a round, so the player, the casino or a regulator can recompute it.',
@@ -294,7 +294,7 @@ window.BRAINER = {
         ['Currency', 'US dollars in the demo, local currencies per market'],
         ['Fairness', 'Provably fair, with a client seed the player can set; every round can be checked in the game'],
         ['Devices', 'Mobile and desktop (HTML5)'],
-        ['Languages', 'English now, Georgian in progress'],
+        ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
       fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Each charge rolls HMAC-SHA256(server seed, "client seed:nonce:charge"), and a roll at or above that charge’s safe chance overcharges the Brainer. The shield button in the game re-checks the last round charge by charge, so the player, the casino or a regulator can recompute it.',
@@ -355,7 +355,7 @@ window.BRAINER = {
         ['Currency', 'US dollars in the demo, local currencies per market'],
         ['Fairness', 'Provably fair, with a client seed the player can set; every round and its whole map can be checked in the game'],
         ['Devices', 'Mobile and desktop (HTML5 with WebGL)'],
-        ['Languages', 'English now, Georgian in progress'],
+        ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
       fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Every tile of the map rolls from those seeds, so the route cannot move a bomb. The shield button in the game re-checks the hash and draws the whole map of your last round, with your path on it.',
