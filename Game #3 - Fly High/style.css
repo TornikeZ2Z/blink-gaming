@@ -21,7 +21,7 @@ button{cursor:pointer}
 .hud :focus-visible,.pilot:focus-visible,.worlds :focus-visible{outline-color:#fff;box-shadow:0 0 0 8px #0a1322}   /* over the sky a violet ring all but vanishes: white with a navy halo reads on any backdrop */
 .app{max-width:1640px;margin:0 auto;padding:14px 16px 12px;display:flex;flex-direction:column;gap:12px}
 
-.stage{position:relative;height:var(--stage-h);border-radius:26px;overflow:hidden;background:#7a45f5;box-shadow:0 20px 60px rgba(75,54,252,.35),0 0 0 1px var(--line);touch-action:manipulation;user-select:none}
+.stage{position:relative;height:var(--stage-h);border-radius:26px;overflow:hidden;background:#0d1238;box-shadow:0 20px 60px rgba(75,54,252,.35),0 0 0 1px var(--line);touch-action:manipulation;user-select:none}
 .stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .hud{position:absolute;left:14px;right:14px;top:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;pointer-events:none;z-index:3}
 .hud > *{pointer-events:auto}
@@ -348,11 +348,7 @@ button{cursor:pointer}
 .readout .sub.gear{background:linear-gradient(135deg,#ffc147,#ff8a3d);color:var(--navy);border-color:transparent;font-weight:800;animation:gearpop 1.7s ease-out forwards}
 @keyframes gearpop{0%{transform:scale(.4);opacity:0}12%{transform:scale(1.15);opacity:1}20%{transform:scale(1)}85%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){ .readout .sub.gear{animation:none} }
-.test{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:12px;padding:10px 12px;border:1px dashed rgba(255,193,71,.55);border-radius:14px;font-size:13px;font-weight:700;color:#ffd56b}
-.test.on{background:rgba(255,193,71,.1)}
-.test button{border:1px solid var(--line);border-radius:10px;padding:6px 12px;background:var(--navy-3);font-size:13px;font-weight:700}
-.test small{flex-basis:100%;font-size:11px;font-weight:600;color:var(--muted)}
-.hist button.test{box-shadow:inset 0 0 0 1px #ffd56b}
+.hist button.test{box-shadow:inset 0 0 0 1px #c9b8ff}   /* a Max Mode Test round */
 
 /* ---------- fit the screen: no page scroll from about 540 px tall (2026-10-27) ----------
    A 100dvh column: the controls take what they need and the stage takes the rest (at least 260 px). Phones get
@@ -370,9 +366,8 @@ body{min-height:0}
 }
 @media (max-width:760px),(max-height:760px){   /* compact controls */
   .bet{gap:6px;padding:8px}
-  .bet .chips,.act .l3,.test small{display:none}
+  .bet .chips,.act .l3{display:none}
   .tabs button{padding:3px 0;font-size:12px}
-  .test{margin-top:8px;padding:6px 10px}
 }
 @media (max-width:760px){
   .app{gap:8px}
@@ -381,9 +376,6 @@ body{min-height:0}
   .bet-main{grid-template-columns:1fr;gap:6px}
   .bet-main .act{height:auto;min-height:50px}
   .act .l1{font-size:19px} .act .l2{font-size:13px}
-  .test{gap:6px 8px;font-size:12px}
-  .test .long{display:none}
-  .test button{padding:5px 9px;font-size:12px}
 }
 @media (orientation:landscape) and (max-height:500px){   /* a phone on its side: the controls in a column beside the stage */
   .app{min-height:0;padding:6px;gap:6px}
@@ -393,7 +385,7 @@ body{min-height:0}
   .bets{grid-template-columns:1fr;gap:6px}
   .bet-main{grid-template-columns:1fr;gap:6px}
   .bet-main .act{height:auto;min-height:44px}
-  .bet .tabs,.foot,.test .long,.brand,.wallet small{display:none}
+  .bet .tabs,.foot,.brand,.wallet small{display:none}
   .hud{left:8px;right:8px;justify-content:flex-end} .hud-right{gap:5px} .round{width:32px;height:32px}
   .readout{top:max(30%,90px)}
 }

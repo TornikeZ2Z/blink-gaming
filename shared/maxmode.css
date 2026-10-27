@@ -1,0 +1,14 @@
+/* Max Mode Test (shared/maxmode.js): a small switch and one line under the game's controls. Violet, not gold: gold is
+   kept for wins and titles (Tornike's core palette, 2026-10-27). */
+.maxmode{display:flex;align-items:center;gap:10px;margin-top:10px;min-width:0;grid-column:1/-1}
+.maxmode button{flex:none;display:inline-flex;align-items:center;gap:8px;border:1px dashed rgba(201,184,255,.55);border-radius:999px;padding:5px 12px 5px 5px;background:transparent;color:#c9b8ff;font:700 12px/1 var(--font,system-ui,sans-serif);letter-spacing:.02em;cursor:pointer}
+.maxmode button i{position:relative;width:28px;height:16px;border-radius:999px;background:rgba(255,255,255,.18);transition:background .2s}
+.maxmode button i::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:transform .2s}
+.maxmode button:hover{border-color:#c9b8ff}
+.maxmode.on button{border-style:solid;border-color:#8447fb;background:rgba(132,71,251,.22);color:#fff}
+.maxmode.on button i{background:linear-gradient(135deg,#4b36fc,#8447fb)}
+.maxmode.on button i::after{transform:translateX(12px)}
+.maxmode small{min-width:0;font-size:11px;font-weight:600;color:var(--muted,#aab3d6);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.maxmode.on small{color:#e3d9ff}
+@media (max-width:720px){ .maxmode{margin-top:6px} .maxmode small{display:none} }
+@media (prefers-reduced-motion:reduce){ .maxmode button i,.maxmode button i::after{transition:none} }

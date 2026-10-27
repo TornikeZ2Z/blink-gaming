@@ -115,6 +115,7 @@ function charge() {
   r.status = 'charging'; r.t0 = now; r.struck = false;
   r.hit = r.rolls[r.n] >= r.d.safe[r.n];
   if (TEST && window.chargeTest.next) { r.hit = window.chargeTest.next === 'boom'; r.forced[r.n] = true; window.chargeTest.next = null; }
+  if (window.MaxMode && MaxMode.on) { r.hit = false; r.forced[r.n] = true; }   // Max Mode Test: this charge is safe
   sceneCharge(now); sound.hum(CHARGE_MS * STRIKE);
   renderControls(); renderBattery();
 }
@@ -480,7 +481,7 @@ async function checkFair() {
   const ok = (good, text) => `<p class="fair-ok${good ? '' : ' bad'}">${good ? '✓' : '✕'} ${text}</p>`;
   const rows = Array.from({ length: shown }, (_, i) => {
     const u = rolls[i], sv = r.d.safe[i], boom = u >= sv, skipped = i >= played;
-    const say = `Charge ${i + 1}${skipped ? ', skipped by cashing out' : ''}: safe chance ${pct(sv)}, roll ${u.toFixed(4)}, ${boom ? 'overload' : 'safe'}${r.forced[i] ? ' (forced in test mode)' : ''}`;
+    const say = `Charge ${i + 1}${skipped ? ', skipped by cashing out' : ''}: safe chance ${pct(sv)}, roll ${u.toFixed(4)}, ${boom ? 'overload' : 'safe'}${r.forced[i] ? ' (forced in a test round)' : ''}`;
     return `<div class="frow${boom ? ' boom' : ''}${skipped ? ' next' : ''}" role="img" aria-label="${say}"><span class="st">${i + 1}</span><span class="bar2"><i style="width:${sv * 100}%"></i><u style="left:calc(${u * 100}% - 1px)"></u></span><span>${u.toFixed(4)}</span><span class="res">${boom ? 'Overload' : 'Safe'}${r.forced[i] ? ' · test' : ''}</span></div>`;
   }).join('');
   $('#fairOut').innerHTML = ok(hashOk, hashOk ? 'SHA-256 of the seed matches the hash shown before the round' : 'The seed does not match the hash')

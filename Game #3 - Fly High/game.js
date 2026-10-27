@@ -95,7 +95,7 @@ async function takeOff() {
   R.phase = 'starting'; R.client = S.client;   // the client seed in effect at take-off is the one this round uses
   try { R.crash = R.seedCrash = await crashOf(R.seed, R.client, R.nonce); }
   catch (e) { toast(isSecureContext ? 'Could not start the round. Reload to try again.' : 'This demo needs https (or localhost) to draw its rounds.'); return; }
-  if (S.force) { R.crash = S.force; R.forced = true; }   // a test flight: the fly-away point typed in by hand
+  if (S.force) { R.crash = S.force; R.forced = true; }   // Max Mode Test: it flies all the way
   R.phase = 'fly'; R.t0 = performance.now(); view.flyT0 = R.t0; scheduleScare(R.t0, true);
   for (const b of bets) if (b.st === 'placed') b.st = 'live';
   sound.takeoff(); sound.mood('round', 0); say('Take-off.');
@@ -426,10 +426,12 @@ function scareFx(now) {
 }
 
 /* ---------- the scene: from the launch pad, through the clouds and out into space ---------- */
-// Tornike, 2026-10-26: simple, drawn, and ending in space. Layers with depth: far mountains and hills round the pad
-// (with its tower and launch smoke), birds and a balloon, three layers of shaded clouds (the near one passing in front),
-// high cirrus, an aurora at the edge of space, then nebulae, three depths of stars, shooting stars, a satellite, the
-// curve of the Earth, the Moon, a ringed planet, a galaxy and asteroids. Everything moves on the climb's own curve.
+// Tornike, 2026-10-26: simple, drawn, and ending in space. Since 2026-10-27 it is night ("Fly High is now out of style,
+// more dark colors, like Space Crash"; he picked "Night launch" from three looks): a big low moon and stars from the
+// pad, dark peaks and hills with village lights round the pad (with its tower and launch smoke), a balloon, three layers
+// of moonlit clouds (the near one passing in front), faint cirrus, an aurora at the edge of space, then nebulae, three
+// depths of stars, shooting stars, a satellite, the night side of the Earth with its city lights, a ringed planet, a
+// galaxy and asteroids. Everything moves on the climb's own curve.
 const stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
 let W = 0, H = 0, dpr = 1;
 const view = { awayT0: 0, wins: [], suit: 1, gearT0: 0, arrive: null, react: null, sparks: [], smoke: [], shoot: [], alt: 0, last: 0 };
@@ -451,9 +453,9 @@ function layout() {
 new ResizeObserver(layout).observe(stage);
 // Height: 0 on the pad, 1 at the edge of space (30×), on the log of the multiplier; the lift-off before the timer adds 0.06.
 const SPACE = 30, PRE_H = 0.06, PX = 7;   // PX: stage heights scrolled per unit of height
-const SKY_STOPS = [   // [height, top, middle, horizon]
-  [0, '#4aa8ff', '#8fd0ff', '#e3f6ff'], [0.25, '#3f8cff', '#7cbcff', '#cfe9ff'], [0.5, '#2a5fd8', '#4f88ee', '#9cc4ff'],
-  [0.7, '#162a7a', '#2a46b0', '#5f7fe0'], [0.85, '#0a1240', '#18246e', '#3a3f9e'], [1, '#04061a', '#0a0f34', '#1a1d5c'], [1.6, '#02030f', '#060a26', '#0c1038']
+const SKY_STOPS = [   // [height, top, middle, horizon]: night from the pad, a violet glow low down, into space
+  [0, '#0d1238', '#1d1d5e', '#463089'], [0.25, '#0b1032', '#191a54', '#35287a'], [0.5, '#090d2a', '#141648', '#28215f'],
+  [0.7, '#070a22', '#10123c', '#1d1a52'], [0.85, '#05071a', '#0c0f30', '#181848'], [1, '#04061a', '#0a0f34', '#1a1d5c'], [1.6, '#02030f', '#060a26', '#0c1038']
 ];
 const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const mixC = (a, b, t) => { const A = rgb(a), B = rgb(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',')})`; };
@@ -468,14 +470,14 @@ function heightNow(now) {
   if (R.phase === 'bet' || R.phase === 'starting') return pre;
   return PRE_H + lnAt((R.phase === 'end' ? R.endT0 : now) - R.t0) / Math.log(SPACE);   // it holds where the Brainer flew away
 }
-// shaded cartoon clouds, drawn once: a row of puffs on a flat base, a soft blue underside
+// shaded cartoon clouds, drawn once: a row of puffs on a flat base, moonlit on top, dark underneath
 const CLOUDS = Array.from({ length: 6 }, (_, k) => {
   const c = document.createElement('canvas'); c.width = 520; c.height = 280; const g = c.getContext('2d'); g.scale(2, 2);
-  g.fillStyle = '#fff'; const n = 5 + Math.floor(hsh(k + 40) * 3);
+  g.fillStyle = '#2c3270'; const n = 5 + Math.floor(hsh(k + 40) * 3);
   for (let i = 0; i < n; i++) { const t = i / (n - 1), r = 20 + Math.sin(t * Math.PI) * (24 + hsh(k * 9 + i) * 20); g.beginPath(); g.arc(40 + t * 180, 104 - r * 0.7 + hsh(k * 5 + i) * 8, r, 0, Math.PI * 2); g.fill(); }
-  rr(g, 24, 88, 212, 32, 16, '#fff');
+  rr(g, 24, 88, 212, 32, 16, '#2c3270');
   g.globalCompositeOperation = 'source-atop';
-  const sh = g.createLinearGradient(0, 30, 0, 120); sh.addColorStop(0, 'rgba(255,252,240,.9)'); sh.addColorStop(0.45, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(130,165,225,.6)');
+  const sh = g.createLinearGradient(0, 30, 0, 120); sh.addColorStop(0, 'rgba(175,170,255,.6)'); sh.addColorStop(0.45, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(8,12,36,.65)');
   g.fillStyle = sh; g.fillRect(0, 0, 260, 140);
   return c;
 });
@@ -495,56 +497,51 @@ function clouds(h, li, fast) {
   }
   ctx.globalAlpha = 1;
 }
-function mountains(gy) {   // far peaks with snow, in the haze
+function mountains(gy) {   // far peaks, their tops catching the moon
   if (gy - H * 0.25 > H) return;
-  ctx.fillStyle = '#a7c4ec'; ctx.beginPath(); ctx.moveTo(0, gy);
+  ctx.fillStyle = '#1f2559'; ctx.beginPath(); ctx.moveTo(0, gy);
   const n = 7, pts = [];
   for (let i = 0; i <= n; i++) { const x = i / n * W, y = gy - H * (0.12 + hsh(i + 70) * 0.13); pts.push([x, y]); ctx.lineTo(x - W / n / 2, gy - H * 0.05); ctx.lineTo(x, y); }
   ctx.lineTo(W, gy); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#f4f8ff';
+  ctx.fillStyle = '#4a4aa6';
   for (const [x, y] of pts) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - W * 0.018, y + H * 0.03); ctx.lineTo(x + W * 0.018, y + H * 0.03); ctx.closePath(); ctx.fill(); }
 }
-function hills(gy, now) {   // rolling hills with round trees
+function hills(gy, now) {   // rolling hills with round trees and a village's lights
   if (gy - H * 0.12 > H) return;
-  ctx.fillStyle = '#97d886';
+  ctx.fillStyle = '#141a44';
   for (let i = -1; i < 7; i++) { ctx.beginPath(); ctx.ellipse(i * W / 5 + (hsh(i + 9) - 0.5) * 60, gy + 4, W * 0.17, H * 0.1 * (0.7 + hsh(i + 3) * 0.6), 0, Math.PI, 0); ctx.fill(); }
-  for (let i = 0; i < 14; i++) { const x = hsh(i + 120) * W, y = gy - H * 0.01 - hsh(i + 140) * H * 0.04, r = 5 + hsh(i + 160) * 6; dot(ctx, x, y - r, r, '#4fb35c'); dot(ctx, x - r * 0.3, y - r * 1.25, r * 0.5, '#6fcc6e'); }
+  for (let i = 0; i < 14; i++) { const x = hsh(i + 120) * W, y = gy - H * 0.01 - hsh(i + 140) * H * 0.04, r = 5 + hsh(i + 160) * 6; dot(ctx, x, y - r, r, '#0d1234'); dot(ctx, x - r * 0.3, y - r * 1.25, r * 0.5, '#1d2558'); }
+  for (let i = 0; i < 26; i++) { ctx.globalAlpha = 0.55 + 0.45 * hsh(i + 940); dot(ctx, hsh(i + 900) * W, gy - 3 - hsh(i + 920) * H * 0.045, 1.8, i % 4 ? '#ffd98a' : '#9fe6ff'); }
+  ctx.globalAlpha = 1;
 }
-function ground(gy, padX, k, now) {   // the grass, the launch pad and its tower
+function ground(gy, padX, k, now) {   // the dark field, the launch pad with its glowing lights, and its tower
   if (gy - 200 * k > H) return;
-  ctx.fillStyle = '#74cd63'; ctx.fillRect(0, gy, W, H); ctx.fillStyle = '#66c057'; ctx.fillRect(0, gy + H * 0.06, W, H);
-  rr(ctx, padX - 70 * k, gy - 8 * k, 140 * k, 16 * k, 8 * k, '#e3e8f6', '#c3cbe2', 2);
-  ctx.fillStyle = C.blue; for (let i = -2; i <= 2; i++) ctx.fillRect(padX + (i * 24 - 6) * k, gy - 3 * k, 12 * k, 4 * k);
+  ctx.fillStyle = '#121839'; ctx.fillRect(0, gy, W, H); ctx.fillStyle = '#0e132e'; ctx.fillRect(0, gy + H * 0.06, W, H);
+  rr(ctx, padX - 70 * k, gy - 8 * k, 140 * k, 16 * k, 8 * k, '#2a3166', '#454f8f', 2);
+  ctx.save(); ctx.shadowColor = '#5ce1ff'; ctx.shadowBlur = 10;
+  ctx.fillStyle = '#5ce1ff'; for (let i = -2; i <= 2; i++) ctx.fillRect(padX + (i * 24 - 6) * k, gy - 3 * k, 12 * k, 4 * k);
+  ctx.restore();
   const tx = padX + 100 * k, top = gy - 190 * k;   // the gantry: a striped lattice tower with a blinking light
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(tx - 9 * k, top, 18 * k, 190 * k);
-  ctx.fillStyle = C.orange; for (let y = top; y < gy; y += 30 * k) ctx.fillRect(tx - 9 * k, y, 18 * k, 15 * k);
+  ctx.fillStyle = '#2b3263'; ctx.fillRect(tx - 9 * k, top, 18 * k, 190 * k);
+  ctx.fillStyle = '#d0742a'; for (let y = top; y < gy; y += 30 * k) ctx.fillRect(tx - 9 * k, y, 18 * k, 3 * k);
   ctx.strokeStyle = 'rgba(80,90,120,.45)'; ctx.lineWidth = 1.5; for (let y = top; y < gy - 15 * k; y += 15 * k) { ctx.beginPath(); ctx.moveTo(tx - 9 * k, y); ctx.lineTo(tx + 9 * k, y + 15 * k); ctx.stroke(); }
   const arm = R && R.lit ? clamp(1 - (performance.now() - R.liftT0) / 500, 0, 1) : 1;   // the arm swings back as the jets light
-  if (arm > 0) { ctx.fillStyle = '#c3cbe2'; ctx.fillRect(tx - 9 * k - 40 * k * arm, gy - 120 * k, 40 * k * arm, 6 * k); }
-  if (reduced || Math.floor(now / 500) % 2) dot(ctx, tx, top - 5 * k, 5 * k, C.red);
+  if (arm > 0) { ctx.fillStyle = '#3a4378'; ctx.fillRect(tx - 9 * k - 40 * k * arm, gy - 120 * k, 40 * k * arm, 6 * k); }
+  if (reduced || Math.floor(now / 500) % 2) { ctx.save(); ctx.shadowColor = C.red; ctx.shadowBlur = 14; dot(ctx, tx, top - 5 * k, 5 * k, C.red); ctx.restore(); }
 }
 function smokeAt(gy, padX, k, now, lifting) {   // launch smoke billowing out over the pad as it lifts off
   if (lifting && !reduced && view.alt < 0.07 && view.smoke.length < 90) for (const side of [-1, 1]) view.smoke.push({ x: padX + side * (10 + Math.random() * 30) * k, vx: side * (0.04 + Math.random() * 0.1) * k, t0: now });
   view.smoke = view.smoke.filter(p => now - p.t0 < 1800);
   for (const p of view.smoke) {
     const q = (now - p.t0) / 1800, r = (14 + q * 46) * k;
-    ctx.globalAlpha = 0.85 * (1 - q); dot(ctx, p.x + p.vx * (now - p.t0), gy - 6 * k - q * 18 * k, r, q < 0.3 ? '#fff6e6' : '#eef1f7');
+    ctx.globalAlpha = 0.85 * (1 - q); dot(ctx, p.x + p.vx * (now - p.t0), gy - 6 * k - q * 18 * k, r, q < 0.3 ? '#ffd9a8' : '#5a6194');   // lit by the jets, then grey-blue in the dark
   }
   ctx.globalAlpha = 1;
 }
-function sun(h) {
-  const x = W * 0.82, y = H * 0.16 + h * H * 0.05, r = Math.min(W, H) * (h > 0.9 ? 0.03 : 0.045), glow = Math.min(W, H) * 0.4, g = ctx.createRadialGradient(x, y, r * 0.5, x, y, glow);
-  g.addColorStop(0, 'rgba(255,250,225,.85)'); g.addColorStop(0.25, 'rgba(255,236,190,.25)'); g.addColorStop(1, 'rgba(255,236,190,0)');
-  ctx.fillStyle = g; ctx.fillRect(x - glow, y - glow, glow * 2, glow * 2); dot(ctx, x, y, r, '#fffdf2');
-  if (h > 0.75) { ctx.globalAlpha = smooth(clamp((h - 0.75) / 0.3, 0, 1)) * 0.7; ctx.fillStyle = '#fffdf2'; ctx.fillRect(x - r * 7, y - 1, r * 14, 2); ctx.fillRect(x - 1, y - r * 7, 2, r * 14); ctx.globalAlpha = 1; }   // in space, a lens-flare cross
-}
-function birds(h, now) {   // a flock crossing low down
-  const a = band(h, 0.02, 0.06, 0.2, 0.3); if (a < 0.01) return;
-  ctx.strokeStyle = `rgba(43,58,103,${a})`; ctx.lineWidth = 2; ctx.lineCap = 'round';
-  for (let i = 0; i < 6; i++) {
-    const x = ((now * 0.05 + i * 38 + hsh(i) * 40) % (W + 300)) - 150, y = H * 0.86 + (h - 0.13 - (i % 3) * 0.01) * H * PX + Math.sin(i * 1.7) * 14, f = reduced ? 4 : Math.sin(now / 110 + i) * 5;
-    ctx.beginPath(); ctx.moveTo(x - 9, y - f); ctx.quadraticCurveTo(x - 4, y - 2, x, y); ctx.quadraticCurveTo(x + 4, y - 2, x + 9, y - f); ctx.stroke();
-  }
+function moon(h) {   // a big low moon with a cool glow, there from the pad to space
+  const x = W * 0.8, y = H * 0.2 + h * H * 0.08, r = Math.min(W, H) * 0.055, glow = Math.min(W, H) * 0.35, g = ctx.createRadialGradient(x, y, r * 0.8, x, y, glow);
+  g.addColorStop(0, 'rgba(190,200,255,.35)'); g.addColorStop(1, 'rgba(190,200,255,0)'); ctx.fillStyle = g; ctx.fillRect(x - glow, y - glow, glow * 2, glow * 2);
+  dot(ctx, x, y, r, '#eef0ff'); dot(ctx, x - r * 0.3, y - r * 0.2, r * 0.22, '#d3d6ec'); dot(ctx, x + r * 0.35, y + r * 0.25, r * 0.16, '#d3d6ec'); dot(ctx, x + r * 0.1, y - r * 0.45, r * 0.1, '#d3d6ec');
 }
 function balloon(h, now) {   // a hot-air balloon in Brainer colours
   const y = H * 0.86 + (h - 0.3) * H * PX * 0.8, x = W * 0.17 + (reduced ? 0 : Math.sin(now / 2500) * 12), s = Math.min(1.2, Math.max(0.7, W / 900));
@@ -556,7 +553,7 @@ function balloon(h, now) {   // a hot-air balloon in Brainer colours
 }
 function cirrus(h) {   // thin high streaks
   const a = band(h, 0.38, 0.5, 0.68, 0.8); if (a < 0.01) return;
-  ctx.fillStyle = `rgba(255,255,255,${0.3 * a})`;
+  ctx.fillStyle = `rgba(180,170,255,${0.15 * a})`;
   for (let j = 10; j < 30; j++) { const hc = j * 0.03, y = H * 0.86 + (h - hc) * H * PX * 0.8; if (y < -20 || y > H + 20) continue; oval(ctx, hsh(j + 300) * W, y, W * (0.12 + hsh(j + 320) * 0.12), 3 + hsh(j) * 3, 0, ctx.fillStyle); }
 }
 function aurora(h, now) {   // green-to-violet ribbons at the edge of space
@@ -575,8 +572,8 @@ function aurora(h, now) {   // green-to-violet ribbons at the edge of space
 }
 const STARS = [[140, 0.25, 0.5, 1], [70, 0.5, 1, 1.6], [20, 1, 1.6, 2.4]].map(([n, par, r0, r1], l) => Array.from({ length: n }, (_, i) => ({ x: hsh(i + l * 500 + 1), y: hsh(i + l * 500 + 101), r: r0 + hsh(i + l * 500 + 201) * (r1 - r0), tw: hsh(i + l * 500 + 301) * TAU, par, c: ['#ffffff', '#cfe0ff', '#ffe9c4'][i % 3] })));
 function space(h, now, dt, pushing) {
-  const sa = smooth(clamp((h - 0.5) / 0.35, 0, 1)); if (sa < 0.01) return;
-  if (nebula) { const y = ((h - 0.8) * H * 0.3) % H; ctx.globalAlpha = sa; ctx.drawImage(nebula, 0, y, W, H); ctx.drawImage(nebula, 0, y - H, W, H); ctx.globalAlpha = 1; }
+  const up = smooth(clamp((h - 0.5) / 0.35, 0, 1)), sa = Math.max(0.6, up), na = Math.max(0.3, up);   // at night the stars and a faint nebula show from the pad
+  if (nebula) { const y = ((h - 0.8) * H * 0.3) % H; ctx.globalAlpha = na; ctx.drawImage(nebula, 0, y, W, H); ctx.drawImage(nebula, 0, y - H, W, H); ctx.globalAlpha = 1; }
   for (const layer of STARS) for (const s of layer) {
     const y = ((s.y + h * s.par) % 1) * H, x = s.x * W; ctx.globalAlpha = sa * (reduced ? 0.85 : 0.6 + 0.4 * Math.sin(now / 600 + s.tw)); dot(ctx, x, y, s.r, s.c);
     if (s.r > 1.8) { ctx.fillStyle = s.c; ctx.fillRect(x - s.r * 3, y - 0.5, s.r * 6, 1); ctx.fillRect(x - 0.5, y - s.r * 3, 1, s.r * 6); }
@@ -587,8 +584,6 @@ function space(h, now, dt, pushing) {
   for (const s of view.shoot) { const q = (now - s.t0) / 700, x = s.x + s.d * q * W * 0.3, y = s.y + q * H * 0.18, g = ctx.createLinearGradient(x, y, x - s.d * 80, y - 48); g.addColorStop(0, `rgba(255,255,255,${1 - q})`); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.strokeStyle = g; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - s.d * 80, y - 48); ctx.stroke(); }
   const ga = band(h, 1.9, 2.2, 9, 10);   // a far galaxy
   if (ga > 0.01) { const x = W * 0.74, y = H * 0.22 + (h - 1.9) * H * 0.2; ctx.save(); ctx.globalAlpha = ga; ctx.translate(x, y); ctx.rotate(-0.4); const g = ctx.createRadialGradient(0, 0, 2, 0, 0, W * 0.09); g.addColorStop(0, 'rgba(255,240,220,.9)'); g.addColorStop(0.3, 'rgba(190,150,255,.35)'); g.addColorStop(1, 'rgba(120,90,255,0)'); ctx.scale(1, 0.35); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, W * 0.09, 0, TAU); ctx.fill(); ctx.restore(); }
-  const ma = band(h, 1.05, 1.2, 9, 10), my = H * 0.12 + (h - 1.15) * H * 0.55;   // the Moon
-  if (ma > 0.01 && my < H + 80) { const x = W * 0.84, r = Math.min(W, H) * 0.06; ctx.globalAlpha = ma; dot(ctx, x, my, r, '#dfe2ec'); dot(ctx, x - r * 0.3, my - r * 0.2, r * 0.22, '#c4c8d6'); dot(ctx, x + r * 0.35, my + r * 0.25, r * 0.16, '#c4c8d6'); dot(ctx, x + r * 0.1, my - r * 0.45, r * 0.1, '#c4c8d6'); ctx.globalAlpha = 1; }
   const pa = band(h, 1.4, 1.6, 9, 10), py = H * 0.2 + (h - 1.45) * H * 0.35;   // a ringed planet
   if (pa > 0.01 && py < H + 100) { const x = W * 0.15, r = Math.min(W, H) * 0.075; ctx.globalAlpha = pa; ctx.beginPath(); ctx.ellipse(x, py, r * 1.9, r * 0.45, -0.35, Math.PI, TAU); ctx.lineWidth = Math.max(2, r * 0.12); ctx.strokeStyle = '#ffe2c4'; ctx.stroke(); const g = ctx.createLinearGradient(x, py - r, x, py + r); g.addColorStop(0, '#ffb98a'); g.addColorStop(1, '#e0703f'); dot(ctx, x, py, r, g); ctx.fillStyle = 'rgba(255,230,200,.5)'; ctx.fillRect(x - r * 0.95, py - r * 0.2, r * 1.9, r * 0.25); ctx.beginPath(); ctx.ellipse(x, py, r * 1.9, r * 0.45, -0.35, 0, Math.PI); ctx.stroke(); ctx.globalAlpha = 1; }
   const sx = ((now * 0.045) % (W + 400)) - 200, sy = H * 0.34;   // a satellite drifting across
@@ -601,26 +596,28 @@ function earth(h) {   // the curve of the Earth rises from below at the edge of 
   const R0 = W * 1.3, top = H - ea * H * 0.24 + smooth(clamp((h - 1.7) / 0.8, 0, 1)) * H * 0.3, cy = top + R0;
   const at = ctx.createRadialGradient(W / 2, cy, R0, W / 2, cy, R0 + H * 0.09); at.addColorStop(0, 'rgba(110,190,255,.6)'); at.addColorStop(1, 'rgba(110,190,255,0)');
   ctx.fillStyle = at; ctx.beginPath(); ctx.arc(W / 2, cy, R0 + H * 0.09, 0, TAU); ctx.fill();
-  const oc = ctx.createLinearGradient(0, top, 0, top + H * 0.3); oc.addColorStop(0, '#4fa6ff'); oc.addColorStop(1, '#1a4fa8');
+  const oc = ctx.createLinearGradient(0, top, 0, top + H * 0.3); oc.addColorStop(0, '#1d3f86'); oc.addColorStop(1, '#0a1538');   // its night side
   ctx.fillStyle = oc; ctx.beginPath(); ctx.arc(W / 2, cy, R0, 0, TAU); ctx.fill();
   ctx.save(); ctx.clip();
-  for (let i = 0; i < 5; i++) oval(ctx, W * (0.08 + i * 0.22), top + H * 0.05 + hsh(i + 800) * H * 0.04, W * 0.07, H * 0.025, 0.25 * i, '#4cbf6a');
+  for (let i = 0; i < 5; i++) oval(ctx, W * (0.08 + i * 0.22), top + H * 0.05 + hsh(i + 800) * H * 0.04, W * 0.07, H * 0.025, 0.25 * i, '#1c3a52');
+  for (let i = 0; i < 60; i++) { const j = i % 5, x = W * (0.08 + j * 0.22) + (hsh(i + 860) - 0.5) * W * 0.11, y = top + H * 0.05 + hsh(j + 800) * H * 0.04 + (hsh(i + 880) - 0.5) * H * 0.035; ctx.globalAlpha = 0.5 + 0.5 * hsh(i + 900); dot(ctx, x, y, 1.4, '#ffd98a'); }   // city lights
+  ctx.globalAlpha = 1;
   for (let i = 0; i < 6; i++) oval(ctx, W * hsh(i + 820), top + H * 0.02 + hsh(i + 840) * H * 0.07, W * 0.06, H * 0.008, 0.1, 'rgba(255,255,255,.75)');
   ctx.restore();
 }
 function world(now, dt, h, padX, k, fast, lifting, pushing) {
   const [t, m, b] = skyAt(h);
   ctx.fillStyle = lin(0, H, [[0, t], [0.55, m], [1, b]]); ctx.fillRect(0, 0, W, H);
-  space(h, now, dt, pushing); aurora(h, now); sun(h); earth(h);
+  space(h, now, dt, pushing); aurora(h, now); moon(h); earth(h);
   const gy = H * 0.86 + h * H * PX;
   mountains(H * 0.86 + h * H * PX * 0.35); hills(H * 0.86 + h * H * PX * 0.65, now);
-  cirrus(h); clouds(h, 0, fast); balloon(h, now); birds(h, now); clouds(h, 1, fast);
+  cirrus(h); clouds(h, 0, fast); balloon(h, now); clouds(h, 1, fast);
   ground(gy, padX, k, now); smokeAt(gy, padX, k, now, lifting);
 }
 // Speed streaks: thin lines rushing down while the jets push, faster and longer as the climb speeds up (v: 0 to 1).
 const streaks = Array.from({ length: 22 }, (_, i) => ({ x: hsh(i + 50), y: hsh(i + 70) }));
 function speedLines(dt, v, h) {
-  ctx.strokeStyle = h > 0.6 ? 'rgba(200,220,255,.5)' : 'rgba(255,255,255,.6)'; ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(200,220,255,.5)'; ctx.lineCap = 'round';
   for (const s of streaks) {
     s.y += dt * (0.0014 + v * 0.0034); if (s.y > 1.15) { s.y = -0.15; s.x = Math.random(); }
     ctx.globalAlpha = 0.3 + v * 0.35; ctx.lineWidth = 2 + v; ctx.beginPath(); ctx.moveTo(s.x * W, s.y * H); ctx.lineTo(s.x * W, s.y * H + H * (0.06 + v * 0.16)); ctx.stroke();
@@ -824,7 +821,7 @@ function renderFair() {
     const r = shown && rounds.includes(shown) ? shown : rounds[0]; shown = r;
     h += `<h4>Recent rounds</h4><div class="rounds">${rounds.slice(0, 12).map(x => `<button type="button" data-n="${x.nonce}" aria-pressed="${x === r}">${fx(x.crash)}</button>`).join('')}</div>`
       + `<h4>Round ${r.nonce}: flew away at ${fx(r.crash)}${r.mine.length ? ` · ${r.mine.map(m => m.st === 'cashed' ? `bet ${m.i + 1} cashed out at ${fx(m.at)}` : `bet ${m.i + 1} lost`).join(', ')}` : ''}</h4>`
-      + (r.forced ? `<p class="sheet-note">Test round: the fly-away point was set by hand to ${fx(r.crash)}. The seeds give ${fx(r.seedCrash)}.</p>` : '')
+      + (r.forced ? `<p class="sheet-note">Max Mode Test round: it was set to fly to ${fx(r.crash)}. The seeds give ${fx(r.seedCrash)}.</p>` : '')
       + `${kv('Server seed hash', r.hash)}${kv('Server seed, revealed', r.seed)}${kv('Client seed', r.client)}${kv('Nonce', r.nonce)}`
       + '<button type="button" class="big ghost" id="fairCheck">Check this round</button><div id="fairOut" aria-live="polite"></div>';
   }
@@ -842,7 +839,7 @@ async function checkFair() {
   const hashOk = (await sha256(r.seed)) === r.hash, c = await crashOf(r.seed, r.client, r.nonce), crashOk = c === (r.forced ? r.seedCrash : r.crash);
   const ok = (good, text) => `<p class="fair-ok${good ? '' : ' bad'}">${good ? '✓' : '✕'} ${text}</p>`;
   $('#fairOut').innerHTML = ok(hashOk, hashOk ? 'SHA-256 of the seed matches the hash shown before take-off' : 'The seed does not match the hash')
-    + ok(crashOk, crashOk ? `Recomputed from the seeds, it flies away at ${fx(c)}, as ${r.forced ? 'the seeds gave (this test round was set by hand)' : 'it did'}` : `Recomputed: ${fx(c)}, but it flew away at ${fx(r.crash)}`);
+    + ok(crashOk, crashOk ? `Recomputed from the seeds, it flies away at ${fx(c)}, as ${r.forced ? 'the seeds gave (this was a Max Mode Test round)' : 'it did'}` : `Recomputed: ${fx(c)}, but it flew away at ${fx(r.crash)}`);
 }
 
 /* ---------- leaderboard: demo players, with your own real results merged in ---------- */
@@ -947,22 +944,14 @@ document.addEventListener('keydown', e => {
   e.preventDefault(); act(bets[0]);
 });
 
-/* ---------- test flights: set the fly-away point by hand ---------- */
-// For testing the demo (Tornike, 2026-10-26): a field under the bets sets where it flies away, and Max flight sets
-// 10,000×. While a point is set, every round from the next take-off flies away there instead of at its seeded point,
-// and is marked as a test round in the history and the fairness check.
-{
-  const box = $('#test'), inp = $('#forceIn');
-  const setForce = () => {
-    const v = parseFloat(inp.value);
-    S.force = Number.isFinite(v) && v >= 1 ? clamp(Math.floor(v * 100 + 1e-7) / 100, 1, cfg.maxMult) : 0;
-    inp.value = S.force ? S.force.toFixed(2) : ''; box.classList.toggle('on', !!S.force);
-    if (S.force) toast(`Test flight: from the next take-off it flies away at ${fx(S.force)}.`);
-  };
-  inp.addEventListener('change', setForce);
-  $('#forceMax').addEventListener('click', () => { inp.value = String(cfg.maxMult); setForce(); });
-  $('#forceClear').addEventListener('click', () => { inp.value = ''; setForce(); });
-}
+/* ---------- Max Mode Test ---------- */
+// The shared switch under the bets (shared/maxmode.js; Tornike, 2026-10-27, replacing the typed-in test flight). While it
+// is on, every round from the next take-off flies to 10,000× instead of its seeded point, so the Brainer gets every piece
+// of gear, and each is marked as a test round in the history and the fairness check.
+MaxMode.onchange = on => {
+  S.force = on ? cfg.maxMult : 0;
+  toast(on ? `Max Mode Test: from the next take-off every round flies to ${fx(cfg.maxMult)}.` : 'Max Mode Test is off: rounds fly away at their seeded points again.');
+};
 
 /* ---------- loop and boot ---------- */
 function loop(now) {

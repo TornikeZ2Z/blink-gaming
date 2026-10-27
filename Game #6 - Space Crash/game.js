@@ -108,7 +108,7 @@ async function play() {
   if (S.stake < cfg.minBet || S.stake > cfg.maxBet) { toast(`Bet between ${money(cfg.minBet)} and ${money(cfg.maxBet)}.`); return; }
   if (S.stake > S.balance) { toast('Not enough demo balance for this bet. Lower it or press Reset.'); return; }
   starting = true; renderControls();
-  const r = { stake: S.stake, d, n: 0, rtp: cfg.rtp, reach: reachAt(d, S.stake), client: S.client, nonce: S.nonce++, status: 'choose', payout: 0, pick: -1, picks: [] };   // the client seed in effect as it starts
+  const r = { stake: S.stake, d, n: 0, rtp: cfg.rtp, reach: reachAt(d, S.stake), client: S.client, nonce: S.nonce++, status: 'choose', payout: 0, pick: -1, picks: [], forced: [] };   // the client seed in effect as it starts
   try { await commit; r.seed = S.seed; r.hash = S.hash; r.bombs = await drawBombs(r.seed, r.client, r.nonce, d); }
   catch (e) { S.nonce--; toast(window.isSecureContext ? 'Could not start the flight. Please try again.' : 'This demo needs https (or localhost) for its provably fair draw.'); return; }   // e.g. no crypto.subtle on plain http
   finally { starting = false; renderControls(); }
@@ -121,8 +121,10 @@ function choose(k) {
   const r = round;
   if (!r || r.status !== 'choose' || k < 0 || k >= cfg.paths || sheetOpen()) return;
   r.pick = k; r.picks[r.n] = k; r.status = 'flying'; r.t0 = performance.now(); r.hit = r.bombs[r.n][k]; r.struck = false; r.landed = false;
-  if (window.pcTest && window.pcTest.next) { r.hit = window.pcTest.next === 'boom'; r.forced = true; window.pcTest.next = ''; }   // ?test only: force this step, to show either outcome on demand
-  sceneFly(k, r.bombs[r.n], r.t0);
+  if (window.pcTest && window.pcTest.next) { r.hit = window.pcTest.next === 'boom'; r.forced[r.n] = true; window.pcTest.next = ''; }   // ?test only: force this step, to show either outcome on demand
+  const row = r.bombs[r.n].slice();
+  if (window.MaxMode && MaxMode.on) { r.hit = row[k] = false; r.forced[r.n] = true; }   // Max Mode Test: this step is safe
+  sceneFly(k, row, r.t0);
   sound.fire();
   renderControls();
 }
@@ -1475,6 +1477,7 @@ async function checkFair() {
   $('#fairOut').innerHTML = ok(hashOk, hashOk ? 'SHA-256 of the seed matches the hash shown before the flight' : 'The seed does not match the hash')
     + ok(bombsOk, bombsOk ? 'Bombs recomputed from the seeds match your flight' : 'Recomputed bombs differ from the flight')
     + `<div class="fgrid" role="group" aria-label="Bombs at each step">${rows}</div>`
+    + (r.forced.some(Boolean) ? `<p class="sheet-note">Max Mode Test round: step${r.forced.filter(Boolean).length > 1 ? 's' : ''} ${r.forced.flatMap((f, i) => f ? [i + 1] : []).join(', ')} ${r.forced.filter(Boolean).length > 1 ? 'were' : 'was'} forced safe, so this round does not follow the seeds.</p>` : '')
     + `<p class="sheet-note">Red: a drone whose shield would hold. White ring: the drone you shot.${shown > played ? ' The faded row is the next row you skipped by cashing out.' : ''}</p>`;
 }
 

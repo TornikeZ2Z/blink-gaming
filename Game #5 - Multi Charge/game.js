@@ -120,6 +120,7 @@ function charge(k) {   // charge from pillar k (0-4)
   if (!r || r.status !== 'ready' || !(k >= 0 && k < cfg.pillars) || sheetOpen()) return;
   const now = performance.now(), row = r.bombs[r.n].slice();   // the charge's five pillars, as drawn
   if (TEST && window.chargeTest.next) { row[k] = window.chargeTest.next === 'boom'; r.forced[r.n] = true; window.chargeTest.next = null; }
+  if (window.MaxMode && MaxMode.on) { row[k] = false; r.forced[r.n] = true; }   // Max Mode Test: the picked pillar is safe
   r.status = 'charging'; r.t0 = now; r.struck = false; r.pick = k; r.picks[r.n] = k; r.row = row; r.hit = row[k];
   sceneCharge(now, k); sound.pick(); sound.hum(CHARGE_MS * STRIKE);
   renderControls(); renderBattery();
