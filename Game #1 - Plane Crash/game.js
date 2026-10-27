@@ -85,7 +85,10 @@ const sound = BrainerSound(store, v => ({
   pick() { v.pluck(587, 0.07); },
   safe(n) { v.bell(v.step(n), 0.045); },   // a bell one note higher for every safe path
   boom() { v.thud(0.3); v.whoosh(0.7, 0.05, 700, 120, 0.05); v.soft(392, 294, 0.5, 0.05, 0.12, 'triangle'); },   // a low thud and a soft fall
-  jump() { v.whoosh(0.4, 0.04, 500, 1600); [523, 659, 784, 1047].forEach((f, i) => v.bell(f, 0.05, 0.12 + i * 0.09)); }
+  jump() { v.whoosh(0.4, 0.04, 500, 1600); [523, 659, 784, 1047].forEach((f, i) => v.bell(f, 0.05, 0.12 + i * 0.09)); },
+  others() { v.thud(0.05); v.whoosh(0.45, 0.05, 600, 160, 0.03); },   // the bombs on the other paths go off, soft and far
+  land() { v.thud(0.05); v.pluck(392, 0.04, 0.03); },   // the parachute touches down
+  back() { v.whoosh(0.55, 0.15, 300, 950); }   // the plane pops back up into view for the next flight
 }));
 
 for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);
@@ -141,6 +144,7 @@ function advance(now) {
       settle(); return;
     }
     sound.safe(r.n); sound.mood('round', (r.n + 1) / r.reach);
+    if (view.row.some((b, j) => b && j !== r.pick)) sound.others();
   }
   if (p >= 1) {
     r.n++; r.status = 'choose'; r.pick = -1; r.popAt = now;
@@ -666,7 +670,7 @@ function chuteState(now) {
 function resetToStart(now) {
   outro = null; chute = null; round = null; park();
   if (iris) iris.out = iris.out || now;
-  plane.state = 'enter'; plane.t0 = now; plane.brain = myLevel();
+  plane.state = 'enter'; plane.t0 = now; plane.brain = myLevel(); sound.back();
   recenter(); setTrack(LEVELS[S.level], 0, cfg.rtp);
   renderControls(); renderLadder(); renderLevels();
 }
@@ -896,7 +900,7 @@ function update(now, dt) {
   }
   if (wipe && !wipe.done && now - wipe.t0 > 430) { wipe.done = true; resetToStart(now); }
   if (wipe && now - wipe.t0 > 950) wipe = null;
-  if (chute) chute.st = chuteState(now);
+  if (chute) { chute.st = chuteState(now); if (chute.st.landed && !chute.down) { chute.down = true; sound.land(); } }
   const ds = view.speed * dt * 0.0035 * (reduced ? 0.5 : 1);
   view.scroll += ds;
   for (const c of clouds) { c.z -= ds; if (c.z < 1) { c.z = 46 + Math.random() * 14; c.x = view.camX + (Math.random() - 0.5) * 34; c.alt = world.clouds.alt(); } }

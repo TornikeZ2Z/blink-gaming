@@ -95,7 +95,9 @@ const sound = BrainerSound(store, v => ({
   clang() { v.soft(523, 494, 0.25, 0.09, 0, 'triangle'); v.soft(784, 0, 0.18, 0.035, 0.01); },   // a muted "tunk" off the shield
   gear() { v.bell(784, 0.035); },
   shatter(n) { v.whoosh(0.35, 0.05, 1500, 250, 0.02); v.thud(0.08); v.bell(v.step(n), 0.045, 0.06); },   // a bell one note higher for every shield broken
-  jump() { v.whoosh(0.4, 0.04, 500, 1600); [523, 659, 784, 1047].forEach((f, i) => v.bell(f, 0.05, 0.12 + i * 0.09)); }
+  jump() { v.whoosh(0.4, 0.04, 500, 1600); [523, 659, 784, 1047].forEach((f, i) => v.bell(f, 0.05, 0.12 + i * 0.09)); },
+  boost() { v.whoosh(0.9, 0.06, 240, 1500); v.soft(110, 260, 0.7, 0.035); },   // the pod boosts away with the win
+  back() { v.whoosh(0.55, 0.15, 300, 950); }   // the pod pops back up into view for the next flight
 }));
 
 for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);
@@ -828,7 +830,7 @@ function chuteState(now) {
 function resetToStart(now) {
   kitReset(); outro = null; chute = null; round = null; park();
   if (iris) iris.out = iris.out || now;
-  plane.state = 'enter'; plane.t0 = now; plane.brain = myLevel();
+  plane.state = 'enter'; plane.t0 = now; plane.brain = myLevel(); sound.back();
   recenter(); setTrack(LEVELS[S.level], 0, cfg.rtp);
   renderControls(); renderLadder(); renderLevels();
 }
@@ -1160,6 +1162,7 @@ function update(now, dt) {
   if (chute) { const tx = chute.spot.u + view.fieldX; view.camX += (tx - view.camX) * Math.min(1, dt * 0.0022); }   // and the camera drifts over the landing spot
   if (outro) {
     const t = now - outro.t0;
+    if (outro.kind === 'exit' && t > EXIT_STAND + 150 && !outro.boosted) { outro.boosted = true; sound.boost(); }
     if (outro.kind === 'exit' && t > EXIT_MS && !wipe) wipe = { t0: now, x: W / 2, y: H * 0.5 };
     if (outro.kind === 'jump' && t > 4700 && !wipe) wipe = { t0: now, x: chute && chute.st ? chute.st.x : W / 2, y: chute && chute.st ? chute.st.y - chute.st.h * 0.5 : H * 0.6 };
     if (outro.kind === 'crash' && t > (AIM ? 3000 : 3600)) resetToStart(now);
