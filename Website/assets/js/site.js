@@ -53,7 +53,7 @@ const pathsOf = l => l.reach ? `up to ${l.reach}` : String(l.steps);
 // A ladder game's own words: Plane Crash's bombs and paths unless the game names its own in `words` (Charge: overloads and charges).
 const wordsOf = g => Object.assign({ aBomb: 'a bomb', bomb: 'bomb', bombs: 'bombs', bombsIn: 'Bombs in 25 tiles', path: 'path', paths: 'paths', Paths: 'Paths', step: 'step', steps: 'steps', first: 'First step', make: 'fly' }, g.words || {});
 const live = GAMES.filter(x => x.status !== 'soon');
-const hrefOf = g => `game.html?g=${encodeURIComponent(g.id)}`;
+const hrefOf = g => `game-${encodeURIComponent(g.id)}.html`;   // each game's own page, so its link preview shows its own picture
 const artOf = (g, lazy = true) => g.art ? `<img src="${g.art}" alt=""${lazy ? ' loading="lazy"' : ''} decoding="async">` : '<span class="ph">?</span>';
 // The badge shown on a tile: "New" stays, "Game #3" is a catalogue number the visitor doesn't need.
 const isNew = g => /new/i.test(g.badge || '');

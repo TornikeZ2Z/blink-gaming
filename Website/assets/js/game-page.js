@@ -1,4 +1,4 @@
-/* Game page (game.html?g=<id>): the playable demo in a frame with full screen, then rules, levels, specs and downloads for operators.
+/* Game page (game-<id>.html, or game.html?g=<id> for older links): the playable demo in a frame with full screen, then rules, levels, specs and downloads for operators.
    Everything shown comes from the game's entry in data.js. */
 (() => {
 'use strict';
@@ -6,7 +6,7 @@ const { $, esc, ICON, toast, jumpToHash, topOf, pathsOf, wordsOf, SITE, GAMES } 
 const main = $('#main');
 // Multipliers to the cent, as the game's ladder rounds them (52,067.40×, never rounded up).
 const fx = m => m.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '×';
-const g = GAMES.find(x => x.id === new URLSearchParams(location.search).get('g'));
+const g = GAMES.find(x => x.id === (document.body.dataset.game || new URLSearchParams(location.search).get('g')));
 
 if (!g) {
   main.innerHTML = `<div class="wrap"><div class="page-head"><span class="sticker red">404</span><h1>Game not found</h1><p class="lead">That game does not exist or has moved.</p><div class="ctas"><a class="btn btn-ink btn-lg" href="games.html">See our games</a></div></div></div>`;
