@@ -4,6 +4,16 @@ Last updated 2026-10-26, evening, after a full review of the games, the shared B
 
 Live site: https://brainer.games (Cloudflare zone brainer.games: apex A/AAAA to GitHub Pages, www CNAME, DNS only; Pages custom domain, HTTPS enforced). brainer.datastudio.ge has a 301 rule to it in the datastudio.ge zone. It deploys from `TornikeZ2Z/brainer-games`, branch `main`, through GitHub Pages (`.github/workflows/pages.yml`).
 
+## Latest, 2026-10-27 (game session)
+
+Tornike's calls today, all live:
+- **Sounds:** the calm set from the sound board (https://claude.ai/artifact/7LuhVRVYQAbtzjDbzDGyv5, which he called "perfect") in every game through `shared/sound.js`, and Charge's music in a calmer mix in every game through `shared/music.js` (ce708f6). "Only calmer sounds for now": the old loud set is gone from the games, but the board still plays it for comparison.
+- **RTP 97%** in every game, FogRush too (d448324). The site followed in befc16e. At 97%, about 4 Fly High rounds in 100 fly away at 1.00×. A maths audit (10–200 million simulated rounds per game) found no maths bug.
+- **Max Mode Test** in every game (6f1142d): one switch under the controls (`shared/maxmode.js`, `maxmode.css`). While it is on, no step is lost, so the Brainer climbs through every look and piece of gear, and in Fly High every round flies to 10,000×. He wants it visible, to showcase the character's development. Rounds still pay play money; forced steps are named in each fairness check. It is off on every load.
+- **Fly High at night** ("Night launch", picked from three looks), 6f1142d. The pace is Aviator's, ln m = 0.083·s (fd57c33).
+- **Brand:** the name is "Brainer" (Games only in the domain), and the visor is flat screen blue #3550F0 (a026d61). Gold is for wins and titles only.
+- **Still open:** Charge's Master cape has gold clasps (show him a replacement first). Posters should move to the brand gradient at the next card render. The intro's corner mark says BRAINER GAMES, but shared/intro.js has someone else's uncommitted work in it, so touch only your own lines there.
+
 ## What is decided (Tornike approved all of it)
 
 - **Character.** The Blender Brainer:
