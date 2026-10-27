@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 44" width="80" height="44">
+  <!-- The Brainer visor logo for small sizes (under 48 px wide: favicons, tiny tiles): version B without the white rim,
+       which blurs at that size. Same screen, line and eyes as brainer-visor.svg. -->
+  <rect id="screen" width="80" height="44" rx="15.5" fill="#3550F0"/>
+  <path id="line" d="M24 10H56" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <rect id="eye-left" x="21.6" y="15" width="10" height="17" rx="4.6" fill="#fff"/>
+  <rect id="eye-right" x="48.4" y="15" width="10" height="17" rx="4.6" fill="#fff"/>
+</svg>

@@ -92,20 +92,20 @@ def paste_with_shadow(base, card, x, y):
 
 
 def visor(h):
-    """The site's visor logo (assets/brainer/logo/visor.svg, 64x44, screen blue #3550F0), drawn at height h."""
-    s = h / 44; w = round(64 * s)
-    g = Image.new('RGBA', (w, h), hexrgb('#3550F0') + (255,))   # the palette's screen blue, flat
-    m = Image.new('L', (w, h), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, w - 1, h - 1], 19 * s, fill=255)
-    out = Image.new('RGBA', (w, h), (0, 0, 0, 0)); out.paste(g, (0, 0), m)
-    d = ImageDraw.Draw(out)
-    d.line([(12 * s, 7.5 * s), (52 * s, 7.5 * s)], fill=(255, 255, 255, 255), width=round(2.6 * s))   # the line above the eyes: solid white, always
-    for x0 in (17, 38): d.rounded_rectangle([x0 * s, 14 * s, (x0 + 9) * s, 29 * s], 3.6 * s, fill=(255, 255, 255, 255))
-    # a soft white halo so the blue visor stands off the violet
-    halo = Image.new('RGBA', (w + 60, h + 60), (0, 0, 0, 0))
-    hm = Image.new('L', halo.size, 0); ImageDraw.Draw(hm).rounded_rectangle([30, 30, 30 + w, 30 + h], 19 * s, fill=150)
-    halo.paste((255, 255, 255, 255), (0, 0), hm.filter(ImageFilter.GaussianBlur(14)))
-    halo.alpha_composite(out, (30, 30))
-    return halo
+    """The visor logo, version B (assets/brainer/logo/visor.svg, 80x44): screen blue #3550F0 inside a white rim, the
+    line and the rim one weight, drawn at height h, with 30 px of room around it for a soft shadow."""
+    s = h / 44; w = round(80 * s)
+    out = Image.new('RGBA', (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(out)
+    d.rounded_rectangle([0, 0, w - 1, h - 1], 15.5 * s, fill=(255, 255, 255, 255))                            # rim
+    d.rounded_rectangle([3 * s, 3 * s, 77 * s, 41 * s], 12.5 * s, fill=hexrgb('#3550F0') + (255,))              # screen
+    d.line([(24 * s, 10 * s), (56 * s, 10 * s)], fill=(255, 255, 255, 255), width=round(3 * s))               # line
+    for x in (24, 56): d.ellipse([(x - 1.5) * s, 8.5 * s, (x + 1.5) * s, 11.5 * s], fill=(255, 255, 255, 255))   # its round caps
+    for x0 in (21.6, 48.4): d.rounded_rectangle([x0 * s, 15 * s, (x0 + 10) * s, 32 * s], 4.6 * s, fill=(255, 255, 255, 255))
+    shadow = Image.new('RGBA', (w + 60, h + 60), (0, 0, 0, 0))
+    sm = Image.new('L', shadow.size, 0); ImageDraw.Draw(sm).rounded_rectangle([30, 36, 30 + w, 36 + h], 15.5 * s, fill=110)
+    shadow.paste((20, 8, 70, 255), (0, 0), sm.filter(ImageFilter.GaussianBlur(12)))
+    shadow.alpha_composite(out, (30, 30))
+    return shadow
 
 
 def text(base, xy, s, size, weight, fill=(255, 255, 255, 255), shadow=True):

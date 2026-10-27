@@ -1,8 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 44" width="64" height="44">
-  <!-- The Brainer's visor: the lit LED screen and two LED eyes (Tornike's pick, logo 2, 2026-10-27; no dark shell since that day).
-       The screen is the palette's screen blue #3550F0, flat (Tornike's core palette, 2026-10-27). -->
-  <rect width="64" height="44" rx="19" fill="#3550F0"/>
-  <path d="M12 7.5h40" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
-  <rect x="17" y="14" width="9" height="15" rx="3.6" fill="#fff"/>
-  <rect x="38" y="14" width="9" height="15" rx="3.6" fill="#fff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 44" width="80" height="44">
+  <!-- The Brainer visor logo, version B (2026-10-27): the robot's own screen, 1.8 wide to 1 tall with corners a third
+       of the height, in screen blue #3550F0 inside a white rim. One stroke weight: the rim and the line are both 3.
+       Use from 48 px wide up; below that, use brainer-visor-small.svg (no rim). -->
+  <rect id="rim" width="80" height="44" rx="15.5" fill="#fff"/>
+  <rect id="screen" x="3" y="3" width="74" height="38" rx="12.5" fill="#3550F0"/>
+  <path id="line" d="M24 10H56" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <rect id="eye-left" x="21.6" y="15" width="10" height="17" rx="4.6" fill="#fff"/>
+  <rect id="eye-right" x="48.4" y="15" width="10" height="17" rx="4.6" fill="#fff"/>
 </svg>
