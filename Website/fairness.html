@@ -21,7 +21,7 @@
     <div class="page-head">
       <span class="sticker sky">Provably fair</span>
       <h1>Every round, fixed before the bet</h1>
-      <p class="lead">Nobody can change where the bombs are once a round starts, and anyone can prove it afterwards: the player, the casino or a regulator.</p>
+      <p class="lead">Nobody can change how a round ends once it starts, where the bombs are or where the Brainer flies away, and anyone can prove it afterwards: the player, the casino or a regulator.</p>
     </div>
   </div>
 
@@ -30,8 +30,8 @@
       <div class="section-head"><div><span class="eyebrow">How it works</span><h2 id="stepsTitle">Commit, play, verify</h2></div></div>
       <ol class="steps3">
         <li><h3>Commit</h3><p>Before the round, the game makes a secret server seed and shows its SHA-256 hash in its fairness sheet (the shield button). The hash fixes the seed without giving it away.</p></li>
-        <li><h3>Play</h3><p>Then the player can set their own client seed in the same sheet, or keep the random one. Every path at every step in Plane Crash rolls from the server seed, the client seed and the round number. Which way the player goes cannot move a bomb.</p></li>
-        <li><h3>Verify</h3><p>When the round ends the server seed is revealed and the next one is committed. Hash it again and redraw the bombs: if both match, the round was fixed before the bet.</p></li>
+        <li><h3>Play</h3><p>Then the player can set their own client seed in the same sheet, or keep the random one. Every roll in every game comes from the server seed, the client seed and the round number. Which way the player goes, or when they cash out, cannot change it.</p></li>
+        <li><h3>Verify</h3><p>When the round ends the server seed is revealed and the next one is committed. Hash it again and redraw the round: if both match, the round was fixed before the bet.</p></li>
       </ol>
     </div>
   </section>
@@ -47,6 +47,8 @@
         <div><dt>Plane Crash</dt><dd>One roll for every path at every step, with the message <code>client_seed:nonce:step:path</code>: steps count from 1, and paths go 1 to 5 as numbered on the hoops. A path holds a bomb when its roll is at or above that step&rsquo;s survival chance, (26 &minus; step &minus; bombs) &divide; (26 &minus; step), with 1, 3, 5 or 10 bombs by difficulty.</dd></div>
         <div><dt>Space Crash</dt><dd>Plane Crash&rsquo;s rolls, with drones for paths: one roll for every drone in every row, with the message <code>client_seed:nonce:row:drone</code>, rows counting from 1 and drones 1 to 5 from left to right as numbered in the game. A drone&rsquo;s shield holds when its roll is at or above that row&rsquo;s survival chance, the same as Plane Crash&rsquo;s, with 1, 3, 5 or 10 holding shields by difficulty. The shields&rsquo; tougher looks deeper in a round never change the rolls.</dd></div>
         <div><dt>Multi Charge</dt><dd>Plane Crash&rsquo;s rolls, with pillars for paths: one roll for every pillar at every charge, with the message <code>client_seed:nonce:charge:pillar</code>, charges counting from 1 and pillars 1 to 5 from left to right as numbered in the game. A pillar is overloaded when its roll is at or above that charge&rsquo;s survival chance, the same as Plane Crash&rsquo;s, with 1, 3, 5 or 10 overloads by difficulty.</dd></div>
+        <div><dt>Charge</dt><dd>One roll for every charge, with the message <code>client_seed:nonce:charge</code>, charges counting from 1. A charge overloads and ends the round when its roll is at or above that charge&rsquo;s survival chance, the same as a Plane Crash step&rsquo;s: (26 &minus; charge &minus; n) &divide; (26 &minus; charge), where n is 1, 3, 5 or 10 by difficulty.</dd></div>
+        <div><dt>Fly High</dt><dd>One roll for every round, with the message <code>client_seed:nonce</code>. The Brainer flies away at 0.98 &divide; (1 &minus; roll), rounded down to the cent, never below 1.00&times; (about 3 rounds in 100 fly away at take-off) and never above 10,000&times;. Rounds run on their own, so the nonce counts every round, with or without a bet; the client seed can change while bets are open, and the one in effect at take-off is that round&rsquo;s. Each of the two bets pays at most $10,000 and cashes out when it gets there, while the round flies on. The demo also has a Test flight field under the bets that sets the fly-away point by hand, for testing; rounds flown that way are marked as test rounds in the history and the fairness sheet, which also shows the point the seeds gave.</dd></div>
         <div><dt>Payouts</dt><dd>Bet &times; multiplier, with the multiplier and the payout each rounded down to the cent. A round pays at most the $10,000 max win: one that reaches it ends there and pays $10,000.</dd></div>
       </dl>
     </div>
@@ -57,7 +59,7 @@
       <div>
         <span class="eyebrow">Try it</span>
         <h2 id="tryTitle" style="font-size:clamp(30px,3.8vw,48px)">See the commit check</h2>
-        <p class="lead" style="margin-top:16px">This runs SHA-256 in your browser on a sample seed made just now. In each game, the shield button does the same for your last round and redraws every bomb.</p>
+        <p class="lead" style="margin-top:16px">This runs SHA-256 in your browser on a sample seed made just now. In each game, the shield button does the same for your last round and redraws it.</p>
       </div>
       <div class="verify">
         <div class="verify-head"><h3>Sample round</h3><span class="sticker paper mono" id="vRound"></span></div>
