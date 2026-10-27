@@ -400,10 +400,12 @@ td.num{font-family:var(--mono)}
 .tile:hover{transform:translateY(-6px);box-shadow:var(--shadow)}
 .tile-art,.tile-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .tile-art .ph{position:absolute;inset:0;display:grid;place-items:center;font-size:48px;font-weight:700;background:var(--g1)}
-.tile::after{content:"";position:absolute;inset:45% 0 0;background:linear-gradient(to top,rgba(10,19,34,.88),transparent)}
+/* the title fade: solid enough at the foot for white text on any poster (lab floors, pads and clouds are light), easing
+   out before the top three-quarters where the Brainer stands */
+.tile::after{content:"";position:absolute;inset:40% 0 0;background:linear-gradient(to top,rgba(10,19,34,.95) 0,rgba(10,19,34,.88) 28%,rgba(10,19,34,.52) 55%,rgba(10,19,34,.14) 80%,transparent)}
 .tile-info{position:absolute;left:0;right:0;bottom:0;z-index:1;display:flex;flex-direction:column;gap:2px;padding:clamp(14px,1.1vw,20px)}
-.tile-info b{font-size:clamp(17px,1.25vw,24px);font-weight:800;letter-spacing:-.02em;line-height:1.1}
-.tile-info small{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.75)}
+.tile-info b{font-size:clamp(17px,1.25vw,24px);font-weight:800;letter-spacing:-.02em;line-height:1.1;text-shadow:0 1px 2px rgba(10,19,34,.55),0 2px 14px rgba(10,19,34,.45)}
+.tile-info small{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.88);text-shadow:0 1px 2px rgba(10,19,34,.6)}
 .flag{position:absolute;top:12px;left:12px;z-index:1;padding:5px 11px;border-radius:999px;background:var(--g1);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .flag.paper{background:#fff;color:var(--ink-2)}
 .tile-play{position:absolute;top:50%;left:50%;z-index:1;display:grid;place-items:center;width:58px;height:58px;border-radius:50%;background:#fff;color:#532aff;box-shadow:0 10px 30px rgba(10,19,34,.35);transform:translate(-50%,-50%) scale(.6);opacity:0;transition:.25s}
