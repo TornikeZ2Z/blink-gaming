@@ -61,19 +61,19 @@ window.BRAINER = {
       // or 10 holding shields, multiplier = RTP ÷ chance of surviving, rounded down to the cent; five drones in every row,
       // each holding on its own with that row's chance, as Plane Crash's five paths.
       provisional: true,
-      rtp: 98,
+      rtp: 97,
       minBet: 0.1,
       maxWin: 10000,
       words: { aBomb: 'a shield that holds', bomb: 'holding shield', bombs: 'holding shields', bombsIn: 'Holding shields in 25 rows', path: 'row', paths: 'rows', Paths: 'Rows', step: 'row', steps: 'rows', first: 'First row', make: 'break through' },
       levels: [
-        { name: 'Easy', bombs: 1, steps: 24, first: 1.02, top: 24.5 },
-        { name: 'Medium', bombs: 3, steps: 22, first: 1.11, top: 2254 },
-        { name: 'Hard', bombs: 5, steps: 20, first: 1.22, top: 52067.4 },
-        { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.63, top: 3203384.8 }
+        { name: 'Easy', bombs: 1, steps: 24, first: 1.01, top: 24.25 },
+        { name: 'Medium', bombs: 3, steps: 22, first: 1.1, top: 2231 },
+        { name: 'Hard', bombs: 5, steps: 20, first: 1.21, top: 51536.1 },
+        { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.61, top: 3170697.2 }
       ],
       specs: [
         ['Type', 'Instant, single player, Chicken Road style with a five-way pick'],
-        ['RTP', 'Up to 98%, the same for every player and every drone. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
+        ['RTP', 'Up to 97%, the same for every player and every drone. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
         ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 holding shields in 25 rows'],
         ['Drones', 'Five in every row, each holding on its own with the same chance'],
         ['Rows per round', '24, 22, 20, up to 14'],
@@ -116,19 +116,19 @@ window.BRAINER = {
       // 5 or 10 overloads, multiplier = RTP ÷ chance of surviving, rounded down to the cent; five pillars at every charge,
       // each overloaded on its own with that charge's chance, as Plane Crash's five paths.
       provisional: true,
-      rtp: 98,
+      rtp: 97,
       minBet: 0.1,
       maxWin: 10000,
       words: { aBomb: 'an overload', bomb: 'overload', bombs: 'overloads', bombsIn: 'Overloads in 25 charges', path: 'charge', paths: 'charges', Paths: 'Charges', step: 'charge', steps: 'charges', first: 'First charge', make: 'make' },
       levels: [
-        { name: 'Easy', bombs: 1, steps: 24, first: 1.02, top: 24.5 },
-        { name: 'Medium', bombs: 3, steps: 22, first: 1.11, top: 2254 },
-        { name: 'Hard', bombs: 5, steps: 20, first: 1.22, top: 52067.4 },
-        { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.63, top: 3203384.8 }
+        { name: 'Easy', bombs: 1, steps: 24, first: 1.01, top: 24.25 },
+        { name: 'Medium', bombs: 3, steps: 22, first: 1.1, top: 2231 },
+        { name: 'Hard', bombs: 5, steps: 20, first: 1.21, top: 51536.1 },
+        { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.61, top: 3170697.2 }
       ],
       specs: [
         ['Type', 'Instant, single player, Chicken Road style with a five-way pick'],
-        ['RTP', 'Up to 98%, the same for every player and every pillar. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
+        ['RTP', 'Up to 97%, the same for every player and every pillar. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
         ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 overloads in 25 charges'],
         ['Pillars', 'Five at every charge, each overloaded on its own with the same chance'],
         ['Charges per round', '24, 22, 20, up to 14'],
@@ -172,18 +172,18 @@ window.BRAINER = {
       // ladder's last step; the site shows what a flight can pay, the max win at the minimum bet when that is lower. A
       // Hardcore flight through path 14 has reached the max win even at $0.10, so path 15 is never offered: `reach` paths.
       provisional: true,
-      rtp: 98,
+      rtp: 97,
       minBet: 0.1,
       maxWin: 10000,
       levels: [
-        { name: 'Easy', bombs: 1, steps: 24, first: 1.02, top: 24.5 },
-        { name: 'Medium', bombs: 3, steps: 22, first: 1.11, top: 2254 },
-        { name: 'Hard', bombs: 5, steps: 20, first: 1.22, top: 52067.4 },
-        { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.63, top: 3203384.8 }
+        { name: 'Easy', bombs: 1, steps: 24, first: 1.01, top: 24.25 },
+        { name: 'Medium', bombs: 3, steps: 22, first: 1.1, top: 2231 },
+        { name: 'Hard', bombs: 5, steps: 20, first: 1.21, top: 51536.1 },
+        { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.61, top: 3170697.2 }
       ],
       specs: [
         ['Type', 'Crash, single player'],
-        ['RTP', 'Up to 98%, the same at every brain level. Payouts round down to the cent, and the $10,000 max win ends long or high-bet flights early, so some flights return less'],
+        ['RTP', 'Up to 97%, the same at every brain level. Payouts round down to the cent, and the $10,000 max win ends long or high-bet flights early, so some flights return less'],
         ['Brain levels', '100 in ten looks; the same 10 brain cells for every finished flight. They never change odds or payouts'],
         ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 bombs in 25 tiles'],
         ['Paths per flight', '24, 22, 20, up to 14'],
@@ -222,17 +222,17 @@ window.BRAINER = {
         'Watch the multiplier climb and press Cash out whenever you like.',
         'Auto places your bet every round and can cash out by itself at a multiplier you choose.'
       ],
-      // Mirrors cfg in Game #3 - Fly High/game.js: the round flies away at 0.98 ÷ (1 − u), rounded down to the cent,
-      // 1.00× at least and 10,000× at most, so every cash-out point returns 98% before rounding and the max win.
+      // Mirrors cfg in Game #3 - Fly High/game.js: the round flies away at 0.97 ÷ (1 − u), rounded down to the cent,
+      // 1.00× at least and 10,000× at most, so every cash-out point returns 97% before rounding and the max win.
       provisional: true,
-      rtp: 98,
+      rtp: 97,
       minBet: 0.1,
       maxWin: 10000,
       specs: [
         ['Type', 'Crash, Aviator style, rounds every few seconds'],
-        ['RTP', 'Up to 98%, the same at every brain level and for every cash-out point. Payouts round down to the cent, and the $10,000 max win ends high-bet rounds early, so some rounds return less'],
+        ['RTP', 'Up to 97%, the same at every brain level and for every cash-out point. Payouts round down to the cent, and the $10,000 max win ends high-bet rounds early, so some rounds return less'],
         ['Brain levels', '100 in ten looks; the same 10 brain cells for every round played. They never change odds or payouts'],
-        ['Multiplier', 'From 1.00× up to 10,000×; about 3 rounds in 100 fly away at 1.00×'],
+        ['Multiplier', 'From 1.00× up to 10,000×; about 4 rounds in 100 fly away at 1.00×'],
         ['Bets per round', 'Up to two, each with auto bet and auto cash-out'],
         ['Bet range', '$0.10 to $200'],
         ['Max win', '$10,000 per bet'],
@@ -242,7 +242,7 @@ window.BRAINER = {
         ['Languages', 'English now, Georgian in progress'],
         ['Certification', 'Not yet tested by a lab']
       ],
-      fairness: 'Every round is fixed before take-off: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. The round rolls HMAC-SHA256(server seed, "client seed:nonce") and flies away at 0.98 ÷ (1 − u). The shield button in the game, or any pill in the round history, re-checks a round, so the player, the casino or a regulator can recompute it.',
+      fairness: 'Every round is fixed before take-off: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. The round rolls HMAC-SHA256(server seed, "client seed:nonce") and flies away at 0.97 ÷ (1 − u). The shield button in the game, or any pill in the round history, re-checks a round, so the player, the casino or a regulator can recompute it.',
       demoNote: 'Demo build with play money in US dollars; the game’s final name is still being chosen. Brain levels change the Brainer’s look; they never change the odds or payouts.',
       levelsNote: 'The odds and payouts are the same for every player at every brain level. A single bet pays at most the $10,000 max win.'
     },
@@ -273,19 +273,19 @@ window.BRAINER = {
       // Mirrors cfg and LEVELS in Game #4 - Charge/game.js: Plane Crash's ladder (25 charges hide 1, 3, 5 or 10 overloads,
       // multiplier = RTP ÷ chance of surviving, rounded down to the cent), with a charge for each step.
       provisional: true,
-      rtp: 98,
+      rtp: 97,
       minBet: 0.1,
       maxWin: 10000,
       words: { aBomb: 'an overload', bomb: 'overload', bombs: 'overloads', bombsIn: 'Overloads in 25 charges', path: 'charge', paths: 'charges', Paths: 'Charges', step: 'charge', steps: 'charges', first: 'First charge', make: 'make' },
       levels: [
-        { name: 'Easy', bombs: 1, steps: 24, first: 1.02, top: 24.5 },
-        { name: 'Medium', bombs: 3, steps: 22, first: 1.11, top: 2254 },
-        { name: 'Hard', bombs: 5, steps: 20, first: 1.22, top: 52067.4 },
-        { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.63, top: 3203384.8 }
+        { name: 'Easy', bombs: 1, steps: 24, first: 1.01, top: 24.25 },
+        { name: 'Medium', bombs: 3, steps: 22, first: 1.1, top: 2231 },
+        { name: 'Hard', bombs: 5, steps: 20, first: 1.21, top: 51536.1 },
+        { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.61, top: 3170697.2 }
       ],
       specs: [
         ['Type', 'Instant, single player, Chicken Road style'],
-        ['RTP', 'Up to 98%, the same for every player. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
+        ['RTP', 'Up to 97%, the same for every player. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
         ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 overloads in 25 charges'],
         ['Charges per round', '24, 22, 20, up to 14'],
         ['Looks', 'Eleven, spread over the charges a round can reach, and a random piece of gear on every charge between. They never change odds or payouts'],
@@ -326,10 +326,10 @@ window.BRAINER = {
       ],
       // Mirrors cfg in Game #2 - FogRush/game.js: each new tile is a bomb with chance `bomb` (%); a safe one is plain or a
       // chest, `chance` being the share of safe tiles. Every safe new tile multiplies the multiplier by `step` and a chest
-      // by its `x` as well; the round starts at 0.98×, so the return is 98% before rounding down to the cent and the max
-      // win lower it in some rounds: RTP up to 98%. Final once the game is certified.
+      // by its `x` as well; the round starts at 0.97×, so the return is 97% before rounding down to the cent and the max
+      // win lower it in some rounds: RTP up to 97%. Final once the game is certified.
       provisional: true,
-      rtp: 98,
+      rtp: 97,
       minBet: 0.1,
       maxWin: 10000,
       grid: 25,
@@ -344,7 +344,7 @@ window.BRAINER = {
       ],
       specs: [
         ['Type', 'Mines-style instant game, single player'],
-        ['RTP', 'Up to 98%, the same at every brain level. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
+        ['RTP', 'Up to 97%, the same at every brain level. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
         ['Brain levels', 'Shared with Plane Crash: the same 100 levels and the same 10 brain cells for every finished round. They never change odds or payouts'],
         ['Map', '25 × 25 grass plots under fog; the start tile in the middle is always safe'],
         ['Bomb chance', '8% on every new tile; cleared tiles are safe to cross'],

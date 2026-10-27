@@ -4,7 +4,7 @@
 'use strict';
 const { $, esc, ICON, toast, jumpToHash, topOf, pathsOf, wordsOf, SITE, GAMES } = window.Brainer;
 const main = $('#main');
-// Multipliers to the cent, as the game's ladder rounds them (52,067.40×, never rounded up).
+// Multipliers to the cent, as the game's ladder rounds them (51,536.10×, never rounded up).
 const fx = m => m.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '×';
 const g = GAMES.find(x => x.id === (document.body.dataset.game || new URLSearchParams(location.search).get('g')));
 
