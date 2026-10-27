@@ -26,7 +26,7 @@ button{cursor:pointer}
 .hud{position:absolute;left:14px;right:14px;top:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;pointer-events:none;z-index:3}
 .hud > *{pointer-events:auto}
 .brand{display:flex;align-items:center;gap:10px}
-.logo{width:46px;height:32px;border-radius:14px;box-shadow:0 4px 14px rgba(10,19,34,.35)}   /* the visor, at its own 64:44 shape */
+.logo{width:54px;height:auto;aspect-ratio:80/44;border-radius:11px;box-shadow:0 4px 14px rgba(10,19,34,.35)}   /* the visor (version B, with its white rim), at its own 80:44 shape */
 .brand .t1{font-weight:800;font-size:20px;letter-spacing:-.01em;text-shadow:0 2px 10px rgba(10,19,34,.35)}
 .brand .t1 .wm{font-size:27px;text-shadow:none;margin:6px 0 0 4px}
 .hud-right{display:flex;align-items:center;gap:8px}

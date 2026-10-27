@@ -1,6 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <!-- The visor mark (visor.svg) filling a square tab icon, in the palette's flat screen blue. -->
-  <rect x="1" y="10" width="62" height="44" rx="19" fill="#3550F0"/>
-  <rect x="16" y="20" width="10" height="17" rx="4" fill="#fff"/>
-  <rect x="38" y="20" width="10" height="17" rx="4" fill="#fff"/>
+  <!-- The tab icon: the small visor (Marketing kit/logo/brainer-visor-small.svg, version B without the rim) centred in a square. -->
+  <g transform="translate(1 14.95) scale(.775)">
+    <rect width="80" height="44" rx="15.5" fill="#3550F0"/>
+    <path d="M24 10H56" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+    <rect x="21.6" y="15" width="10" height="17" rx="4.6" fill="#fff"/>
+    <rect x="48.4" y="15" width="10" height="17" rx="4.6" fill="#fff"/>
+  </g>
 </svg>

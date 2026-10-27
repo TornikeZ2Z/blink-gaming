@@ -18,14 +18,19 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const full = new URLSearchParams(location.search).has('intro');   // ?intro plays it in full every time, to look at it
 const seen = !full && (() => { try { return sessionStorage.getItem('brainer.intro') === '1'; } catch (e) { return false; } })();
-let visorN = 0;
 // where each game's Brainer has its visor in the actor's square, in the pose it holds as the view pulls back to it
 // (measured from the drawn frame; FogRush's is an estimate, it isn't on the site yet)
-const FACES = { plane: [0.49, 0.352, 0.236], fog: [0.5, 0.33, 0.2], fly: [0.5, 0.367, 0.295], CHARGE: [0.511, 0.583, 0.32, 10], 'MULTI CHARGE': [0.511, 0.583, 0.32, 10] };
+const FACES = { plane: [0.49, 0.352, 0.236], fog: [0.5, 0.33, 0.2], fly: [0.5, 0.367, 0.295], CHARGE: [0.511, 0.583, 0.32, 10], 'MULTI CHARGE': [0.511, 0.583, 0.32, 10], 'SPACE CRASH': [0.5, 0.347, 0.17] };
 const W0 = 36755;   // the clock the robot holds its pose at (see actorClock): a moment the plane flies level and the head looks straight on
-// the Brainer's visor, the studio logo (Website/assets/brainer/logo/visor.svg): just the lit screen, no dark shell, inline so
-// its screen and eyes can light up
-const visor = cls => { const id = `iv${++visorN}`, off = cls === 'boot-visor' ? '<rect class="off" width="64" height="44" rx="19" fill="#0d1830"/>' : ''; return `<svg class="${cls}" viewBox="0 0 64 44" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3550F0"/><stop offset="1" stop-color="#3550F0"/></linearGradient></defs>${off}<rect class="screen" width="64" height="44" rx="19" fill="url(#${id})"/><path class="gloss" d="M12 7.5h40" stroke="#fff" stroke-opacity=".3" stroke-width="2.6" stroke-linecap="round"/><rect class="eye" x="17" y="14" width="9" height="15" rx="3.6" fill="#fff"/><rect class="eye" x="38" y="14" width="9" height="15" rx="3.6" fill="#fff"/></svg>`; };
+// the Brainer's visor, the studio logo (version B, Tornike's pick, 2026-10-27; Marketing kit/logo/brainer-visor.svg): the
+// robot's own screen shape, 80 x 44 with corners a third of its height, in screen blue inside a white rim, inline so its
+// screen and eyes can light up. small: without the rim (brainer-visor-small.svg), for under 48 px wide, where a rim blurs.
+const SCREEN = 74 / 80;   // the screen's share of the rimmed visor's width: the part that lands on the robot's lit screen
+const visor = (cls, small) => `<svg class="${cls}" viewBox="0 0 80 44" aria-hidden="true">`
+  + (small ? '<rect class="screen" width="80" height="44" rx="15.5" fill="#3550F0"/>'
+    : '<rect class="rim" width="80" height="44" rx="15.5" fill="#fff"/>' + (cls === 'boot-visor' ? '<rect class="off" x="3" y="3" width="74" height="38" rx="12.5" fill="#0d1830"/>' : '')
+      + '<rect class="screen" x="3" y="3" width="74" height="38" rx="12.5" fill="#3550F0"/>')
+  + '<path class="gloss" d="M24 10H56" stroke="#fff" stroke-width="3" stroke-linecap="round"/><rect class="eye" x="21.6" y="15" width="10" height="17" rx="4.6" fill="#fff"/><rect class="eye" x="48.4" y="15" width="10" height="17" rx="4.6" fill="#fff"/></svg>';
 
 function wordmark(mark) {
   if (mark === 'plane') return `<span class="wm wm-plane" role="img" aria-label="Plane Crash"><span class="wm-w wm-top" data-t="PLANE"><b>PLANE</b></span><span class="wm-w wm-main" data-t="CRASH"><b>CRASH</b></span>`
@@ -40,7 +45,7 @@ function start(cfg) {
   const root = document.createElement('div');
   root.className = `intro t-${cfg.theme || cfg.mark || 'plane'}`;
   root.innerHTML = `<div class="intro-sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <div class="intro-mark">${visor('mark-visor')}<span>BRAINER</span></div>
+    <div class="intro-mark">${visor('mark-visor', true)}<span>BRAINER</span></div>
     <div class="intro-center">
       <canvas class="intro-actor" aria-hidden="true"></canvas>
       <div class="intro-title">${wordmark(cfg.mark || cfg.title)}</div>
@@ -76,9 +81,10 @@ function start(cfg) {
     root.classList.add('lit');
     const r = cv.getBoundingClientRect(), b = bootV.getBoundingClientRect();
     const fx = r.left + face[0] * r.width, fy = r.top + face[1] * r.height, vx = b.left + b.width / 2, vy = b.top + b.height / 2;
-    const s0 = b.width / (face[2] * r.width), opts = { duration: pullT, easing: 'cubic-bezier(.55,0,.25,1)', fill: 'forwards' };
+    const s0 = b.width * SCREEN / (face[2] * r.width), opts = { duration: pullT, easing: 'cubic-bezier(.55,0,.25,1)', fill: 'forwards' };
     if (reduced || !cv.animate || !r.width || !b.width) { cv.style.opacity = 1; setTimeout(() => boot.remove(), 250); return; }
-    // the robot starts so big its visor is exactly the logo, and the logo shrinks with it: the same easing keeps them locked
+    // the robot starts so big its screen is exactly the logo's (the white rim sits on the head's rim round it), and the
+    // logo shrinks with it: the same easing keeps them locked
     cv.style.transformOrigin = `${face[0] * 100}% ${face[1] * 100}%`;
     const tilt = face[3] || 0;   // a robot that leans its head: the logo turns with it, the robot starts turned upright
     cv.animate([{ transform: `translate(${vx - fx}px,${vy - fy}px) scale(${s0}) rotate(${-tilt}deg)`, opacity: 0 }, { opacity: 1, offset: 0.25 }, { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1 }], opts);

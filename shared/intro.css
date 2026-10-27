@@ -18,7 +18,7 @@
 .intro.t-fog .intro-note{text-shadow:0 1px 6px rgba(43,29,158,.65)}
 @keyframes introDrift{from{transform:translateX(-6vw)}50%{transform:translateX(6vw)}to{transform:translateX(-6vw)}}
 .intro-mark{position:absolute;left:18px;top:16px;display:flex;align-items:center;gap:9px;opacity:0;animation:introFade .5s .1s forwards}
-.intro-mark .mark-visor{width:40px;height:auto;filter:drop-shadow(0 4px 10px rgba(20,10,80,.35))}
+.intro-mark .mark-visor{width:42px;height:auto;filter:drop-shadow(0 4px 10px rgba(20,10,80,.35))}
 .intro-mark span{display:flex;flex-direction:column;font-weight:800;font-size:13px;line-height:1;letter-spacing:.08em}
 .intro-mark small{font-size:9px;letter-spacing:.3em;opacity:.8;margin-top:3px}
 .intro-center{position:relative;display:grid;justify-items:center;gap:4px;margin-top:-2vh}
@@ -44,16 +44,16 @@
 .boot-dark{position:absolute;inset:0;background:#03060d}
 .boot-light{position:absolute;left:50%;top:50%;width:70vmin;height:70vmin;margin:-35vmin 0 0 -35vmin;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.95),rgba(140,150,255,.75) 35%,rgba(90,50,251,.35) 65%,transparent);opacity:0;transform:scale(.3)}
 .boot-visor{position:relative;width:min(44vmin,260px);height:auto;overflow:visible}
-.boot-visor .screen,.boot-visor .gloss,.boot-visor .eye{opacity:0}
+.boot-visor .rim,.boot-visor .screen,.boot-visor .gloss,.boot-visor .eye{opacity:0}
 .intro.boot .boot-visor{animation:bootGlow calc(.9s*var(--k)) calc(.15s*var(--k)) ease-out both}
-.intro.boot .boot-visor .screen{animation:bootScreen calc(.7s*var(--k)) ease-out both}
+.intro.boot .boot-visor .rim,.intro.boot .boot-visor .screen{animation:bootScreen calc(.7s*var(--k)) ease-out both}
 .intro.boot .boot-visor .gloss{animation:introFade calc(.4s*var(--k)) calc(.5s*var(--k)) both}
 .intro.boot .boot-visor .eye{transform-box:fill-box;transform-origin:center;animation:bootEyes calc(.85s*var(--k)) calc(.35s*var(--k)) both}
 @keyframes bootScreen{0%{opacity:0}30%{opacity:.35}42%{opacity:.06}60%{opacity:.7}68%{opacity:.4}100%{opacity:1}}
 @keyframes bootEyes{0%{opacity:0;transform:scaleY(.12)}25%{opacity:1;transform:scaleY(.12)}45%{transform:scaleY(1.08)}55%,72%{transform:scaleY(1)}80%{transform:scaleY(.12)}90%,100%{opacity:1;transform:scaleY(1)}}
 @keyframes bootGlow{from{filter:drop-shadow(0 0 0 rgba(90,110,255,0))}to{filter:drop-shadow(0 0 28px rgba(90,110,255,.85)) drop-shadow(0 0 70px rgba(90,50,251,.55))}}
 .intro.lit .boot-visor .off{opacity:0;transition:opacity .3s}
-.intro.lit .boot-visor .screen,.intro.lit .boot-visor .gloss,.intro.lit .boot-visor .eye{opacity:1;animation:none}
+.intro.lit .boot-visor .rim,.intro.lit .boot-visor .screen,.intro.lit .boot-visor .gloss,.intro.lit .boot-visor .eye{opacity:1;animation:none}
 .intro.lit .boot-visor{animation:none;filter:drop-shadow(0 0 18px rgba(90,110,255,.7))}
 .intro.lit .boot-dark{transition:opacity calc(.7s*var(--k)) ease-out;opacity:0}
 .intro.lit .boot-light{animation:bootFlood calc(.85s*var(--k)) ease-out both}

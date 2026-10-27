@@ -665,7 +665,7 @@ function loadProgress() {
 $('.brand .t1').textContent = 'Multi Charge';
 for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);
 if ($('#boot')) $('#boot').remove();   // the page's own loading screen hands over to the intro
-(window.BrainerIntro ? window.BrainerIntro.start({ title: 'Multi Charge', mark: 'MULTI CHARGE', theme: 'plane', what: 'the charging pillars', progress: loadProgress, logo: 'assets/visor.png', fallback: 'assets/look/1-lg.webp' }) : Promise.resolve()).then(() => {   // the intro shows the baby every round starts with
+(window.BrainerIntro ? window.BrainerIntro.start({ title: 'Multi Charge', mark: 'MULTI CHARGE', theme: 'plane', what: 'the charging pillars', progress: loadProgress, logo: 'assets/visor.svg', fallback: 'assets/look/1-lg.webp' }) : Promise.resolve()).then(() => {   // the intro shows the baby every round starts with
   booted = true;
   if (store.get('brainer.age-ok', '') !== '1') openSheet('#agegate');
   else if (store.get('brainer.mc.tutorial', '') !== 'seen') openSheet('#tutorial');
