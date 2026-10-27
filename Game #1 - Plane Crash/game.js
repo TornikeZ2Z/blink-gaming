@@ -81,14 +81,14 @@ function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h
 // files to load. Starts on the first tap or key; the HUD button mutes it. The background music (../shared/music.js)
 // plays under it all, very low, and every sound ducks it a little.
 const sound = BrainerSound(store, v => ({
-  takeoff() { v.whoosh(1.0, 0.06, 180, 1100); v.soft(90, 150, 0.9, 0.05); },   // a soft whoosh and a low engine
-  pick() { v.pluck(587, 0.07); },
-  safe(n) { v.bell(v.step(n), 0.045); },   // a bell one note higher for every safe path
-  boom() { v.thud(0.3); v.whoosh(0.7, 0.05, 700, 120, 0.05); v.soft(392, 294, 0.5, 0.05, 0.12, 'triangle'); },   // a low thud and a soft fall
-  jump() { v.whoosh(0.4, 0.04, 500, 1600); [523, 659, 784, 1047].forEach((f, i) => v.bell(f, 0.05, 0.12 + i * 0.09)); },
-  others() { v.thud(0.05); v.whoosh(0.45, 0.05, 600, 160, 0.03); },   // the bombs on the other paths go off, soft and far
-  land() { v.thud(0.05); v.pluck(392, 0.04, 0.03); },   // the parachute touches down
-  back() { v.whoosh(0.55, 0.15, 300, 950); }   // the plane pops back up into view for the next flight
+  takeoff() { v.servo(1.0, 0.035, 110, 240); v.chatter([784, 1047], 0.09, 0.04, 0.15); },   // a servo spinning up and a "beep-boop"
+  pick() { v.chirp(880, 1320, 0.07, 0.14); },
+  safe(n) { v.beep(v.step(n), 0.08, 0.045); v.beep(v.step(n) * 1.5, 0.1, 0.035, 0.09); },   // a two-tone beep one note higher for every safe path
+  boom() { v.thud(0.25); v.chirp(660, 110, 0.55, 0.06, 0.05, 'triangle'); v.blips(0.25, 0.025, 0.12, 200, 600); },   // a thud, a falling chirp and a little static
+  jump() { v.steps(523, 1319, 5, 0.32, 0.065); v.chirp(1047, 1568, 0.18, 0.035, 0.34); },   // a stepped power-up and a happy chirp
+  others() { v.thud(0.05); v.beep(220, 0.06, 0.035, 0.03); },   // the bombs on the other paths go off, soft and far
+  land() { v.thud(0.05); v.chatter([523, 392], 0.08, 0.04, 0.05); },   // the parachute touches down: a pat and a "boop-bip"
+  back() { v.servo(0.55, 0.032, 140, 300); }   // the plane pops back up into view for the next flight
 }));
 
 for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);

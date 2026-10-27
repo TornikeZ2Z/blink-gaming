@@ -88,16 +88,16 @@ function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h
 // files to load. Starts on the first tap or key; the HUD button mutes it. The background music (../shared/music.js)
 // plays under it all, very low, and every sound ducks it a little.
 const sound = BrainerSound(store, v => ({
-  takeoff() { v.whoosh(0.9, 0.07, 200, 1100); v.soft(90, 150, 0.8, 0.04); },
-  fire() { v.soft(880, 330, 0.18, 0.06); v.whoosh(0.05, 0.03, 2000, 800); },   // a short soft "pew"
-  warp() { v.whoosh(1.0, 0.07, 200, 1600); v.soft(110, 220, 0.8, 0.05); },   // the launch kick
-  down() { v.soft(330, 98, 1.1, 0.06); v.whoosh(0.6, 0.035, 500, 80, 0.1); },   // engines winding down
-  clang() { v.soft(523, 494, 0.25, 0.09, 0, 'triangle'); v.soft(784, 0, 0.18, 0.035, 0.01); },   // a muted "tunk" off the shield
-  gear() { v.bell(784, 0.035); },
-  shatter(n) { v.whoosh(0.35, 0.05, 1500, 250, 0.02); v.thud(0.08); v.bell(v.step(n), 0.045, 0.06); },   // a bell one note higher for every shield broken
-  jump() { v.whoosh(0.4, 0.04, 500, 1600); [523, 659, 784, 1047].forEach((f, i) => v.bell(f, 0.05, 0.12 + i * 0.09)); },
-  boost() { v.whoosh(0.9, 0.06, 240, 1500); v.soft(110, 260, 0.7, 0.035); },   // the pod boosts away with the win
-  back() { v.whoosh(0.55, 0.15, 300, 950); }   // the pod pops back up into view for the next flight
+  takeoff() { v.servo(0.9, 0.035, 110, 240); v.chatter([784, 1047], 0.09, 0.04, 0.15); },
+  fire() { v.chirp(1400, 380, 0.16, 0.055); v.beep(196, 0.05, 0.03); },   // a quick laser chirp
+  warp() { v.chirp(200, 1600, 0.9, 0.04, 0, 'triangle'); v.servo(0.9, 0.035, 120, 300); },   // the launch kick: a long chirp up over a whir
+  down() { v.steps(659, 131, 6, 0.9, 0.045); v.servo(0.9, 0.03, 200, 60, 0.1); },   // a stepped power-down, engines winding down
+  clang() { v.ring(523, 0.3, 0.09); },   // a soft metal tink off the shield
+  gear() { v.chirp(700, 1400, 0.08, 0.035); v.beep(1175, 0.09, 0.03, 0.1); },   // a part clicks on
+  shatter(n) { v.blips(0.2, 0.022, 0.02, 800, 2000); v.thud(0.07); v.beep(v.step(n), 0.09, 0.045, 0.08); },   // data blips and a beep one note higher for every shield broken
+  jump() { v.steps(523, 1319, 5, 0.32, 0.065); v.chirp(1047, 1568, 0.18, 0.035, 0.34); },   // a stepped power-up and a happy chirp
+  boost() { v.servo(0.9, 0.035, 150, 420); v.chirp(500, 1500, 0.6, 0.03, 0.15); },   // the pod boosts away with the win
+  back() { v.servo(0.55, 0.032, 140, 300); }   // the pod pops back up into view for the next flight
 }));
 
 for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);

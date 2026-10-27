@@ -66,16 +66,16 @@ function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h
 // files to load. Starts on the first tap or key; the HUD button mutes it. The background music (../shared/music.js)
 // plays under it all, very low, and every sound ducks it a little.
 const sound = BrainerSound(store, v => ({
-  place() { v.pluck(784, 0.06); },
-  ignite() { v.whoosh(0.7, 0.1, 150, 600); },   // the jets light on the pad
-  takeoff() { v.whoosh(1.1, 0.06, 200, 1300); v.soft(80, 150, 1.0, 0.06); },
-  cash() { [523, 659, 784].forEach((f, i) => v.bell(f, 0.055, i * 0.08)); },
-  away() { v.whoosh(0.9, 0.05, 1100, 180); v.soft(392, 220, 0.7, 0.045, 0, 'triangle'); },   // a falling whoosh as it flies away
-  gear() { v.bell(784, 0.04); v.bell(1175, 0.03, 0.09); },
-  sputter() { v.whoosh(0.25, 0.12, 500, 150); v.whoosh(0.25, 0.1, 450, 140, 0.3); },   // the scares: two soft puffs,
-  glitch() { v.soft(880, 0, 0.06, 0.05); v.soft(660, 0, 0.06, 0.05, 0.09); },   // two quiet blips,
-  swoop() { v.soft(330, 200, 0.35, 0.045); v.soft(200, 330, 0.35, 0.045, 0.45); },   // a swoop down and up,
-  spin() { v.whoosh(0.8, 0.08, 300, 900); }   // and a whoosh
+  place() { v.beep(784, 0.07, 0.05); },
+  ignite() { v.servo(0.7, 0.03, 80, 180); v.chatter([523, 659, 784], 0.07, 0.03, 0.15); },   // the jets light on the pad: a servo and a systems check
+  takeoff() { v.servo(1.1, 0.05, 100, 260); v.chirp(400, 1200, 0.5, 0.03, 0.2); },
+  cash() { v.chatter([659, 784, 1047], 0.08, 0.07); },   // three rising bleeps
+  away() { v.chirp(1200, 180, 0.9, 0.045, 0, 'triangle'); v.servo(0.8, 0.035, 220, 90); },   // a long falling chirp as it flies away, the motor winding down
+  gear() { v.chirp(700, 1400, 0.08, 0.035); v.beep(1175, 0.09, 0.03, 0.1); },   // a part clicks on
+  sputter() { v.blips(0.3, 0.035, 0, 150, 400); v.servo(0.3, 0.04, 140, 70, 0.3); },   // the scares: low static and a stalling motor,
+  glitch() { v.blips(0.25, 0.04, 0, 600, 1800); },   // a burst of data blips,
+  swoop() { v.steps(660, 330, 4, 0.3, 0.04); v.steps(330, 660, 4, 0.3, 0.04, 0.42); },   // a stepped sag down and back up,
+  spin() { v.servo(0.8, 0.032, 180, 420); }   // and a whirring servo
 }));
 
 for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);

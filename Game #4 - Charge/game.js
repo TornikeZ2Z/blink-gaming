@@ -82,14 +82,14 @@ function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h
 // files to load. Starts on the first tap or key; the HUD button mutes it. The background music (../shared/music.js)
 // plays under it all, very low, and every sound ducks it a little.
 const sound = BrainerSound(store, v => ({
-  place() { v.pluck(523, 0.07); },   // the pad powers up
-  hum(ms) { const s = ms / 1000; v.soft(196, 262, s, 0.035); v.soft(294, 392, s, 0.02); },   // the coils winding up, a soft rising pad
-  zap() { v.whoosh(0.07, 0.05, 2500, 1200); },
-  gear() { v.bell(784, 0.035, 0.15); },
-  safe(n) { v.bell(v.step(n), 0.05, 0.04); },   // a bell one note higher for every safe charge
-  look() { [523, 659, 784, 1047].forEach((f, i) => v.bell(f, 0.045, 0.15 + i * 0.08)); },
-  overcharge() { v.soft(330, 520, 0.55, 0.06); v.whoosh(0.12, 0.12, 1600, 300, 0.6); v.soft(392, 196, 0.8, 0.07, 0.7, 'triangle'); },   // a swell, a polite pop, and the Brainer powers down
-  cash() { [523, 659, 784, 1047].forEach((f, i) => v.bell(f, 0.05, i * 0.09)); }
+  place() { v.steps(392, 784, 3, 0.24, 0.045); },   // the pad powers up
+  hum(ms) { const s = ms / 1000; v.servo(s, 0.035, 160, 330); v.chatter([523, 587, 659, 784], s * 0.23, 0.018, 0.05); },   // the coils winding up: a whir with rising ticks
+  zap() { v.chirp(1600, 900, 0.05, 0.03); },   // the spark
+  gear() { v.chirp(700, 1400, 0.08, 0.035, 0.15); v.beep(1175, 0.09, 0.03, 0.25); },   // a part clicks on
+  safe(n) { v.beep(v.step(n), 0.08, 0.045, 0.04); v.beep(v.step(n) * 1.5, 0.1, 0.035, 0.13); },   // a two-tone beep one note higher for every safe charge
+  look() { v.chatter([784, 659, 880, 1047, 1319], 0.07, 0.06, 0.15); },   // happy robot chatter
+  overcharge() { v.servo(0.55, 0.05, 200, 520); v.ring(700, 0.18, 0.06, 0.58); v.steps(784, 196, 5, 0.6, 0.045, 0.72); },   // a rising whir, a polite tink, and the Brainer powers down
+  cash() { v.chatter([523, 659, 784, 1047], 0.08, 0.065); v.beep(1319, 0.16, 0.035, 0.34); }
 }));
 
 /* ---------- round flow ---------- */

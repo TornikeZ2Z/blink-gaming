@@ -1,9 +1,10 @@
 /* The games' background music, Charge's first and now every game's (Tornike, 2026-10-27: "very low volume, not to
-   overshadow the animation sounds, but there"; then "we need this background sound for all games", in its calm mix).
-   A soft lo-fi loop played live with Web Audio, so there is nothing to download: a warm pad and a round bass on a slow
-   jazzy turn (Dm9, G13, Cmaj9, Am9, two bars each, 84 bpm), with soft electric-piano notes drifting over it. Between
-   rounds it is just that; in a round a soft kick comes in and the piano gets busier as the round goes on (the calm mix
-   has no shaker or rim). A lost round sweeps it down into a muffle for a bar; it comes back with the next round.
+   overshadow the animation sounds, but there"; then "we need this background sound for all games"), in its robot mix
+   since 2026-10-28. A soft lo-fi loop played live with Web Audio, so there is nothing to download: a warm pad and a
+   round bass on a slow jazzy turn (Dm9, G13, Cmaj9, Am9, two bars each, 84 bpm), a soft bleep arpeggio in eighths, and
+   hollow robot bleeps drifting over it. Between rounds it is just that; in a round a soft kick and a tiny tick come in
+   and the bleeps get busier as the round goes on. A lost round sweeps it down into a muffle for a bar; it comes back
+   with the next round.
    Every effect ducks it a little, so the game's own sounds always sit on top. shared/sound.js plays it.
    BrainerMusic(audioContext, destination) returns { start(), stop(), mood('idle' | 'round', fill 0..1), dip(), duck(),
    running }. It also renders offline: pass an OfflineAudioContext and call pump(seconds) before rendering. */
@@ -12,7 +13,7 @@
 const BPM = 84, Q = 60 / BPM, S16 = Q / 4, BAR = Q * 4, SWING = 0.14;
 const LEVEL = 0.055, CLEAR = 3800;   // the whole mix, well under the effects; CLEAR: the top of its tone, which a lost round sweeps down
 const hz = m => 440 * Math.pow(2, (m - 69) / 12);
-// two bars each; the pad's voicing, the bass note, and the notes the piano picks from
+// two bars each; the pad's voicing (the arpeggio walks it too), the bass note, and the notes the bleeps pick from
 const CHORDS = [
   { bass: 38, pad: [53, 57, 60, 64], keys: [62, 64, 65, 69, 72, 76] },   // Dm9
   { bass: 43, pad: [53, 57, 59, 64], keys: [62, 64, 67, 69, 71, 74] },   // G13
@@ -46,12 +47,15 @@ window.BrainerMusic = (ac, dest) => {
     env(g, t, 0.03, 0.15, dur * 0.55, dur * 0.4); o.connect(f); s.connect(f); f.connect(g).connect(bus);
     for (const x of [o, s]) { x.start(t); x.stop(t + dur + 0.1); }
   }
-  function keys(m, t, v) {   // a soft electric piano: a sine whose bell-like overtone fades quickly
-    const c = ac.createOscillator(), mo = ac.createOscillator(), mg = ac.createGain(), g = ac.createGain();
-    c.type = 'sine'; mo.type = 'sine'; c.frequency.value = hz(m); mo.frequency.value = hz(m) * 2;
-    mg.gain.setValueAtTime(hz(m) * 0.9, t); mg.gain.exponentialRampToValueAtTime(1, t + 0.5); mo.connect(mg).connect(c.frequency);
-    env(g, t, 0.006, 0.05 * v, 0.02, 1.3); c.connect(g).connect(bus);
-    for (const x of [c, mo]) { x.start(t); x.stop(t + 1.5); }
+  function bleep(m, t, v) {   // the robot's voice: a hollow two-sine note (the third harmonic) that drops into pitch
+    const f = hz(m), o = ac.createOscillator(), o3 = ac.createOscillator(), g = ac.createGain(), g3 = ac.createGain();
+    o.type = 'sine'; o3.type = 'sine'; o.frequency.setValueAtTime(f * 1.5, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.015); o3.frequency.value = f * 3; g3.gain.value = 0.25;
+    env(g, t, 0.004, 0.04 * v, 0.06, 0.3); o.connect(g); o3.connect(g3).connect(g); g.connect(bus);
+    for (const x of [o, o3]) { x.start(t); x.stop(t + 0.45); }
+  }
+  function tick(t) {   // a tiny high tick on the off-beats of a round
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = 2100;
+    env(g, t, 0.002, 0.01, 0.004, 0.03); o.connect(g).connect(bus); o.start(t); o.stop(t + 0.05);
   }
   function kick(t) {
     const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine';
@@ -63,7 +67,9 @@ window.BrainerMusic = (ac, dest) => {
     if (s16 === 0 && first) { if (bar === 0) rnd = 7; pad(ch.pad, t, BAR * 2); }
     if (s16 === 0 || s16 === 8) bass(s16 === 0 && first ? ch.bass : ch.bass + (s16 === 8 && !first ? 7 : 0), t, Q * 1.9);
     const busy = mood === 'round' ? 0.2 + fill * 0.3 : 0.12, r = rand(), r2 = rand();
-    if (s16 % 2 === 0 && r < busy) keys(ch.keys[Math.floor(r2 * ch.keys.length)], t, 0.7 + 0.3 * r2);
+    if (s16 % 2 === 0 && r < busy * 0.6) bleep(ch.keys[Math.floor(r2 * ch.keys.length)] + 12, t, 0.7 + 0.3 * r2);
+    if (s16 % 2 === 0) bleep(ch.pad[[0, 2, 1, 3][(s16 / 2) % 4]] + 12, t, 0.6);   // the arpeggio, in eighths
+    if (mood === 'round' && s16 % 4 === 2) tick(t);
     if (mood === 'round' && (s16 === 0 || s16 === 8 || (s16 === 10 && r2 < 0.35))) kick(t);
   }
   function pump(until) {   // schedules every sixteenth up to `until` (the audio clock), with a lazy swing
