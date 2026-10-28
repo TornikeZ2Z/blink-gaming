@@ -86,18 +86,18 @@ function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h
 // Made live with Web Audio by ../shared/sound.js, the calm set every game shares (Tornike, 2026-10-27), so there are no
 // files to load. Starts on the first tap or key; the HUD button mutes it. The background music (../shared/music.js)
 // plays under it all, very low, and every sound ducks it a little.
-const sound = BrainerSound(store, v => ({
-  place() { v.steps(392, 784, 3, 0.24, 0.045); },   // the pad powers up
-  pick() { v.chirp(880, 1320, 0.07, 0.13); },   // a pillar is chosen
-  hum(ms) { const s = ms / 1000; v.servo(s, 0.035, 160, 330); v.chatter([523, 587, 659, 784], s * 0.23, 0.018, 0.05); },   // the pillar winding up: a whir with rising ticks
-  zap() { v.chirp(1600, 900, 0.05, 0.03); },   // the spark
-  fizz() { v.blips(0.22, 0.02, 0.02, 300, 900); },   // the pillars that were overloaded crackle faintly
-  gear() { v.chirp(700, 1400, 0.08, 0.035, 0.15); v.beep(1175, 0.09, 0.03, 0.25); },   // a part clicks on
-  safe(n) { v.beep(v.step(n), 0.08, 0.045, 0.04); v.beep(v.step(n) * 1.5, 0.1, 0.035, 0.13); },   // a two-tone beep one note higher for every safe charge
-  look() { v.chatter([784, 659, 880, 1047, 1319], 0.07, 0.06, 0.15); },   // happy robot chatter
-  overcharge() { v.servo(0.55, 0.05, 200, 520); v.ring(700, 0.18, 0.06, 0.58); v.steps(784, 196, 5, 0.6, 0.045, 0.72); },   // a rising whir, a polite tink, and the Brainer powers down
-  cash() { v.chatter([523, 659, 784, 1047], 0.08, 0.065); v.beep(1319, 0.16, 0.035, 0.34); }
-}));
+const sound = BrainerSound(store, v => ({   // the neon lab in A minor: lock-on blips, an electric tink for the spark, a faster-wobbling coil
+  place() { v.chatter([440, 523, 659], 0.08, 0.045); },   // the pad powers up, A-C-E
+  pick() { v.beep(880, 0.05, 0.05); v.beep(1175, 0.06, 0.045, 0.06); },   // a pillar is chosen: a lock-on
+  hum(ms) { const s = ms / 1000; v.servo(s, 0.035, 130, 290, 0, 36); v.chatter([440, 523, 587, 659], s * 0.23, 0.018, 0.05); },   // the pillar winding up: a whir with rising ticks
+  zap() { v.ring(1047, 0.06, 0.03); },   // the spark: an electric tink
+  fizz() { v.blips(0.22, 0.02, 0.02, 250, 800); },   // the pillars that were overloaded crackle faintly
+  gear() { v.chirp(587, 1175, 0.08, 0.035, 0.15); v.beep(880, 0.09, 0.03, 0.25); },   // a part clicks on
+  safe(n) { v.beep(v.step(n), 0.08, 0.045, 0.04); v.beep(v.step(n + 2), 0.1, 0.035, 0.13); },   // a two-tone beep one note higher for every safe charge
+  look() { v.chatter([880, 659, 784, 1047, 1175], 0.07, 0.06, 0.15); },   // happy robot chatter
+  overcharge() { v.servo(0.55, 0.05, 180, 470, 0, 36); v.ring(622, 0.18, 0.06, 0.58); v.steps(659, 165, 5, 0.6, 0.045, 0.72); },   // a rising whir, a darker tink, and the Brainer powers down
+  cash() { v.chatter([440, 523, 659, 880], 0.08, 0.065); v.beep(1047, 0.16, 0.035, 0.34); }
+}), 'multi-charge');
 
 /* ---------- round flow ---------- */
 const CHARGE_MS = reduced ? 700 : 1150, STRIKE = 0.62;   // the pillar feeds the battery for 62% of a charge, then it's decided

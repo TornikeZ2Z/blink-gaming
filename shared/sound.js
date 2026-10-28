@@ -3,16 +3,26 @@
    with Web Audio, so there is nothing to download. The voices stay soft: sines and triangles only (no sawtooth or
    square), noise only band-passed and below about 2 kHz, and a gentle master. The robot speaks in clean beeps with a
    hollow third harmonic, quick chirps, little servo whirs, stepped power-ups and power-downs, ring-modulated tinks and
-   bursts of data blips; a safe step beeps one note higher than the last.
-   BrainerSound(store, recipes) returns { on, toggle(), wake(), hide(hidden), mood('idle' | 'round', fill), dip(), and
-   each of the game's own sounds }. recipes(v) gets the voices v = { soft, pluck, bell, whoosh, thud, beep, chirp,
-   chatter, servo, steps, ring, blips, step(n) } and returns the game's sounds by name. When ../shared/music.js is loaded
-   too, its music plays under it all from the first tap, and every sound ducks it a little. */
+   bursts of data blips; a safe step beeps one note higher than the last. Since 2026-10-28 each game has its own take
+   on them ("they may have same okay but we need differences too"): its own motor, win and comeback sounds in its
+   recipes, and safe steps that climb in the key of its own music.
+   BrainerSound(store, recipes, game) returns { on, toggle(), wake(), hide(hidden), mood('idle' | 'round', fill), dip(),
+   and each of the game's own sounds }. recipes(v) gets the voices v = { soft, pluck, bell, whoosh, thud, beep, chirp,
+   chatter, servo, steps, ring, blips, step(n) } and returns the game's sounds by name; game ('plane-crash', ...) picks
+   the key of step(n) and, when ../shared/music.js is loaded too, the game's tune, which plays under it all from the
+   first tap. Every sound ducks the music a little. */
 (() => {
 'use strict';
-const STEP = [523, 587, 659, 784, 880, 1047, 1175, 1319];   // C major pentatonic, C5 up to E6: the climbing safe steps
+const STEPS = {   // the climbing safe steps, a pentatonic scale in the key of each game's music
+  'charge': [523, 587, 659, 784, 880, 1047, 1175, 1319],         // C major, C5 up to E6 (and any game without its own)
+  'multi-charge': [440, 523, 587, 659, 784, 880, 1047, 1175],    // A minor
+  'plane-crash': [440, 523, 587, 698, 784, 880, 1047, 1175],     // F major
+  'fly-high': [494, 587, 659, 784, 880, 988, 1175, 1319],        // E minor
+  'space-crash': [466, 523, 622, 698, 784, 932, 1047, 1245]      // E-flat major
+};
 
-window.BrainerSound = (store, recipes) => {
+window.BrainerSound = (store, recipes, game) => {
+  const STEP = STEPS[game] || STEPS.charge;
   let ac = null, out = null, on = store.get('brainer.sound', 'on') !== 'off', music = null, mood = ['idle', 0];
   const ctxA = () => {
     if (!ac) {
@@ -22,7 +32,7 @@ window.BrainerSound = (store, recipes) => {
       const top = ac.createBiquadFilter(); top.type = 'lowpass'; top.frequency.value = 6500; top.Q.value = 0.5;
       const comp = ac.createDynamicsCompressor(); Object.entries({ threshold: -20, knee: 12, ratio: 3, attack: 0.01, release: 0.3 }).forEach(([k, v]) => { comp[k].value = v; });
       out.connect(top).connect(comp).connect(ac.destination);
-      if (window.BrainerMusic) { music = window.BrainerMusic(ac, out); music.mood(...mood); }
+      if (window.BrainerMusic) { music = window.BrainerMusic(ac, out, game); music.mood(...mood); }
     }
     if (ac.state === 'suspended' && !document.hidden) ac.resume();
     if (on && music && !music.running && !document.hidden) music.start();
@@ -80,8 +90,8 @@ window.BrainerSound = (store, recipes) => {
     },
     chirp(f0, f1, dur, vol, delay, type) { tone(f0, f1, dur, vol, delay, type, 0.005); },   // a quick glide from f0 to f1
     chatter(notes, gap, vol, delay) { notes.forEach((f, i) => v.beep(f, gap * 0.8, vol, (delay || 0) + i * gap)); },   // a run of bleeps
-    servo(dur, vol, f0, f1, delay) {   // a little motor: a triangle hum with a fast wobble, under a breath of air
-      const t = at(delay), o = osc('triangle', f0, t, t + dur + 0.05), lfo = osc('sine', 28, t, t + dur + 0.05), lg = ac.createGain(), f = ac.createBiquadFilter(), g = ac.createGain();
+    servo(dur, vol, f0, f1, delay, wob) {   // a little motor: a triangle hum with a fast wobble (28 Hz unless wob says), under a breath of air
+      const t = at(delay), o = osc('triangle', f0, t, t + dur + 0.05), lfo = osc('sine', wob || 28, t, t + dur + 0.05), lg = ac.createGain(), f = ac.createBiquadFilter(), g = ac.createGain();
       o.frequency.exponentialRampToValueAtTime(f1, t + dur); lg.gain.value = f0 * 0.05; lfo.connect(lg).connect(o.frequency);
       f.type = 'lowpass'; f.frequency.value = 1400;
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.08, dur * 0.2)); g.gain.setValueAtTime(vol, t + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);

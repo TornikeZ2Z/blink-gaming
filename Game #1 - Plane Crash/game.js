@@ -80,16 +80,16 @@ function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h
 // Made live with Web Audio by ../shared/sound.js, the calm set every game shares (Tornike, 2026-10-27), so there are no
 // files to load. Starts on the first tap or key; the HUD button mutes it. The background music (../shared/music.js)
 // plays under it all, very low, and every sound ducks it a little.
-const sound = BrainerSound(store, v => ({
-  takeoff() { v.servo(1.0, 0.035, 110, 240); v.chatter([784, 1047], 0.09, 0.04, 0.15); },   // a servo spinning up and a "beep-boop"
-  pick() { v.chirp(880, 1320, 0.07, 0.14); },
-  safe(n) { v.beep(v.step(n), 0.08, 0.045); v.beep(v.step(n) * 1.5, 0.1, 0.035, 0.09); },   // a two-tone beep one note higher for every safe path
-  boom() { v.thud(0.25); v.chirp(660, 110, 0.55, 0.06, 0.05, 'triangle'); v.blips(0.25, 0.025, 0.12, 200, 600); },   // a thud, a falling chirp and a little static
-  jump() { v.steps(523, 1319, 5, 0.32, 0.065); v.chirp(1047, 1568, 0.18, 0.035, 0.34); },   // a stepped power-up and a happy chirp
-  others() { v.thud(0.05); v.beep(220, 0.06, 0.035, 0.03); },   // the bombs on the other paths go off, soft and far
-  land() { v.thud(0.05); v.chatter([523, 392], 0.08, 0.04, 0.05); },   // the parachute touches down: a pat and a "boop-bip"
-  back() { v.servo(0.55, 0.032, 140, 300); }   // the plane pops back up into view for the next flight
-}));
+const sound = BrainerSound(store, v => ({   // a propeller plane in F: a slower "putt-putt" motor, a fourth in every safe beep
+  takeoff() { v.servo(1.0, 0.035, 100, 220, 0, 14); v.chatter([698, 880], 0.09, 0.04, 0.15); },   // the propeller putts up and a "beep-boop"
+  pick() { v.chirp(698, 1047, 0.07, 0.14); },
+  safe(n) { v.beep(v.step(n), 0.08, 0.045); v.beep(v.step(n) * 4 / 3, 0.1, 0.035, 0.09); },   // a beep and the note a fourth above, one step higher for every safe path
+  boom() { v.thud(0.25); v.chirp(523, 98, 0.6, 0.06, 0.05, 'triangle'); v.blips(0.25, 0.025, 0.12, 180, 500); },   // a thud, a long falling chirp and a little static
+  jump() { v.chirp(392, 1175, 0.35, 0.055); v.ring(880, 0.15, 0.04, 0.36); v.chatter([698, 880, 1047], 0.08, 0.06, 0.45); },   // "whee", the canopy pops, a happy tune
+  others() { v.thud(0.05); v.beep(262, 0.06, 0.035, 0.03); },   // the bombs on the other paths go off, soft and far
+  land() { v.thud(0.05); v.chatter([523, 349], 0.08, 0.04, 0.05); },   // the parachute touches down: a pat and a "boop-bip"
+  back() { v.servo(0.55, 0.032, 120, 260, 0, 14); v.beep(698, 0.06, 0.025, 0.5); }   // the plane putts back into view for the next flight, and a "ready" blip
+}), 'plane-crash');
 
 for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);
 

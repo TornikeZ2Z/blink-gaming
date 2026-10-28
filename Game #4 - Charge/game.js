@@ -90,7 +90,7 @@ const sound = BrainerSound(store, v => ({
   look() { v.chatter([784, 659, 880, 1047, 1319], 0.07, 0.06, 0.15); },   // happy robot chatter
   overcharge() { v.servo(0.55, 0.05, 200, 520); v.ring(700, 0.18, 0.06, 0.58); v.steps(784, 196, 5, 0.6, 0.045, 0.72); },   // a rising whir, a polite tink, and the Brainer powers down
   cash() { v.chatter([523, 659, 784, 1047], 0.08, 0.065); v.beep(1319, 0.16, 0.035, 0.34); }
-}));
+}), 'charge');
 
 /* ---------- round flow ---------- */
 const CHARGE_MS = reduced ? 700 : 1150, STRIKE = 0.62;   // the coils feed the battery for 62% of a charge, then it's decided

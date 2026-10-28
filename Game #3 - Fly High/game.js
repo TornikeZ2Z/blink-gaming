@@ -65,18 +65,18 @@ function rotateSeed() { const s = randHex(32); return (commit = sha256(s).then(h
 // Made live with Web Audio by ../shared/sound.js, the calm set every game shares (Tornike, 2026-10-27), so there are no
 // files to load. Starts on the first tap or key; the HUD button mutes it. The background music (../shared/music.js)
 // plays under it all, very low, and every sound ducks it a little.
-const sound = BrainerSound(store, v => ({
-  place() { v.beep(784, 0.07, 0.05); },
-  ignite() { v.servo(0.7, 0.03, 80, 180); v.chatter([523, 659, 784], 0.07, 0.03, 0.15); },   // the jets light on the pad: a servo and a systems check
-  takeoff() { v.servo(1.1, 0.05, 100, 260); v.chirp(400, 1200, 0.5, 0.03, 0.2); },
-  cash() { v.chatter([659, 784, 1047], 0.08, 0.07); },   // three rising bleeps
-  away() { v.chirp(1200, 180, 0.9, 0.045, 0, 'triangle'); v.servo(0.8, 0.035, 220, 90); },   // a long falling chirp as it flies away, the motor winding down
-  gear() { v.chirp(700, 1400, 0.08, 0.035); v.beep(1175, 0.09, 0.03, 0.1); },   // a part clicks on
-  sputter() { v.blips(0.3, 0.035, 0, 150, 400); v.servo(0.3, 0.04, 140, 70, 0.3); },   // the scares: low static and a stalling motor,
-  glitch() { v.blips(0.25, 0.04, 0, 600, 1800); },   // a burst of data blips,
-  swoop() { v.steps(660, 330, 4, 0.3, 0.04); v.steps(330, 660, 4, 0.3, 0.04, 0.42); },   // a stepped sag down and back up,
-  spin() { v.servo(0.8, 0.032, 180, 420); }   // and a whirring servo
-}));
+const sound = BrainerSound(store, v => ({   // jets in E minor: more air in the engines, the suit levels up in steps
+  place() { v.beep(v.step(2), 0.07, 0.05); },
+  ignite() { v.servo(0.7, 0.03, 80, 180); v.whoosh(0.7, 0.06, 200, 700); v.chatter([v.step(0), v.step(1), v.step(2)], 0.07, 0.03, 0.15); },   // the jets catch on the pad, and a systems check
+  takeoff() { v.servo(1.1, 0.045, 90, 240); v.whoosh(1.1, 0.05, 250, 1300); v.chirp(330, 988, 0.5, 0.03, 0.2); },
+  cash() { v.chatter([v.step(1), v.step(3), v.step(5)], 0.08, 0.07); },   // three rising bleeps
+  away() { v.chirp(988, 165, 0.9, 0.045, 0, 'triangle'); v.servo(0.8, 0.035, 220, 80); v.whoosh(0.8, 0.04, 1200, 200); },   // a long falling chirp as it flies away, the jets winding down
+  gear() { v.steps(494, 988, 3, 0.21, 0.035); v.chirp(988, 1319, 0.06, 0.025, 0.22); },   // the suit levels up: three quick steps and a click
+  sputter() { v.blips(0.3, 0.035, 0, 140, 380); v.servo(0.3, 0.04, 130, 65, 0.3); },   // the scares: low static and a stalling motor,
+  glitch() { v.blips(0.25, 0.04, 0, 550, 1700); },   // a burst of data blips,
+  swoop() { v.steps(659, 330, 4, 0.3, 0.04); v.steps(330, 659, 4, 0.3, 0.04, 0.42); },   // a stepped sag down and back up,
+  spin() { v.servo(0.8, 0.032, 165, 440); }   // and a whirring servo
+}), 'fly-high');
 
 for (const ev of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(ev, () => sound.wake(), true);
 
