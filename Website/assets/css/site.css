@@ -234,6 +234,8 @@ dialog::backdrop{background:rgba(11,15,30,.5);backdrop-filter:blur(3px)}
 /* the demo fills the first screen under the header and the title row on any desktop; no upper limit, so big screens get a big game */
 .frame{position:relative;height:max(640px,calc(100dvh - var(--header-h) - 96px));border-radius:var(--r-lg);overflow:hidden;background:var(--dark);box-shadow:var(--shadow);scroll-margin-top:14px}
 .frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+/* no game behind the site's 18+ check: with no intro on the site, the game's own 18+ card opens at once and would stick out behind it */
+body:has(#age[open]) .frame iframe{visibility:hidden}
 /* game focus (the game's full-screen button): the frame covers the whole window, header and game bar out of the way */
 .game-focus{overflow:hidden}
 .game-focus .site-header,.game-focus .play-head{visibility:hidden}

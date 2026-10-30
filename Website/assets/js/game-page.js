@@ -99,7 +99,7 @@ for (const ev of ['wheel', 'touchstart', 'keydown', 'pointerdown']) addEventList
 addEventListener('hashchange', () => { moved = false; });   // tapping Rules (#how) is a new jump the late frame may re-take
 $('iframe', box).addEventListener('load', () => { done(); if (!moved) jumpToHash(); });   // the frame can steal the first jump to #specs or #how, but never pull back a visitor who has moved
 setTimeout(done, 8000);
-// A visitor slower than the game's intro meets its own 18+ sheet behind the site's; the site's Yes answers that one too.
+// With no intro on the site, the game opens its own 18+ sheet behind the site's (the frame is hidden meanwhile, see site.css); the site's Yes answers that one too.
 $('#age').addEventListener('close', e => {
   if (e.target.returnValue !== 'yes') return;
   try { const d = $('iframe', box).contentDocument, s = d && d.getElementById('agegate'); if (s && !s.hidden) d.getElementById('ageYes').click(); } catch { /* not the same origin */ }
