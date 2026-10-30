@@ -45,12 +45,12 @@ window.BRAINER = {
       ],
       how: [
         'Pick a difficulty and a bet in US dollars, then press Play: the pod launches and the first row of drones flies in.',
-        'At each row fire at one of the five drones. Some shields hold; every drone has the same chance, and the ladder shows what the next row pays.',
+        'At each row fire at one of the five drones. The row’s result is fixed before you fire, so no drone is better than another, and the others are only for show. The ladder shows what the next row pays.',
         'Cash out whenever you like. A shield that holds ends the round and the bet is lost.'
       ],
       // Mirrors cfg and LEVELS in Game #6 - Space Crash/game.js, which are Plane Crash's one to one: 25 rows hide 1, 3, 5
       // or 10 holding shields, multiplier = RTP ÷ chance of surviving, rounded down to the cent; five drones in every row,
-      // each holding on its own with that row's chance, as Plane Crash's five paths.
+      // one yes or no per row, the other drones for show, as Plane Crash's five paths.
       provisional: true,
       rtp: 97,
       minBet: 0.1,
@@ -75,7 +75,7 @@ window.BRAINER = {
         ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
-      fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Every drone in every row rolls HMAC-SHA256(server seed, "client seed:nonce:row:drone"), and its shield holds when its roll is at or above that row’s safe chance, so whichever drone the player shoots breaks with exactly that chance. The shield button in the game re-checks the last round and redraws every drone of every row, so the player, the casino or a regulator can recompute it.',
+      fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Each row is one yes or no: HMAC-SHA256(server seed, "client seed:nonce:row") is a no at or above that row’s safe chance. The drone shot only shows the answer and can’t change it, and the other drones are for show. The shield button in the game re-checks the last round and redraws every answer, so the player, the casino or a regulator can recompute it.',
       demoNote: 'Demo build with play money in US dollars. The pod’s upgrades and the drones’ looks never change the odds or payouts.'
     },
     {
@@ -98,12 +98,12 @@ window.BRAINER = {
       ],
       how: [
         'Pick a difficulty and a bet in US dollars, then press Play.',
-        'At each charge pick one of the five pillars. Some are overloaded; every pillar has the same chance, and the ladder shows what the next level pays.',
+        'At each charge pick one of the five pillars. The charge’s result is fixed before you pick, so no pillar is better than another, and the others are only for show. The ladder shows what the next level pays.',
         'Cash out whenever you like. An overloaded pillar ends the round and the bet is lost.'
       ],
       // Mirrors cfg and LEVELS in Game #5 - Multi Charge/game.js, which are Plane Crash's one to one: 25 charges hide 1, 3,
       // 5 or 10 overloads, multiplier = RTP ÷ chance of surviving, rounded down to the cent; five pillars at every charge,
-      // each overloaded on its own with that charge's chance, as Plane Crash's five paths.
+      // one yes or no per charge, the other pillars for show, as Plane Crash's five paths.
       provisional: true,
       rtp: 97,
       minBet: 0.1,
@@ -128,7 +128,7 @@ window.BRAINER = {
         ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
-      fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Every pillar at every charge rolls HMAC-SHA256(server seed, "client seed:nonce:charge:pillar"), and a pillar is overloaded when its roll is at or above that charge’s safe chance, so whichever pillar the player picks is safe with exactly that chance. The shield button in the game re-checks the last round and redraws every pillar of every charge, so the player, the casino or a regulator can recompute it.',
+      fairness: 'Every round is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the round ends. Each charge is one yes or no: HMAC-SHA256(server seed, "client seed:nonce:charge") is a no at or above that charge’s safe chance. The pillar picked only shows the answer and can’t change it, and the other pillars are for show. The shield button in the game re-checks the last round and redraws every answer, so the player, the casino or a regulator can recompute it.',
       demoNote: 'Demo build with play money in US dollars. The Brainer’s looks and gear never change the odds or payouts.'
     },
     {
@@ -151,7 +151,7 @@ window.BRAINER = {
       ],
       how: [
         'Pick a difficulty and a bet in US dollars, then press Play.',
-        'At each step choose one of five paths. Bombs fall on some of them; the multiplier a safe path pays is shown on the ladder.',
+        'At each step choose one of five paths. The step’s result is fixed before you pick, so no path is better than another, and the bombs on the others are only for show. The ladder shows what a safe path pays.',
         'Jump with the parachute whenever you like to cash out at the current multiplier. A bomb on your path ends the flight.'
       ],
       // Mirrors cfg and LEVELS in Game #1 - Plane Crash/game.js (Chicken Road's ladder: 25 tiles hide 1, 3, 5 or 10 bombs,
@@ -182,7 +182,7 @@ window.BRAINER = {
         ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
-      fairness: 'Every flight is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the flight ends. The shield button in the game re-checks the hash and redraws every bomb of your last flight, so the player, the casino or a regulator can recompute it.',
+      fairness: 'Every flight is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the flight ends. Each step is one yes or no, fixed before the pick; the path picked only shows it and the other paths are for show. The shield button in the game re-checks the hash and redraws every answer of your last flight, so the player, the casino or a regulator can recompute it.',
       demoNote: 'Demo build with play money in US dollars; the game’s final name is still being chosen. Brain levels change the Brainer’s look; they never change the odds or payouts.',
       levelsNote: 'The odds and payouts are the same for every player at every brain level. Whatever the multiplier, a single flight pays at most the $10,000 max win.'
     },

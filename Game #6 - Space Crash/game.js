@@ -16,7 +16,7 @@ const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return
 // Chicken Road's ladder, one to one: 25 tiles hide 1, 3, 5 or 10 bombs and each step uncovers one more tile, so the
 // chance of surviving n steps is C(25-n, b) / C(25, b). After n safe paths the multiplier is the RTP divided by that
 // chance, rounded down to the cent, so a jump at any step returns up to the RTP: less where a payout rounds down to the
-// cent, or where the $10,000 max win ends a long or high-bet flight early. Every path at a step has the same odds.
+// cent, or where the $10,000 max win ends a long or high-bet flight early. A step is one yes or no, whichever path is picked.
 const cfg = {
   rtp: 97, minBet: 0.1, maxBet: 200, maxWin: 10000, startBalance: 1000, paths: 5,
   // Brain levels are the Brainer's growth only and never change the odds. Each flight earns the same brain cells when
@@ -34,9 +34,9 @@ for (const d of LEVELS) {
 }
 const PATHS = [['Far left', -60], ['Left', -30], ['Ahead', 0], ['Right', 30], ['Far right', 60]];
 // Space Crash (Tornike, 2026-10-27): Plane Crash's maths with a different game on top. Each row is five shield drones
-// and the player picks one to shoot: a safe roll breaks it and the pod jet flies on through the pieces; a bomb roll
-// means its shield holds and the pod powers down. Each drone uses its path's roll, so the fairness scheme is Plane
-// Crash's. It began as Plane Crash's "Aim & Break" mode; AIM keeps the code that is Space Crash's own easy to find,
+// and the player picks one to shoot: a yes breaks it and the pod jet flies on through the pieces; a no means its shield
+// holds and the pod powers down. One roll decides each row, so the fairness scheme is Plane Crash's.
+// It began as Plane Crash's "Aim & Break" mode; AIM keeps the code that is Space Crash's own easy to find,
 // and the paths-mode code it shares stays switched off.
 const AIM = true;
 const offC = k => k - 2;   // how far a path (or target) lies left or right of centre
@@ -70,15 +70,22 @@ const enc = new TextEncoder();
 const hex = b => Array.from(new Uint8Array(b), x => x.toString(16).padStart(2, '0')).join('');
 const randHex = n => hex(crypto.getRandomValues(new Uint8Array(n)));
 const sha256 = async s => hex(await crypto.subtle.digest('SHA-256', enc.encode(s)));
-// Every path at every step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"), read as a fraction.
-// A path is bombed when its roll is at or above that step's survival chance, so whichever path the player
-// picks survives with exactly that chance.
-async function drawBombs(seed, client, nonce, d) {
+// Every row is one yes or no, as in Chicken Road and Charge (Tornike, 2026-10-30): HMAC-SHA256(server seed, "client
+// seed:nonce:row"), read as a fraction, is a no at or above that row's survival chance. It's fixed before the player
+// picks and no drone can change it: the drone picked only shows the answer.
+async function drawSteps(seed, client, nonce, d) {
   const key = await crypto.subtle.importKey('raw', enc.encode(seed), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const roll = async msg => parseInt(hex(await crypto.subtle.sign('HMAC', key, enc.encode(msg))).slice(0, 13), 16) / 2 ** 52;
-  return Promise.all(Array.from({ length: d.steps }, (_, i) =>
-    Promise.all(Array.from({ length: cfg.paths }, (_, k) => roll(`${client}:${nonce}:${i + 1}:${k + 1}`).then(u => u >= d.safe[i])))));
+  const ns = Array.from({ length: d.steps }, (_, i) => i + 1), ks = Array.from({ length: cfg.paths }, (_, k) => k + 1);
+  return { rolls: await Promise.all(ns.map(n => roll(`${client}:${nonce}:${n}`))), show: await Promise.all(ns.map(n => Promise.all(ks.map(k => roll(`${client}:${nonce}:${n}:show:${k}`))))) };
 }
+// What row i shows with drone k picked. The others are for show: how many turn red follows the row's real danger, at least
+// one, the same on a win and a loss, and the "show" rolls say which.
+const rowAt = (d, i, show, k, hit) => {
+  const others = show.map((u, j) => [u, j]).filter(o => o[1] !== k).sort((a, b) => a[0] - b[0]), row = show.map(() => false);
+  for (const [, j] of others.slice(0, Math.max(1, Math.round(others.length * (1 - d.safe[i]))))) row[j] = true;
+  row[k] = hit; return row;
+};
 // The game commits first: the next flight's server seed is drawn and hashed before the player sets a client seed or
 // a bet. Seed and hash change together, and a flight waits for them, so none starts on a seed whose hash wasn't shown.
 let commit = null;
@@ -112,7 +119,7 @@ async function play() {
   if (S.stake > S.balance) { toast('Not enough demo balance for this bet. Lower it or press Reset.'); return; }
   starting = true; lastLine = null; renderControls();
   const r = { stake: S.stake, d, n: 0, rtp: cfg.rtp, reach: reachAt(d, S.stake), client: S.client, nonce: S.nonce++, status: 'choose', payout: 0, pick: -1, picks: [], forced: [] };   // the client seed in effect as it starts
-  try { await commit; r.seed = S.seed; r.hash = S.hash; r.bombs = await drawBombs(r.seed, r.client, r.nonce, d); }
+  try { await commit; r.seed = S.seed; r.hash = S.hash; Object.assign(r, await drawSteps(r.seed, r.client, r.nonce, d)); }
   catch (e) { S.nonce--; toast(window.isSecureContext ? 'Could not start the flight. Please try again.' : 'This demo needs https (or localhost) for its provably fair draw.'); return; }   // e.g. no crypto.subtle on plain http
   finally { starting = false; renderControls(); }
   S.balance = cents(S.balance - r.stake); round = r;
@@ -123,11 +130,10 @@ async function play() {
 function choose(k) {
   const r = round;
   if (!r || r.status !== 'choose' || k < 0 || k >= cfg.paths || sheetOpen()) return;
-  r.pick = k; r.picks[r.n] = k; r.status = 'flying'; r.t0 = performance.now(); r.hit = r.bombs[r.n][k]; r.struck = false; r.landed = false;
+  r.pick = k; r.picks[r.n] = k; r.status = 'flying'; r.t0 = performance.now(); r.hit = r.rolls[r.n] >= r.d.safe[r.n]; r.struck = false; r.landed = false;
   if (window.pcTest && window.pcTest.next) { r.hit = window.pcTest.next === 'boom'; r.forced[r.n] = true; window.pcTest.next = ''; }   // ?test only: force this step, to show either outcome on demand
-  const row = r.bombs[r.n].slice();
-  if (window.MaxMode && MaxMode.on) { r.hit = row[k] = false; r.forced[r.n] = true; }   // Max Mode Test: this step is safe
-  sceneFly(k, row, r.t0);
+  if (window.MaxMode && MaxMode.on) { r.hit = false; r.forced[r.n] = true; }   // Max Mode Test: this step is safe
+  sceneFly(k, rowAt(r.d, r.n, r.show[r.n], k, r.hit), r.t0);
   sound.fire();
   renderControls();
 }
@@ -1105,7 +1111,7 @@ function drawTarget(k, now) {
   const p = shot ? (now - view.pickT) / FLY_MS : -1, blocked = mine ? !!r.hit : !!(view.row && view.row[k]);
   const broken = mine && view.struck && !blocked, down = broken ? clamp((now - (view.downAt || now)) / 380, 0, 1) : 0;
   const landed = mine && p >= SHOT, crack = landed && !blocked ? clamp((p - SHOT) / (IMPACT - SHOT), 0, 1) : 0;
-  const angry = mine ? (landed && blocked ? clamp((p - SHOT) / 0.12, 0, 1) : 0) : view.struck && blocked ? 1 : 0;   // once the shot is decided, the drones that would have held show red too
+  const angry = mine ? (landed && blocked ? clamp((p - SHOT) / 0.12, 0, 1) : 0) : view.struck && blocked ? 1 : 0;   // once the shot is decided, some of the others show red too, for show
   const others = shot && !mine ? clamp((now - view.pickT) / 250, 0, 1) : 0, hov = st === 'choose' && view.hover === k;
   const R = g.r * (1 - 0.1 * others) * (hov ? 1.06 : 1), jit = crack && !reduced ? R * 0.04 * crack : 0;
   const bob = !reduced ? Math.sin(now / 700 + k * 1.3) * R * 0.05 : 0;
@@ -1470,21 +1476,21 @@ async function checkFair() {
   const r = lastRound;
   if (!r) return;
   const hashOk = (await sha256(r.seed)) === r.hash;
-  const bombs = await drawBombs(r.seed, r.client, r.nonce, r.d);
-  const bombsOk = JSON.stringify(bombs) === JSON.stringify(r.bombs);
+  const { rolls, show } = await drawSteps(r.seed, r.client, r.nonce, r.d);
   const played = r.status === 'crashed' ? r.n + 1 : r.n, shown = r.status === 'cashed' && !r.auto ? played + 1 : played;   // after the player's own jump, also show the step they skipped
+  const rollsOk = JSON.stringify([rolls, show]) === JSON.stringify([r.rolls, r.show]) && rolls.slice(0, played).every((u, i) => r.forced[i] || (u >= r.d.safe[i]) === (r.status === 'crashed' && i === r.n));
   const ok = (good, text) => `<p class="fair-ok${good ? '' : ' bad'}">${good ? '✓' : '✕'} ${text}</p>`;
   const rows = Array.from({ length: shown }, (_, i) => {
-    const hit = bombs[i].flatMap((b, k) => b ? [k + 1] : []), s = hit.length > 1 ? 's' : '';   // each row also reads out in words: the colours alone tell a screen reader nothing
-    const say = `Step ${i + 1}${i >= played ? ', skipped by jumping' : ''}: ${hit.length ? `bomb${s} on path${s} ${hit.join(', ')}` : 'no bombs'}${r.picks[i] != null ? `; you picked path ${r.picks[i] + 1}` : ''}`;
-    return `<div class="frow${i >= played ? ' next' : ''}" role="img" aria-label="${say}"><span class="st">${i + 1}</span>`
-      + bombs[i].map((b, k) => `<i class="${b ? 'bomb' : ''}${r.picks[i] === k ? ' pick' : ''}"></i>`).join('') + '</div>';
+    const u = rolls[i], no = u >= r.d.safe[i], row = r.picks[i] != null ? rowAt(r.d, i, show[i], r.picks[i], r.status === 'crashed' && i === r.n) : show[i].map(() => false);
+    const say = `Row ${i + 1}${i >= played ? ', skipped by cashing out' : ''}: roll ${u.toFixed(4)}, ${no ? 'no' : 'yes'}${r.picks[i] != null ? `; you shot drone ${r.picks[i] + 1}` : ''}`;   // each row also reads out in words: the colours alone tell a screen reader nothing
+    return `<div class="frow${no ? ' no' : ''}${i >= played ? ' next' : ''}" role="img" aria-label="${say}"><span class="st">${i + 1}</span>`
+      + row.map((b, k) => `<i class="${b ? 'bomb' : ''}${r.picks[i] === k ? ' pick' : ''}"></i>`).join('') + `<span class="roll">${u.toFixed(4)}</span><span class="ans">${no ? 'No' : 'Yes'}</span></div>`;
   }).join('');
   $('#fairOut').innerHTML = ok(hashOk, hashOk ? 'SHA-256 of the seed matches the hash shown before the flight' : 'The seed does not match the hash')
-    + ok(bombsOk, bombsOk ? 'Bombs recomputed from the seeds match your flight' : 'Recomputed bombs differ from the flight')
-    + `<div class="fgrid" role="group" aria-label="Bombs at each step">${rows}</div>`
+    + ok(rollsOk, rollsOk ? 'Answers recomputed from the seeds match your round' : 'Recomputed answers differ from the round')
+    + `<div class="fgrid" role="group" aria-label="Yes or no at each row">${rows}</div>`
     + (r.forced.some(Boolean) ? `<p class="sheet-note">Max Mode Test round: step${r.forced.filter(Boolean).length > 1 ? 's' : ''} ${r.forced.flatMap((f, i) => f ? [i + 1] : []).join(', ')} ${r.forced.filter(Boolean).length > 1 ? 'were' : 'was'} forced safe, so this round does not follow the seeds.</p>` : '')
-    + `<p class="sheet-note">Red: a drone whose shield would hold. White ring: the drone you shot.${shown > played ? ' The faded row is the next row you skipped by cashing out.' : ''}</p>`;
+    + `<p class="sheet-note">Yes: your shot broke the shield. No: the shield held. White ring: the drone you shot. Red on the other drones is for show and changed nothing.${shown > played ? ' The faded row is the next row you skipped by cashing out.' : ''}</p>`;
 }
 
 /* ---------- sheets: brain-level picker, fairness and how to play ---------- */

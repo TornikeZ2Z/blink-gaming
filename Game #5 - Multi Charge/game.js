@@ -16,7 +16,7 @@ const tipOf = q => q.tip || q.term;   // a pillar's top (its crystal's point): i
 // Plane Crash's game, one to one, on Charge's station (Tornike, 2026-10-27: "visually i want charge and contentwise i want
 // plane crash"). 25 charges hide 1, 3, 5 or 10 overloads and each charge uses up one more, so the chance of surviving n
 // charges is C(25-n, b) / C(25, b). At every charge the player picks one of five pillars, as Plane Crash's five paths, and
-// each pillar is overloaded on its own with that charge's chance, so every pillar has the same odds. After n safe charges
+// one roll says yes or no, so no pillar is better than another. After n safe charges
 // the multiplier is the RTP divided by the chance of surviving them, rounded down to the cent, so cashing out after any
 // charge returns up to the RTP: less where a payout rounds down to the cent, or where the $10,000 max win ends a long or
 // high-bet round early.
@@ -68,15 +68,22 @@ const enc = new TextEncoder();
 const hex = b => Array.from(new Uint8Array(b), x => x.toString(16).padStart(2, '0')).join('');
 const randHex = n => hex(crypto.getRandomValues(new Uint8Array(n)));
 const sha256 = async s => hex(await crypto.subtle.digest('SHA-256', enc.encode(s)));
-// Plane Crash's draw: every pillar at every charge rolls HMAC-SHA256(server seed, "client seed:nonce:charge:pillar"), read
-// as a fraction from its first 52 bits. A pillar is overloaded when its roll is at or above that charge's safe chance,
-// so whichever pillar the player picks is safe with exactly that chance.
-async function drawPillars(seed, client, nonce, d) {
+// Every charge is one yes or no, as in Chicken Road and Charge (Tornike, 2026-10-30): HMAC-SHA256(server seed, "client
+// seed:nonce:charge"), read as a fraction, is a no at or above that charge's survival chance. It's fixed before the player
+// picks and no pillar can change it: the pillar picked only shows the answer.
+async function drawSteps(seed, client, nonce, d) {
   const key = await crypto.subtle.importKey('raw', enc.encode(seed), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const roll = async msg => parseInt(hex(await crypto.subtle.sign('HMAC', key, enc.encode(msg))).slice(0, 13), 16) / 2 ** 52;
-  return Promise.all(Array.from({ length: d.steps }, (_, i) =>
-    Promise.all(Array.from({ length: cfg.pillars }, (_, k) => roll(`${client}:${nonce}:${i + 1}:${k + 1}`).then(u => u >= d.safe[i])))));
+  const ns = Array.from({ length: d.steps }, (_, i) => i + 1), ks = Array.from({ length: cfg.pillars }, (_, k) => k + 1);
+  return { rolls: await Promise.all(ns.map(n => roll(`${client}:${nonce}:${n}`))), show: await Promise.all(ns.map(n => Promise.all(ks.map(k => roll(`${client}:${nonce}:${n}:show:${k}`))))) };
 }
+// What charge i shows with pillar k picked. The others are for show: how many look overloaded follows the charge's real danger, at least
+// one, the same on a win and a loss, and the "show" rolls say which.
+const rowAt = (d, i, show, k, hit) => {
+  const others = show.map((u, j) => [u, j]).filter(o => o[1] !== k).sort((a, b) => a[0] - b[0]), row = show.map(() => false);
+  for (const [, j] of others.slice(0, Math.max(1, Math.round(others.length * (1 - d.safe[i]))))) row[j] = true;
+  row[k] = hit; return row;
+};
 // The game commits first: the next round's server seed is drawn and hashed before the player sets a client seed or a
 // bet. Seed and hash change together, and a round waits for them, so none starts on a seed whose hash wasn't shown.
 let commit = null;
@@ -108,7 +115,7 @@ async function play() {
   if (S.stake > S.balance) { toast('Not enough demo balance for this bet. Lower it or press Reset.'); return; }
   starting = true; renderControls();
   const r = { stake: S.stake, d, n: 0, rtp: cfg.rtp, reach: reachAt(d, S.stake), client: S.client, nonce: S.nonce++, status: 'ready', payout: 0, pick: -1, picks: [], forced: [] };   // the client seed in effect as it starts
-  try { await commit; r.seed = S.seed; r.hash = S.hash; r.bombs = await drawPillars(r.seed, r.client, r.nonce, d); }
+  try { await commit; r.seed = S.seed; r.hash = S.hash; Object.assign(r, await drawSteps(r.seed, r.client, r.nonce, d)); }
   catch (e) { S.nonce--; toast(window.isSecureContext ? 'Could not start the round. Please try again.' : 'This demo needs https (or localhost) for its provably fair draw.'); return; }
   finally { starting = false; renderControls(); }
   S.balance = cents(S.balance - r.stake); round = r;
@@ -118,10 +125,10 @@ async function play() {
 function charge(k) {   // charge from pillar k (0-4)
   const r = round;
   if (!r || r.status !== 'ready' || !(k >= 0 && k < cfg.pillars) || sheetOpen()) return;
-  const now = performance.now(), row = r.bombs[r.n].slice();   // the charge's five pillars, as drawn
-  if (TEST && window.chargeTest.next) { row[k] = window.chargeTest.next === 'boom'; r.forced[r.n] = true; window.chargeTest.next = null; }
-  if (window.MaxMode && MaxMode.on) { row[k] = false; r.forced[r.n] = true; }   // Max Mode Test: the picked pillar is safe
-  r.status = 'charging'; r.t0 = now; r.struck = false; r.pick = k; r.picks[r.n] = k; r.row = row; r.hit = row[k];
+  const now = performance.now(); let hit = r.rolls[r.n] >= r.d.safe[r.n];   // the charge's answer, as drawn
+  if (TEST && window.chargeTest.next) { hit = window.chargeTest.next === 'boom'; r.forced[r.n] = true; window.chargeTest.next = null; }
+  if (window.MaxMode && MaxMode.on) { hit = false; r.forced[r.n] = true; }   // Max Mode Test: this charge is safe
+  r.status = 'charging'; r.t0 = now; r.struck = false; r.pick = k; r.picks[r.n] = k; r.hit = hit; r.row = rowAt(r.d, r.n, r.show[r.n], k, hit);
   sceneCharge(now, k); sound.pick(); sound.hum(CHARGE_MS * STRIKE);
   renderControls(); renderBattery();
 }
@@ -146,7 +153,7 @@ function advance(now) {
   const p = (now - r.t0) / CHARGE_MS;
   if (!r.struck && p >= STRIKE) {
     r.struck = true;
-    sceneReveal(now, r.row, r.pick);   // every pillar shows what it was, as Plane Crash's bombs fall on every path
+    sceneReveal(now, r.row, r.pick);   // the picked pillar shows the answer and the others put on a show, as Plane Crash's bombs
     if (r.hit) {
       r.status = 'broken'; sceneBoom(now); sound.overcharge(); sound.dip();
       if (navigator.vibrate) navigator.vibrate(40);
@@ -177,8 +184,8 @@ function earnCells(k) {
 // The picked pillar charges a battery that floats over the Brainer's head, never the Brainer itself. A safe charge tops
 // the battery up and the Brainer cheers, growing into its next look or snapping on a piece of gear; an overloaded pillar
 // overfills the battery until it pops in a puff of steam, and the Brainer gets dizzy, sits down and dozes off (Charge's
-// polite bust: no lightning at the robot). As the charge is decided, every pillar shows what it was: the overloaded ones
-// crackle red, the safe ones glow green. Without WebGL Charge's Blender stills stand in for the 3D Brainer.
+// polite bust: no lightning at the robot). As the charge is decided, every pillar lights up: red ones crackle, safe ones
+// glow green, and only the picked one counts. Without WebGL Charge's Blender stills stand in for the 3D Brainer.
 const stage = $('#stage'), cv = $('#cv'), ctx = cv.getContext('2d');
 let W = 0, H = 0, DPR = 1, K = 1, OX = 0, OY = 0, last = 0;
 const load = src => { const im = new Image(); im.decoding = 'async'; im.src = src; return im; };
@@ -567,20 +574,20 @@ async function checkFair() {
   const r = lastRound;
   if (!r) return;
   const hashOk = (await sha256(r.seed)) === r.hash;
-  const bombs = await drawPillars(r.seed, r.client, r.nonce, r.d);
+  const { rolls, show } = await drawSteps(r.seed, r.client, r.nonce, r.d);
   const played = r.status === 'broken' ? r.n + 1 : r.n, shown = Math.min(r.d.steps, r.status === 'cashed' && !r.auto ? played + 1 : played);   // after the player's own cash-out, also show the charge they skipped
-  const bombsOk = JSON.stringify(bombs) === JSON.stringify(r.bombs) && bombs.slice(0, played).every((row, i) => r.forced[i] || row[r.picks[i]] === (r.status === 'broken' && i === r.n));
+  const rollsOk = JSON.stringify([rolls, show]) === JSON.stringify([r.rolls, r.show]) && rolls.slice(0, played).every((u, i) => r.forced[i] || (u >= r.d.safe[i]) === (r.status === 'broken' && i === r.n));
   const ok = (good, text) => `<p class="fair-ok${good ? '' : ' bad'}">${good ? '✓' : '✕'} ${text}</p>`;
   const rows = Array.from({ length: shown }, (_, i) => {
-    const hit = bombs[i].flatMap((x, k) => x ? [k + 1] : []), s = hit.length > 1 ? 's' : '';   // each row also reads out in words: the colours alone tell a screen reader nothing
-    const say = `Charge ${i + 1}${i >= played ? ', skipped by cashing out' : ''}: ${hit.length ? `pillar${s} ${hit.join(', ')} overloaded` : 'no pillar overloaded'}${r.picks[i] != null ? `; you picked pillar ${r.picks[i] + 1}` : ''}${r.forced[i] ? ' (forced in test mode)' : ''}`;
-    return `<div class="frow${i >= played ? ' next' : ''}" role="img" aria-label="${say}"><span class="st">${i + 1}</span>`
-      + bombs[i].map((x, k) => `<i class="${x ? 'boom' : ''}${r.picks[i] === k ? ' pick' : ''}"></i>`).join('') + `<span class="res">${r.forced[i] ? 'test' : ''}</span></div>`;
+    const u = rolls[i], no = u >= r.d.safe[i], row = r.picks[i] != null ? rowAt(r.d, i, show[i], r.picks[i], r.status === 'broken' && i === r.n) : show[i].map(() => false);
+    const say = `Charge ${i + 1}${i >= played ? ', skipped by cashing out' : ''}: roll ${u.toFixed(4)}, ${no ? 'no' : 'yes'}${r.picks[i] != null ? `; you picked pillar ${r.picks[i] + 1}` : ''}${r.forced[i] ? ' (forced in test mode)' : ''}`;   // each row also reads out in words: the colours alone tell a screen reader nothing
+    return `<div class="frow${no ? ' no' : ''}${i >= played ? ' next' : ''}" role="img" aria-label="${say}"><span class="st">${i + 1}</span>`
+      + row.map((x, k) => `<i class="${x ? 'boom' : ''}${r.picks[i] === k ? ' pick' : ''}"></i>`).join('') + `<span class="roll">${u.toFixed(4)}</span><span class="ans">${no ? 'No' : 'Yes'}</span><span class="res">${r.forced[i] ? 'test' : ''}</span></div>`;
   }).join('');
   $('#fairOut').innerHTML = ok(hashOk, hashOk ? 'SHA-256 of the seed matches the hash shown before the round' : 'The seed does not match the hash')
-    + ok(bombsOk, bombsOk ? 'Pillars recomputed from the seeds match your round' : 'Recomputed pillars differ from the round')
-    + `<div class="fgrid" role="group" aria-label="The five pillars at each charge">${rows}</div>`
-    + `<p class="sheet-note">Red: an overloaded pillar. White ring: the pillar you picked.${shown > played ? ' The faded row is the next charge you skipped by cashing out.' : ''}</p>`;
+    + ok(rollsOk, rollsOk ? 'Answers recomputed from the seeds match your round' : 'Recomputed answers differ from the round')
+    + `<div class="fgrid" role="group" aria-label="Yes or no at each charge">${rows}</div>`
+    + `<p class="sheet-note">Yes: the charge was safe. No: your pillar overloaded. White ring: the pillar you picked. Red on the other pillars is for show and changed nothing.${shown > played ? ' The faded row is the next charge you skipped by cashing out.' : ''}</p>`;
 }
 
 /* ---------- sheets: fairness and how to play ---------- */

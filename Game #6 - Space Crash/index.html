@@ -39,7 +39,7 @@
     <div class="sheet" id="fairSheet" role="dialog" aria-modal="true" aria-labelledby="fairTitle" hidden>
       <div class="sheet-card fair">
         <div class="sheet-head"><b id="fairTitle">Provably fair</b><button type="button" class="round" id="fairClose" aria-label="Close">✕</button></div>
-        <p class="sheet-note">Every round is fixed before you bet, by the game's server seed and your client seed. You see the SHA-256 hash of the server seed first, then set your client seed if you like; the server seed is revealed when the round ends. Drone k of row n rolls HMAC-SHA256(server seed, "client seed:nonce:n:k"), and a roll at or above that row's survival chance is a shield that holds.</p>
+        <p class="sheet-note">Every round is fixed before you bet, by the game's server seed and your client seed. You see the SHA-256 hash of the server seed first, then set your client seed if you like; the server seed is revealed when the round ends. Each row is one yes or no: HMAC-SHA256(server seed, "client seed:nonce:row"), read as a fraction, is a no at or above that row's survival chance. The drone you shoot only shows that answer and can't change it. The other drones are for show: how many turn red follows the row's risk, the same on a win and a loss, and rolls of "client seed:nonce:row:show:drone" say which.</p>
         <p class="sheet-note"><b>RTP up to 97%.</b> The return is 97% before two things lower it in some rounds: payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early.</p>
         <div id="fairBody"></div>
       </div>
@@ -53,7 +53,7 @@
           <li><b>Pick one of five drones and fire.</b> Break its shield and your multiplier rises.</li>
           <li><b>Cash out</b> to take your win. If the shield holds, the round ends.</li>
         </ol>
-        <p class="sheet-note tut-rtp"><b>Play money.</b> RTP up to 97% · Max win $10,000 a round</p>
+        <p class="sheet-note tut-rtp"><b>Play money.</b> RTP up to 97% · Max win $10,000 a round<br>Each row is decided before you fire, and the other drones are only for show.</p>
         <div class="sheet-go"><button type="button" class="big play" id="tutGo"><span class="l1">Let's launch</span></button></div>
       </div>
     </div>

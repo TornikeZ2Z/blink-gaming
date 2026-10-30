@@ -36,7 +36,7 @@ Every tile rolls HMAC-SHA256(server seed, "client seed:nonce:column:row"). A rol
 
 The player's Brainer flies a plane toward five hoops while bombs fall ahead. Between flights the plane waits parked on the road; Play starts a takeoff (roll, lift-off, climb) and then the hoops fly in. At each step the player picks one of the five paths, or jumps out with a parachute to take the current win. After a jump the Brainer floats down and lands on the road, and the game returns to the start screen; after a crash it returns too. Each flight is single player and runs at the player's pace: no timers or shared rounds. All amounts are play-money US dollars: bets $0.10 to $200, max win $10,000 per flight.
 
-The math is Chicken Road's, one to one, with an RTP of up to 97% (98% until 2026-10-27). A 25-tile grid hides 1, 3, 5 or 10 bombs, and each step uncovers one more tile, so the chance of surviving n steps is C(25-n, b) / C(25, b). After n safe paths the multiplier is 0.98 divided by that chance, rounded down to the cent, so the return is 98% before two things lower it in some flights: payouts round down to the cent, and the $10,000 max win ends long or high-bet flights early. Every path at a step has the same odds; picking a path is the player's own call, as Chicken's yes/no is.
+The math is Chicken Road's, one to one, with an RTP of up to 97% (98% until 2026-10-27). A 25-tile grid hides 1, 3, 5 or 10 bombs, and each step uncovers one more tile, so the chance of surviving n steps is C(25-n, b) / C(25, b). After n safe paths the multiplier is 0.98 divided by that chance, rounded down to the cent, so the return is 98% before two things lower it in some flights: payouts round down to the cent, and the $10,000 max win ends long or high-bet flights early. Each step is one yes or no, as in Chicken Road (since 2026-10-30): it's fixed before the player picks, the picked path only shows it, and the other paths are for show.
 
 | Difficulty | Bombs in 25 | Paths | First → top multiplier |
 |---|---|---|---|
@@ -45,7 +45,7 @@ The math is Chicken Road's, one to one, with an RTP of up to 97% (98% until 2026
 | Hard | 5 | 20 | 1.22× → 52,067.40× |
 | Hardcore | 10 | up to 14 | 1.63× → 100,000.00× |
 
-The $10,000 max win caps every payout, so a flight jumps out automatically when it reaches it. That is 100,000× at the $0.10 minimum bet, so a Hardcore flight never goes past path 14 and its ladder's path 15 (3,203,384.80×) is never offered; the tops above are what a flight can pay. Every path at every step rolls HMAC-SHA256(server seed, "client seed:nonce:step:path"), with a client seed the player can set in the game's own fairness sheet, as in FogRush. The shield button in the game shows the next flight's seed hash and re-checks the last flight: it re-hashes the revealed seed and redraws every bomb.
+The $10,000 max win caps every payout, so a flight jumps out automatically when it reaches it. That is 100,000× at the $0.10 minimum bet, so a Hardcore flight never goes past path 14 and its ladder's path 15 (3,203,384.80×) is never offered; the tops above are what a flight can pay. Each step rolls HMAC-SHA256(server seed, "client seed:nonce:step") for its yes or no, and "client seed:nonce:step:show:path" for which other paths look bombed, with a client seed the player can set in the game's own fairness sheet, as in FogRush. The shield button in the game shows the next flight's seed hash and re-checks the last flight: it re-hashes the revealed seed and redraws every answer.
 
 ### Look
 
