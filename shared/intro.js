@@ -46,7 +46,13 @@ function wordmark(mark) {
 
 function start(cfg) {
   // opened on brainer.games the game just starts (Tornike, 2026-10-30): it only waits for what it needs to load
-  if (onSite) return new Promise(resolve => { (function wait() { if (cfg.progress() >= 1) resolve(); else setTimeout(wait, 60); })(); });
+  if (onSite) return new Promise(resolve => {
+    (function wait() {
+      if (cfg.progress() < 1) { setTimeout(wait, 60); return; }
+      resolve();
+      requestAnimationFrame(() => requestAnimationFrame(() => window.parent.postMessage({ type: 'brainer:ready' }, location.origin)));   // two frames on, a finished picture is up: the site lifts its loader
+    })();
+  });
   const root = document.createElement('div');
   root.className = `intro t-${cfg.theme || cfg.mark || 'plane'}`;
   root.innerHTML = `<div class="intro-sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
