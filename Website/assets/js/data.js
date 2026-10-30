@@ -37,10 +37,10 @@ window.BRAINER = {
       art: 'assets/games/space-crash.webp',
       // Published, the game sits at /space-crash/ next to the site; in the repo it is the sibling folder.
       src: location.pathname.includes('/Website/') ? '../Game%20%236%20-%20Space%20Crash/index.html' : 'space-crash/index.html',
-      tagline: 'Five shield drones block every row. Shoot one: break it and fly on, or cash out with your win.',
+      tagline: 'Five shield drones block every row. Fire to find out if the shield breaks, then fly on or cash out.',
       about: [
         'A single-player instant game played in rows, deep in space. The Brainer flies a pod jet, and every row is blocked by five shield drones. The player picks one and fires: break its shield and the pod flies on through the pieces and the multiplier rises.',
-        'If the shield holds, the pod powers down and the bet is lost; the other drones then show which shields would have held. Cash out after any row to lock in the multiplier: the Brainer stands up in the cockpit and cheers, and the pod boosts away.',
+        'If the shield holds, the pod powers down and the bet is lost. Cash out after any row to lock in the multiplier: the Brainer stands up in the cockpit and cheers, and the pod boosts away.',
         'Every row broken switches on one of the pod’s built-in upgrades, from glowing thrusters to a gold spine, and the shields look tougher the deeper the round goes: cyan, then violet, gold and a red elite. Looks only: they never change the odds.'
       ],
       how: [
@@ -90,10 +90,10 @@ window.BRAINER = {
       art: 'assets/games/multi-charge.webp',
       // Published, the game sits at /multi-charge/ next to the site; in the repo it is the sibling folder.
       src: location.pathname.includes('/Website/') ? '../Game%20%235%20-%20Multi%20Charge/index.html' : 'multi-charge/index.html',
-      tagline: 'Five charging pillars, one pick per charge. Pick a safe one to level your Brainer up, then cash out.',
+      tagline: 'Five charging pillars, one charge at a time. A safe charge levels your Brainer up. Cash out any time.',
       about: [
-        'A single-player instant game played in steps: Plane Crash’s rules with Charge’s Brainer, in a neon laboratory. Five charging pillars, dark obelisks lit along every edge with a crystal floating over each, stand round the Brainer’s pad, and at every charge the player picks one of them to charge from. Some are overloaded.',
-        'A safe pillar charges the battery over the Brainer’s head, levels it up and raises the multiplier, and the other pillars then show which were overloaded. Pick an overloaded one and the battery overfills and pops, the Brainer dozes off and the bet is lost. Cash out after any charge to lock in the multiplier.',
+        'A single-player instant game played in steps: Plane Crash’s rules with Charge’s Brainer, in a neon laboratory. Five charging pillars, dark obelisks lit along every edge with a crystal floating over each, stand round the Brainer’s pad, and at every charge the player picks one of them to charge from.',
+        'A safe charge fills the battery over the Brainer’s head, levels it up and raises the multiplier. If the charge overloads, the battery overfills and pops, the Brainer dozes off and the bet is lost. Cash out after any charge to lock in the multiplier.',
         'Every safe charge changes the Brainer. Its eleven looks are spread over the charges a round can reach, from the baby to the master in graduation cap and cape on the last one, with a random piece of gear on each charge between. The Brainer is live 3D and never stands still.'
       ],
       how: [
@@ -143,9 +143,9 @@ window.BRAINER = {
       art: 'assets/games/plane-crash.webp',
       // Published, the game sits at /plane-crash/ next to the site; in the repo it is the sibling folder.
       src: location.pathname.includes('/Website/') ? '../Game%20%231%20-%20Plane%20Crash/index.html' : 'plane-crash/index.html',
-      tagline: 'Pick one of five paths while bombs fall ahead. Bail out with the parachute to cash out.',
+      tagline: 'Fly on one step at a time while bombs fall ahead. Bail out with the parachute to cash out.',
       about: [
-        'A single-player crash game played in steps. At every step the player picks one of five paths while bombs fall on some of them. Every safe path raises the multiplier, and the next one is always shown before the pick.',
+        'A single-player crash game played in steps. At every step the player flies on along one of five paths while bombs fall ahead. Every safe step raises the multiplier, and the next one is always shown before the pick.',
         'Bail out with the parachute at any step to lock in the multiplier. Take a bomb and the flight is over. Flights are instant: no betting windows and no waiting for other players.',
         'The Brainer and its plane are 3D, over a valley rendered with real light and clouds. Each flight starts parked on the airfield’s runway and takes off over the farmland; after a jump the Brainer floats down on its parachute and lands on the valley’s country road.'
       ],
