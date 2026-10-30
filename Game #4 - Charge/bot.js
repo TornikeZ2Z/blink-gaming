@@ -165,7 +165,7 @@ function frame(now, dt) {
   const run = (a, q) => { const r = a.f(q, t); Object.assign(pose, r.pose || {}); for (const [k, v] of Object.entries(r.extra || {})) extra[k] = extra[k] ? extra[k].map((x, i) => x + v[i]) : v; hop += r.hop || 0; spin = r.spin || spin; if (a.face) face = a.face; };
   const since = now - B.t0;
   if (B.mode === 'idle' || B.mode === 'cash') {
-    if (B.mode === 'cash' && since > 1700) B.mode = 'idle';
+    if (B.mode === 'cash' && since > 1700) { B.mode = 'idle'; B.act = ''; B.nextAct = now + rnd(500, 1200); }   // B.act held the cheer: as an idle move it would stop the drawing for good
     if (B.mode === 'cash') run(CHEER[B.act] || CHEER.cheer, clamp01(since / 1600));
     else {
       if (B.act && now - B.actT0 >= B.actMs) { B.act = ''; B.nextAct = now + rnd(700, 2000); }
