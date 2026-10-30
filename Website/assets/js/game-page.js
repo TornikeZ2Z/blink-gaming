@@ -97,8 +97,8 @@ const done = () => loader.classList.add('done');
 let moved = false;   // the visitor has scrolled, tapped or used the keys since the last jump
 for (const ev of ['wheel', 'touchstart', 'keydown', 'pointerdown']) addEventListener(ev, () => { moved = true; }, { passive: true, capture: true });
 addEventListener('hashchange', () => { moved = false; });   // tapping Rules (#how) is a new jump the late frame may re-take
-$('iframe', box).addEventListener('load', () => { done(); if (!moved) jumpToHash(); });   // the frame can steal the first jump to #specs or #how, but never pull back a visitor who has moved
-setTimeout(done, 8000);
+$('iframe', box).addEventListener('load', () => { if (!moved) jumpToHash(); });   // the frame can steal the first jump to #specs or #how, but never pull back a visitor who has moved
+setTimeout(done, 20000);   // brainer:ready (below) lifts the loader; this is only in case it never comes
 // With no intro on the site, the game opens its own 18+ sheet behind the site's (the frame is hidden meanwhile, see site.css); the site's Yes answers that one too.
 $('#age').addEventListener('close', e => {
   if (e.target.returnValue !== 'yes') return;
@@ -117,8 +117,9 @@ addEventListener('blur', () => setTimeout(() => {
 // Full screen is the games' own button (the site has none, as its exit would sit outside the game): framed here, they ask the page to hide its header and game bar as well, which on
 // iPhone (no element full screen) is the only way to give the game the whole screen.
 addEventListener('message', e => {
-  if (e.origin !== location.origin || e.source !== $('iframe', box).contentWindow || !e.data || e.data.type !== 'brainer:focus') return;
-  document.body.classList.toggle('game-focus', !!e.data.on);
+  if (e.origin !== location.origin || e.source !== $('iframe', box).contentWindow || !e.data) return;
+  if (e.data.type === 'brainer:ready') done();   // the frame's load event comes first, with the game still fetching its art
+  if (e.data.type === 'brainer:focus') document.body.classList.toggle('game-focus', !!e.data.on);
 });
 
 jumpToHash();
