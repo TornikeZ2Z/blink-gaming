@@ -1,0 +1,83 @@
+/* The phone layout, one for all five games (Tornike, 2026-10-30, on his phone: "a lot of space is used for the stuff
+   that is not important"; the numbers come from the project's UX review). The game runs edge to edge, the play area
+   takes about four fifths of the screen, and the controls are one compact block of the same height before and during
+   a round, so the scene never jumps at take-off. The bet row carries ½ and 2× (Min and Max stay on bigger screens).
+   Max Mode Test stays in view as a small pill on the scene. Loaded after every other stylesheet; full screen
+   (shared/focus.css) gets the same layout, which is why these rules say .app .controls. */
+:root{--ctl:152px}   /* the controls' inner height: bet 44 + difficulty 40 + Play 56 + two gaps of 6 */
+
+/* every size */
+.round{position:relative}
+.round::after{content:"";position:absolute;inset:-5px}   /* the top bar's drawn circles stay small, the tap target is 44 px */
+.brand{min-width:0}
+.hud-right{flex:none}   /* never pushed off the stage by the wordmark */
+.readout .mult:empty,.readout .label:empty{display:none}   /* between rounds the readout is one line */
+.sheet-card:focus{outline:none}   /* the 18+ card takes the focus itself, so neither answer looks chosen */
+@media (pointer:coarse){ .wallet button{min-height:30px} }   /* Reset, big enough for a thumb */
+
+@media (max-width:760px) and (orientation:portrait),(max-width:760px) and (min-height:501px){
+  .app{min-height:0;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px);gap:0}
+  .col{gap:0}
+  .stage{min-height:200px;border-radius:0;box-shadow:none}
+  .controls{position:relative;border-radius:0;border-width:1px 0 0;padding:8px 10px}
+  .toast{bottom:calc(var(--ctl) + 28px + env(safe-area-inset-bottom,0px))}   /* above the controls, never over the button it talks about */
+
+  /* before a round: the bet with ½ and 2×, the four difficulties, Play */
+  .app .controls .setup,.app .controls .flight{height:var(--ctl);min-height:0}
+  .app .controls .setup{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:none;align-content:space-between;gap:6px}
+  .app .controls .setup > .field,.app .controls .setup > .field:nth-of-type(2){grid-column:1/-1;grid-row:auto;gap:6px}
+  .app .controls .setup > .field:first-child{display:grid;grid-template-columns:minmax(0,1fr) auto}
+  .app .controls .setup > .big,.app .controls .setup > #go,.app .controls .setup > #play{grid-column:1/-1;grid-row:auto}
+  .app .controls .setup .bet-row{grid-template-columns:44px minmax(0,1fr) 44px;gap:6px}
+  .app .controls .setup .step,.app .controls .setup .money-in input{height:44px}
+  .app .controls .setup .chips{display:grid;grid-template-columns:repeat(2,46px);gap:6px}
+  .app .controls .setup .chips button{height:44px;font-size:14px}
+  .app .controls .setup .chips [data-chip=min],.app .controls .setup .chips [data-chip=max]{display:none}
+  .app .controls .setup .lv button{min-height:40px}
+  .app .controls .big{min-height:56px;border-radius:16px}
+  .app .controls .big .l1{font-size:20px}
+  .app .controls .big .l2{font-size:12px}
+
+  /* in a round: the five choices over the cash-out, at the same height */
+  .app .controls .flight{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) 70px;gap:6px}
+  .app .controls .flight > .big{min-height:0;height:70px}
+  .app .controls .flight .field{min-height:0;height:100%}
+  .app .controls .flight .paths{gap:6px;height:100%}
+  .app .controls .flight .paths button{min-height:0;border-radius:14px}
+
+  /* Charge in a round: the two buttons that matter, big, and what is at stake over them */
+  .app .controls .setup.live{grid-template-rows:auto minmax(0,1fr);align-items:stretch}
+  .app .controls .setup.live > .field{display:none}
+  .app .controls .setup.live::before{content:attr(data-bet);grid-column:1/-1;text-align:center;font-size:12px;font-weight:700;color:var(--muted)}
+  .app .controls .setup.live > .big{min-height:0}
+  .app .controls .setup.live > #cash{grid-column:1}
+  .app .controls .setup.live > #go{grid-column:2}
+
+  /* Max Mode Test: in view, on the scene, above whatever runs along the stage's foot (--mm-up, set per game) */
+  .maxmode{position:absolute;left:8px;bottom:calc(100% + var(--mm-up,8px));margin:0;z-index:3;grid-column:auto}
+  .maxmode small{display:none}
+  .maxmode button{position:relative;gap:6px;padding:3px 10px 3px 3px;font-size:11px;background:rgba(10,19,34,.6);backdrop-filter:blur(8px);color:#e3d9ff;border-color:rgba(201,184,255,.5)}
+  .maxmode button::after{content:"";position:absolute;inset:-9px -4px}
+  .maxmode button i{width:24px;height:14px}
+  .maxmode button i::after{width:10px;height:10px}
+  .maxmode.on button{background:rgba(75,54,252,.88)}
+  .maxmode.on button i::after{transform:translateX(10px)}
+}
+
+@media (max-width:480px){   /* the wallet still says DEMO on a phone: small, over the amount */
+  .wallet{position:relative}
+  .wallet small{display:block;position:absolute;left:11px;top:4px;font-size:8px;line-height:1;letter-spacing:.1em}
+  #balance{position:relative;top:4px}
+}
+
+@media (orientation:landscape) and (max-height:500px){   /* a phone held sideways */
+  .brand .t1{display:none}
+  .maxmode small{display:none}
+  .app .controls .setup.live > .field{display:none}
+  .app .controls .setup.live > .big{min-height:96px}
+  /* full screen keeps this column: shared/focus.css's wide grids are for a bigger screen */
+  html.focus .app .controls .setup{grid-template-columns:minmax(0,1fr)}
+  html.focus .app .controls .setup.live{grid-template-columns:repeat(2,minmax(0,1fr))}
+  html.focus .app .controls .flight{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) 52px}
+  html.focus .app .controls .lv{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

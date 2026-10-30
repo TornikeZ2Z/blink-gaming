@@ -4,6 +4,7 @@
    sits small in the corner. It opens on black with only the Brainer's visor: its screen lights up, the eyes blink open,
    the light floods out into the game's world and the view pulls back from the visor, which stays the Brainer's own LED
    screen, until the whole robot shows; it holds still there a moment, then starts doing the game's thing. It plays in full once a visit and short after that; a tap or key skips it once loaded.
+   A game opened inside brainer.games skips it and starts as soon as it has loaded; ?intro plays it anyway.
    BrainerIntro.start({ title, mark, theme, what, progress, actor, fallback }) returns a promise that resolves when the
    intro has left.
      mark: 'plane', 'fly' or 'fog' picks the wordmark (BrainerIntro.wordmark builds it for the game's own top bar too).
@@ -18,6 +19,8 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const full = new URLSearchParams(location.search).has('intro');   // ?intro plays it in full every time, to look at it
 const seen = !full && (() => { try { return sessionStorage.getItem('brainer.intro') === '1'; } catch (e) { return false; } })();
+// in a frame on our own site (an operator's frame is another origin, and keeps the intro)
+const onSite = !full && (() => { try { return window.parent !== window && window.parent.location.origin === location.origin; } catch (e) { return false; } })();
 // where each game's Brainer has its visor in the actor's square, in the pose it holds as the view pulls back to it
 // (measured from the drawn frame; FogRush's is an estimate, it isn't on the site yet)
 const FACES = { plane: [0.49, 0.352, 0.236], fog: [0.5, 0.33, 0.2], fly: [0.5, 0.367, 0.295], CHARGE: [0.511, 0.583, 0.32, 10], 'MULTI CHARGE': [0.511, 0.583, 0.32, 10], 'SPACE CRASH': [0.5, 0.347, 0.17] };
@@ -42,6 +45,8 @@ function wordmark(mark) {
 }
 
 function start(cfg) {
+  // opened on brainer.games the game just starts (Tornike, 2026-10-30): it only waits for what it needs to load
+  if (onSite) return new Promise(resolve => { (function wait() { if (cfg.progress() >= 1) resolve(); else setTimeout(wait, 60); })(); });
   const root = document.createElement('div');
   root.className = `intro t-${cfg.theme || cfg.mark || 'plane'}`;
   root.innerHTML = `<div class="intro-sky" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>

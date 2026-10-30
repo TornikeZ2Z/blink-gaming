@@ -56,10 +56,11 @@ const cents = v => Math.round(v * 100) / 100;   // the balance stays in whole ce
 // once a bet is placed, the flight counts and draws its own reach (r.reach) and capAt caps at its stake.
 const reachAt = (d, stake, rtp = cfg.rtp) => { let n = 1; while (n < d.steps && stake * multAt(d, n, rtp) < cfg.maxWin) n++; return n; };
 for (const d of LEVELS) d.reach = reachAt(d, cfg.minBet);
-const topOf = d => capAt(d, d.reach, cfg.minBet);
+const topOf = d => capAt(d, reachAt(d, S.stake), S.stake);   // what a difficulty can really pay at the bet set
 
 /* ---------- state ---------- */
 const S = { balance: cfg.startBalance, stake: 10, level: 0, nonce: 1, client: '', seed: '', hash: '', cells: Math.max(0, parseFloat(store.get('brainer.xp', '0')) || 0) };   // brain cells, shared by every Brainer game on this site
+let lastLine = null;   // what the last round's result said: it stays in the readout until the next Play, or a new bet or difficulty
 let round = null, lastRound = null, starting = false, booted = false;   // round: the flight in play, or the last one settled; lastRound: the last settled, for the fairness check; booted: the intro has gone (no bets before the 18+ check)
 const inFlight = () => !!round && (round.status === 'takeoff' || round.status === 'choose' || round.status === 'flying');
 const myLevel = () => brainLevel(S.cells);
@@ -109,7 +110,7 @@ async function play() {
   const d = LEVELS[S.level];
   if (S.stake < cfg.minBet || S.stake > cfg.maxBet) { toast(`Bet between ${money(cfg.minBet)} and ${money(cfg.maxBet)}.`); return; }
   if (S.stake > S.balance) { toast('Not enough demo balance for this bet. Lower it or press Reset.'); return; }
-  starting = true; renderControls();
+  starting = true; lastLine = null; renderControls();
   const r = { stake: S.stake, d, n: 0, rtp: cfg.rtp, reach: reachAt(d, S.stake), client: S.client, nonce: S.nonce++, status: 'choose', payout: 0, pick: -1, picks: [], forced: [] };   // the client seed in effect as it starts
   try { await commit; r.seed = S.seed; r.hash = S.hash; r.bombs = await drawBombs(r.seed, r.client, r.nonce, d); }
   catch (e) { S.nonce--; toast(window.isSecureContext ? 'Could not start the flight. Please try again.' : 'This demo needs https (or localhost) for its provably fair draw.'); return; }   // e.g. no crypto.subtle on plain http
@@ -313,7 +314,7 @@ function layout() {
   F = H * 0.95; HY = H * 0.4; PX = W / 2; PY = H * 0.74;
   PS = clamp(Math.min(W / 900, H / 560), 0.45, 1.25);
   const dx = Math.min(W * 0.17, 170);   // gap between waiting gates on screen
-  SPREAD = dx * Z_WAIT / F; RING = Math.min(dx * 0.34, 56) * Z_WAIT / F;
+  SPREAD = dx * Z_WAIT / F; RING = Math.min(Math.max(dx * 0.34, Math.min(26, dx * 0.44)), 56) * Z_WAIT / F;   // on a phone the drones stay a thumb wide
   stage.classList.toggle('slim', H < 520);   // a short stage: the readout shrinks to one line (style.css), or it covers the hoops; by the stage's own height, so the site's frame and full screen get it too. 520, not FogRush's 480: at 761-1299 px wide the full readout and the hoops are both bigger and meet up to ~510 px
   paintSky();
 }
@@ -828,6 +829,7 @@ function chuteState(now) {
 }
 // Back to the start screen after a flight: the plane flies back in with the Brainer aboard, and any level-up is shown.
 function resetToStart(now) {
+  if (round) lastLine = { text: $('#sub').textContent, cls: $('#sub').className };
   kitReset(); outro = null; chute = null; round = null; park();
   if (iris) iris.out = iris.out || now;
   plane.state = 'enter'; plane.t0 = now; plane.brain = myLevel(); sound.back();
@@ -1389,14 +1391,15 @@ function loop(now) {
 /* ---------- readout & controls ---------- */
 const cache = {};
 const put = (id, prop, v) => { const k = id + prop; if (cache[k] === v) return; cache[k] = v; const el = document.getElementById(id); if (prop === 'text') el.textContent = v; else if (prop === 'class') el.className = v; else if (prop === 'hidden') el.hidden = v; else el.setAttribute(prop, v); };
+const pct = v => (Math.round(v * 1000) / 10).toLocaleString('en-US') + '%';
 function updateUI(now) {
   const r = round, d = r ? r.d : LEVELS[S.level];
   let label, big, bigCls = 'mult', sub = '', subCls = 'sub';
-  if (!r || (!inFlight() && starting)) { label = `${d.name} · ${d.reach < d.steps ? 'up to ' : ''}${d.reach} ${AIM ? 'rows' : 'paths'} · top win`; big = fxShort(topOf(d)); bigCls = 'mult idle'; sub = 'Set your bet and press Play'; }
+  if (!r || (!inFlight() && starting)) { label = ''; big = ''; bigCls = 'mult idle'; if (lastLine) { sub = lastLine.text; subCls = lastLine.cls; } else sub = `${d.name} · up to ${fxShort(topOf(d))} at ${money(S.stake)}`; }
   else if (r.status === 'choose') {
     const cur = capAt(r.d, r.n, r.stake, r.rtp), next = capAt(r.d, r.n + 1, r.stake, r.rtp);
-    label = AIM ? (r.n ? `Row ${r.n} of ${r.reach} broken through · fire or jump` : 'Targets ahead! Pick one and fire') : r.n ? `Path ${r.n} of ${r.reach} cleared · fly on or jump` : 'Bombs ahead! Pick a path';
-    big = fx(cur); sub = r.n ? `Cash out now: ${money(payAt(r, r.n))} · next ${fx(next)}` : `${AIM ? 'A broken target' : 'A safe path'} pays ${fx(next)}`;
+    label = r.n ? `${AIM ? 'Row' : 'Path'} ${r.n} of ${r.reach}` : AIM ? 'Pick a target' : 'Pick a path';
+    big = fx(cur); sub = r.n < r.reach ? `Next ${fx(next)} · ${pct(r.d.safe[r.n])} safe` : '';
   } else if (r.status === 'takeoff') { label = 'Launching…'; big = fx(1); sub = `${AIM ? 'A broken target' : 'A safe path'} pays ${fx(capAt(r.d, 1, r.stake, r.rtp))}`;
   } else if (r.status === 'flying') { label = AIM ? `Target ${r.pick + 1} · firing…` : `Path ${r.pick + 1} · bombs away…`; big = fx(capAt(r.d, r.n, r.stake, r.rtp)); sub = `${AIM ? 'Breaking it pays' : 'Safe path pays'} ${fx(capAt(r.d, r.n + 1, r.stake, r.rtp))}`; }
   else if (r.status === 'crashed') { label = AIM ? 'Shield held' : 'Ka-boom!'; big = AIM ? 'Powered down' : 'Crashed'; bigCls = 'mult bust'; sub = AIM ? `Target ${r.pick + 1} held · −${money(r.stake)}` : `Bomb on path ${r.pick + 1} · −${money(r.stake)}`; subCls = 'sub bad'; }
@@ -1420,9 +1423,9 @@ function renderControls() {
   document.querySelectorAll('#paths button').forEach((b, k) => { b.setAttribute('aria-disabled', String(!round || round.status !== 'choose')); b.setAttribute('aria-pressed', String(!!round && round.pick === k)); });
   if (had) { $(fl ? '#paths button' : '#play').focus({ preventScroll: true }); ptrFocus = true; }   // to the first path as a flight starts, to Play as it ends; moved by the game, so Space stays the game's
 }
-function renderLevels() {   // built once, as the tops never change; after that only the pressed one moves, so focus stays on the button
+function renderLevels() {   // built once; after that the pressed one moves and the tops follow the bet, so focus stays on the button
   const bs = document.querySelectorAll('#levels button[data-l]');
-  if (bs.length === LEVELS.length) { bs.forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.l === S.level))); return; }
+  if (bs.length === LEVELS.length) { bs.forEach(b => { b.setAttribute('aria-pressed', String(+b.dataset.l === S.level)); b.querySelector('span').textContent = `up to ${fxShort(topOf(LEVELS[+b.dataset.l]))}`; }); return; }
   $('#levels').innerHTML = LEVELS.map((d, i) => `<button type="button" data-l="${i}" aria-pressed="${i === S.level}"><b>${d.name}</b><span>up to ${fxShort(topOf(d))}</span></button>`).join('');
 }
 function renderPaths() {
@@ -1433,7 +1436,7 @@ function renderPaths() {
 function renderLadder() {
   const r = round, d = r ? r.d : LEVELS[S.level], rtp = cfg.rtp, n = r && r.status !== 'crashed' ? r.n : 0, live = inFlight();
   const el = $('#ladder');
-  el.innerHTML = Array.from({ length: r ? r.reach : d.reach }, (_, i) => `<span class="rung ${i < n ? 'done' : i === n && live ? 'next' : ''}">${fxShort(capAt(d, i + 1, r ? r.stake : cfg.minBet, rtp))}</span>`).join('');   // what each path pays at the bet placed, or at most before one
+  el.innerHTML = Array.from({ length: r ? r.reach : reachAt(d, S.stake) }, (_, i) => `<span class="rung ${i < n ? 'done' : i === n && live ? 'next' : ''}">${fxShort(capAt(d, i + 1, r ? r.stake : S.stake, rtp))}</span>`).join('');   // what each path pays at the bet placed, or at most before one
   const nx = el.querySelector('.next') || el.querySelectorAll('.done')[n - 1];
   el.scrollLeft = nx ? nx.offsetLeft - el.clientWidth / 2 + nx.offsetWidth / 2 : 0;
 }
@@ -1487,7 +1490,7 @@ async function checkFair() {
 /* ---------- sheets: brain-level picker, fairness and how to play ---------- */
 const sheetOpen = () => !$('#tutorial').hidden || !$('#agegate').hidden || !$('#fairSheet').hidden;
 let lastFocus = null;
-function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; const f = $(id).querySelector('button[aria-pressed=true], button'); if (f) f.focus({ preventScroll: true }); }   // no scroll: inside the website's frame it would scroll the parent page
+function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; const card = $(id).querySelector('.sheet-card'), f = id === '#agegate' ? card : $(id).querySelector('button[aria-pressed=true], button'); if (card) card.tabIndex = -1; if (f) f.focus({ preventScroll: true }); }   // no scroll: inside the website's frame it would scroll the parent page
 function closeSheet(id) { $(id).hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
 $('#help').addEventListener('click', () => openSheet('#tutorial'));
 $('#fair').addEventListener('click', () => { renderFair(); openSheet('#fairSheet'); });
@@ -1503,14 +1506,14 @@ document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e =
 
 /* ---------- input ---------- */
 const clampStake = v => Math.min(cfg.maxBet, Math.max(cfg.minBet, Math.round((Number.isFinite(v) ? v : cfg.minBet) * 100) / 100));
-function setStake(v) { S.stake = clampStake(v); $('#amt').value = S.stake.toFixed(2); renderControls(); }
+function setStake(v) { S.stake = clampStake(v); lastLine = null; $('#amt').value = S.stake.toFixed(2); renderControls(); renderLevels(); renderLadder(); }
 $('#amt').addEventListener('change', () => setStake(parseFloat($('#amt').value)));
 $('#dec').addEventListener('click', () => setStake(S.stake - (S.stake > 10 ? 1 : 0.5)));
 $('#inc').addEventListener('click', () => setStake(S.stake + (S.stake >= 10 ? 1 : 0.5)));
 $('#chips').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; const c = b.dataset.chip; setStake(c === 'min' ? cfg.minBet : c === 'max' ? Math.min(cfg.maxBet, Math.floor(S.balance * 100 + 1e-6) / 100) : c === 'half' ? S.stake / 2 : S.stake * 2); });
 $('#levels').addEventListener('click', e => {
   const b = e.target.closest('button[data-l]'); if (!b || inFlight()) return;
-  S.level = +b.dataset.l; renderLevels(); renderControls();
+  S.level = +b.dataset.l; lastLine = null; renderLevels(); renderControls();
   const now = performance.now();
   round = null; outro = null; chute = null; wipe = null; recenter(); setTrack(LEVELS[S.level], 0, cfg.rtp); plane.brain = myLevel(); park();
   if (iris) iris.out = now;

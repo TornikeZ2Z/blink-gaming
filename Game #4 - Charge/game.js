@@ -38,7 +38,7 @@ const payAt = (r, n) => Math.min(Math.floor(r.stake * multAt(r.d, n, r.rtp) * 10
 // minimum bet Hardcore never offers charge 15. Every top shown before a bet uses d.reach, at the minimum bet.
 const reachAt = (d, stake, rtp = cfg.rtp) => { let n = 1; while (n < d.steps && stake * multAt(d, n, rtp) < cfg.maxWin) n++; return n; };
 for (const d of LEVELS) d.reach = reachAt(d, cfg.minBet);
-const topOf = d => capAt(d, d.reach, cfg.minBet);
+const topOf = d => capAt(d, reachAt(d, S.stake), S.stake);   // what a difficulty can really pay at the bet set
 // The looks are spread evenly over the charges a round can reach (Tornike, 2026-10-26): the baby at the start, the caped
 // master on the last one, so every difficulty grows through all eleven. A safe charge that brings no new look snaps a
 // random piece of gear on instead (bot.js), so every charge changes something. 1-10 are the Grows up stages; 11 adds the cape.
@@ -387,7 +387,7 @@ const put = (id, prop, v) => { const k = id + prop; if (cache[k] === v) return; 
 function updateUI(now) {
   const r = round, d = r ? r.d : LEVELS[S.level];
   let lvl = 'LVL 1', name = '', lvlCls = 'lvl', big, bigCls = 'mult', sub = '', subCls = 'sub';
-  if (!r || (!live() && starting)) { lvl = d.name; name = `up to ${d.reach} charges`; big = fxShort(topOf(d)); bigCls = 'mult idle'; sub = 'Top win · set your bet and press Play'; }
+  if (!r || (!live() && starting)) { lvl = d.name; name = `up to ${fxShort(topOf(d))} at ${money(S.stake)}`; big = ''; bigCls = 'mult idle'; }
   else {
     const cur = capAt(r.d, r.n, r.stake, r.rtp);
     lvl = `LVL ${r.n + 1}`; name = ''; big = fx(cur);   // no look names or next-look card in play (Tornike, 2026-10-27)
@@ -407,7 +407,7 @@ const pct = v => (Math.round(v * 1000) / 10).toLocaleString('en-US') + '%';
 // they cannot take.
 function renderControls() {
   const lv = live(), r = round, setup = $('#setup'), had = setup.contains(document.activeElement) && document.activeElement;
-  setup.classList.toggle('live', lv); $('#cash').hidden = !lv;
+  setup.classList.toggle('live', lv); $('#cash').hidden = !lv; setup.dataset.bet = lv ? `Bet ${money(r.stake)} · ${r.d.name}` : '';   // on a phone this line stands in for the bet and difficulty rows
   $('#go').classList.toggle('zap', lv);
   $('#goL1').textContent = lv ? '⚡ Charge' : 'Play';
   $('#goL2').textContent = starting ? 'Powering up…' : lv ? (r.status === 'charging' ? 'Charging…' : r.n < r.reach ? `to ${fx(capAt(r.d, r.n + 1, r.stake, r.rtp))}` : '') : `${money(S.stake)} · ${LEVELS[S.level].name}`;
@@ -415,15 +415,15 @@ function renderControls() {
   $('#cash').setAttribute('aria-disabled', String(!lv || r.status !== 'ready' || r.n < 1));
   for (const el of ['#amt', '#dec', '#inc']) $(el).disabled = lv;
   document.querySelectorAll('#chips button, #levels button').forEach(b => b.setAttribute('aria-disabled', String(lv)));
-  if (had && had.hidden) $('#go').focus({ preventScroll: true });
+  if (had && !had.getClientRects().length) $('#go').focus({ preventScroll: true });   // Cash out, or a phone's bet row, just went away
 }
-function renderLevels() {   // built once, as the tops never change; after that only the pressed one moves, so focus stays on the button
+function renderLevels() {   // built once; after that the pressed one moves and the tops follow the bet, so focus stays on the button
   const bs = document.querySelectorAll('#levels button[data-l]');
-  if (bs.length === LEVELS.length) { bs.forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.l === S.level))); return; }
+  if (bs.length === LEVELS.length) { bs.forEach(b => { b.setAttribute('aria-pressed', String(+b.dataset.l === S.level)); b.querySelector('span').textContent = `up to ${fxShort(topOf(LEVELS[+b.dataset.l]))}`; }); return; }
   $('#levels').innerHTML = LEVELS.map((d, i) => `<button type="button" data-l="${i}" aria-pressed="${i === S.level}"><b>${d.name}</b><span>up to ${fxShort(topOf(d))}</span></button>`).join('');
 }
 function renderBattery() {
-  const r = round, d = r ? r.d : LEVELS[S.level], stake = r ? r.stake : cfg.minBet, reach = r ? r.reach : d.reach, n = r ? r.n : 0, st = r ? r.status : '';
+  const r = round, d = r ? r.d : LEVELS[S.level], stake = r ? r.stake : S.stake, reach = r ? r.reach : reachAt(d, S.stake), n = r ? r.n : 0, st = r ? r.status : '';
   const rows = [];
   for (let i = 0; i <= reach; i++) {
     const lk = lookAt(i, reach), newLook = i === 0 || lk !== lookAt(i - 1, reach);
@@ -493,7 +493,7 @@ async function checkFair() {
 /* ---------- sheets: fairness and how to play ---------- */
 const sheetOpen = () => !$('#tutorial').hidden || !$('#agegate').hidden || !$('#fairSheet').hidden;
 let lastFocus = null;
-function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; const f = $(id).querySelector('button[aria-pressed=true], button'); if (f) f.focus({ preventScroll: true }); }   // no scroll: inside the website's frame it would scroll the parent page
+function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; const card = $(id).querySelector('.sheet-card'), f = id === '#agegate' ? card : $(id).querySelector('button[aria-pressed=true], button'); if (card) card.tabIndex = -1; if (f) f.focus({ preventScroll: true }); }   // no scroll: inside the website's frame it would scroll the parent page
 function closeSheet(id) { $(id).hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true }); }
 $('#help').addEventListener('click', () => openSheet('#tutorial'));
 $('#fair').addEventListener('click', () => { renderFair(); openSheet('#fairSheet'); });
@@ -509,7 +509,7 @@ document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e =
 
 /* ---------- input ---------- */
 const clampStake = v => Math.min(cfg.maxBet, Math.max(cfg.minBet, Math.round((Number.isFinite(v) ? v : cfg.minBet) * 100) / 100));
-function setStake(v) { if (live()) return; S.stake = clampStake(v); $('#amt').value = S.stake.toFixed(2); renderControls(); }
+function setStake(v) { if (live()) return; S.stake = clampStake(v); $('#amt').value = S.stake.toFixed(2); renderControls(); renderLevels(); renderBattery(); }
 $('#amt').addEventListener('change', () => setStake(parseFloat($('#amt').value)));
 $('#dec').addEventListener('click', () => setStake(S.stake - (S.stake > 10 ? 1 : 0.5)));
 $('#inc').addEventListener('click', () => setStake(S.stake + (S.stake >= 10 ? 1 : 0.5)));

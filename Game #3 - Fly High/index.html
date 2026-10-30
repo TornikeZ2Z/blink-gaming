@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="../shared/maxmode.css">
 <link rel="stylesheet" href="../shared/focus.css">
 <link rel="stylesheet" href="../shared/intro.css">
+<link rel="stylesheet" href="../shared/phone.css">
 </head>
 <body>
 <main class="app">
@@ -41,6 +42,7 @@
       <div class="sheet-card fair">
         <div class="sheet-head"><b id="fairTitle">Provably fair</b><button type="button" class="round" id="fairClose" aria-label="Close">✕</button></div>
         <p class="sheet-note">Every round is fixed before take-off, by the game's server seed and your client seed. You see the SHA-256 hash of the server seed first, then set your client seed if you like; the seed is revealed when the round ends. The round rolls HMAC-SHA256(server seed, "client seed:nonce"), read as a fraction u from its first 52 bits, and flies away at 0.97 ÷ (1 − u), rounded down to the cent (1.00× at least, 10,000× at most). Scares like a sputtering boot are only for show and are not part of the round.</p>
+        <p class="sheet-note"><b>RTP up to 97%.</b> The return is 97% before two things lower it in some rounds: payouts round down to the cent, and the $10,000 max win ends high-bet rounds early.</p>
         <div id="fairBody"></div>
       </div>
     </div>
@@ -49,13 +51,12 @@
         <img src="assets/brainer-5.png" alt="" class="tut-robot">
         <b id="tutTitle">How to play</b>
         <ol>
-          <li><b>Place a bet before take-off.</b> You can place two bets at once, one in each panel.</li>
-          <li><b>The Brainer fires its jets and the multiplier climbs.</b> The higher it goes, the more gear it bolts on, different every round, up to suit level 10.</li>
-          <li><b>Cash out before it flies away</b> to win your bet times the multiplier, up to $10,000 a round. If it flies away first, the bet is lost.</li>
-          <li><b>Auto</b> places your bet every round and can cash out by itself at a multiplier you choose.</li>
-          <li><b>A sputtering boot or a glitching screen is only a scare.</b> Scares come at random and never tell you when it will fly away.</li>
+          <li><b>Place a bet before take-off.</b> Two bets at once if you like.</li>
+          <li><b>The multiplier climbs.</b> Cash out before the Brainer flies away, or the bet is lost.</li>
+          <li><b>Auto</b> bets every round and can cash out for you.</li>
+          <li><b>A sputter or a glitch is only a scare.</b> It never tells you when it will fly away.</li>
         </ol>
-        <p class="sheet-note tut-rtp"><b>RTP up to 97%.</b> The return is 97% before two things lower it in some rounds: payouts round down to the cent, and the $10,000 max win ends high-bet rounds early.</p>
+        <p class="sheet-note tut-rtp"><b>Play money.</b> RTP up to 97% · Max win $10,000 a round</p>
         <div class="sheet-go"><button type="button" class="big play" id="tutGo"><span class="l1">Let's fly</span></button></div>
       </div>
     </div>

@@ -218,7 +218,8 @@ body{min-height:0}
   .stage{min-height:240px;border-radius:20px}
   .controls{padding:10px;border-radius:20px}
   .brand .t1{display:none}
-  .readout{top:50px;width:94%}
+  :root{--mm-up:56px}   /* Max Mode's pill sits over the level strip (shared/phone.css) */
+  .readout{top:56px;width:94%}
   .readout .lvl{font-size:11.5px}
   .readout .mult{--mh:calc(clamp(30px,10vw,42px) * 1.02);font-size:clamp(30px,10vw,42px)}
   .readout .mult.idle,.readout .mult.bust{font-size:clamp(26px,8vw,34px)}
@@ -266,6 +267,8 @@ body{min-height:0}
 }
 @media (max-width:359px){ .pillars button .n{gap:2px} .pillars button .n svg{width:16px;height:16px} }
 /* a short stage (game.js sets .tight): the level and the multiplier share a row, so the pillars keep the room under them */
+.stage .readout .mult:empty{display:block}   /* between rounds it keeps its place: layout() fits the pillars under the readout */
+.stage.tight .readout .sub.off{flex:0 0 100%;min-height:23px}   /* and so does the empty line, on a row of its own */
 .stage.tight .readout{flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;column-gap:10px;row-gap:3px}
 .stage.tight .readout .mult{--mh:calc(clamp(28px,4.2vw,44px) * 1.02);font-size:clamp(28px,4.2vw,44px)}
 .stage.tight .readout .mult.idle,.stage.tight .readout .mult.bust{font-size:clamp(24px,3.4vw,34px)}

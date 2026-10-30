@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="../shared/maxmode.css">
 <link rel="stylesheet" href="../shared/focus.css">
 <link rel="stylesheet" href="../shared/intro.css">
+<link rel="stylesheet" href="../shared/phone.css">
 </head>
 <body>
 <main class="app">
@@ -39,6 +40,7 @@
       <div class="sheet-card fair">
         <div class="sheet-head"><b id="fairTitle">Provably fair</b><button type="button" class="round" id="fairClose" aria-label="Close">✕</button></div>
         <p class="sheet-note">Every round is fixed before you bet, by the game's server seed and your client seed. You see the SHA-256 hash of the server seed first, then set your client seed if you like; the server seed is revealed when the round ends. Drone k of row n rolls HMAC-SHA256(server seed, "client seed:nonce:n:k"), and a roll at or above that row's survival chance is a shield that holds.</p>
+        <p class="sheet-note"><b>RTP up to 97%.</b> The return is 97% before two things lower it in some rounds: payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early.</p>
         <div id="fairBody"></div>
       </div>
     </div>
@@ -48,10 +50,10 @@
         <b id="tutTitle">How to play</b>
         <ol>
           <li><b>Pick a difficulty and your bet</b>, then press Play.</li>
-          <li><b>Five shield drones block each row. Pick one and fire.</b> Break its shield and you fly on, and your multiplier rises.</li>
-          <li><b>Cash out</b> whenever you like to take your win, up to $10,000 a round. If the shield you shoot holds, your pod powers down and the round ends.</li>
+          <li><b>Pick one of five drones and fire.</b> Break its shield and your multiplier rises.</li>
+          <li><b>Cash out</b> to take your win. If the shield holds, the round ends.</li>
         </ol>
-        <p class="sheet-note tut-rtp"><b>RTP up to 97%.</b> The return is 97% before two things lower it in some flights: payouts round down to the cent, and the $10,000 max win ends long or high-bet flights early.</p>
+        <p class="sheet-note tut-rtp"><b>Play money.</b> RTP up to 97% · Max win $10,000 a round</p>
         <div class="sheet-go"><button type="button" class="big play" id="tutGo"><span class="l1">Let's launch</span></button></div>
       </div>
     </div>

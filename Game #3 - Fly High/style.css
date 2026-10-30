@@ -389,8 +389,9 @@ body{min-height:0}
   .hud{left:8px;right:8px;justify-content:flex-end} .hud-right{gap:5px} .round{width:32px;height:32px}
   .readout{top:max(30%,90px)}
 }
+@media (max-width:760px){ .bets{gap:6px} .tabs button{padding:6px 0} }
 @media (max-width:400px){   /* the narrowest phones: slimmer steppers so the amount shows in full beside its twin */
-  .bet .bet-row{grid-template-columns:28px minmax(0,1fr) 28px;gap:3px}
+  .bet .bet-row{grid-template-columns:32px minmax(0,1fr) 32px;gap:3px}
   .bet .step{font-size:18px}
   .bet .money-in span{left:.35em}
   .bet .money-in input{padding:0 .15em 0 1em}

@@ -757,7 +757,7 @@ function renderBets() {
     if (b.st === 'live') { cls = 'cash'; l1 = 'Cash out'; l2 = money(payOf(b.stake, R ? R.m : 1)); }
     else if (b.st === 'placed') { cls = 'cancel'; l1 = 'Cancel'; l3 = R && R.phase === 'starting' ? 'taking off…' : ''; }
     else if (b.st === 'queued') { cls = 'cancel'; l1 = 'Cancel'; l3 = 'waiting for next round'; }
-    else { cls = 'bet-go'; l1 = 'Bet'; l3 = b.st === 'cashed' ? `won ${money(b.payout)} at ${fx(b.at)}` : R && R.phase !== 'bet' ? 'for the next round' : ''; }
+    else { cls = 'bet-go'; l1 = R && R.phase !== 'bet' ? 'Bet next' : 'Bet'; l3 = b.st === 'cashed' ? `won ${money(b.payout)} at ${fx(b.at)}` : R && R.phase !== 'bet' ? 'for the next round' : ''; }
     go.className = 'big act ' + cls; go.querySelector('.l1').textContent = l1; go.querySelector('.l2').textContent = l2; go.querySelector('.l3').textContent = l3;
     go.setAttribute('aria-disabled', String(b.st === 'placed' && R && R.phase === 'starting'));
     el.classList.toggle('on', lock);
@@ -903,7 +903,7 @@ wideQ.addEventListener('change', syncSide);
 const topModal = () => !$('#topSheet').hidden && !wideQ.matches;
 const sheetOpen = () => !$('#tutorial').hidden || !$('#agegate').hidden || !$('#fairSheet').hidden || topModal();
 let lastFocus = null;
-function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; const f = $(id).querySelector('button[aria-pressed=true], button'); if (f) f.focus({ preventScroll: true }); }   // no scroll: inside the website's frame it would scroll the parent page
+function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; const card = $(id).querySelector('.sheet-card'), f = id === '#agegate' ? card : $(id).querySelector('button[aria-pressed=true], button'); if (card) card.tabIndex = -1; if (f) f.focus({ preventScroll: true }); }   // no scroll: inside the website's frame it would scroll the parent page
 function closeSheet(id) { $(id).hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true }); }
 $('#help').addEventListener('click', () => openSheet('#tutorial'));
 $('#top').addEventListener('click', () => { renderBoard(); openSheet('#topSheet'); });

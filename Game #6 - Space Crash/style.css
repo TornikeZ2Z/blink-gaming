@@ -168,7 +168,7 @@ button{cursor:pointer}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
 @media (max-width:760px){
-  :root{--stage-h:clamp(330px,calc(100dvh - 330px),560px)}
+  :root{--stage-h:clamp(330px,calc(100dvh - 330px),560px);--mm-up:44px}   /* --mm-up: Max Mode's pill sits over the ladder (shared/phone.css) */
   .app{padding:10px 10px 12px;gap:10px}
   .stage{border-radius:22px}
   .brand .t1{display:none}
@@ -176,7 +176,7 @@ button{cursor:pointer}
   .pinfo{display:none}
   .ava{width:50px;height:50px;border-radius:14px}
   .ava canvas{left:-9px;top:-12px;width:70px;height:70px}
-  .readout{top:58px;width:92%}
+  .readout{top:54px;width:92%}
   .setup,.flight{min-height:0}
   .setup{grid-template-columns:1fr;gap:12px}
   .lv button{min-height:56px}

@@ -40,7 +40,7 @@ const payAt = (r, n) => Math.min(Math.floor(r.stake * multAt(r.d, n, r.rtp) * 10
 // minimum bet Hardcore never offers charge 15. Every top shown before a bet uses d.reach, at the minimum bet.
 const reachAt = (d, stake, rtp = cfg.rtp) => { let n = 1; while (n < d.steps && stake * multAt(d, n, rtp) < cfg.maxWin) n++; return n; };
 for (const d of LEVELS) d.reach = reachAt(d, cfg.minBet);
-const topOf = d => capAt(d, d.reach, cfg.minBet);
+const topOf = d => capAt(d, reachAt(d, S.stake), S.stake);   // what a difficulty can really pay at the bet set
 // Charge's looks, spread evenly over the charges a round can reach: the baby at the start, the caped master on the last
 // one. A safe charge that brings no new look snaps a random piece of gear on instead (bot.js), so every charge changes
 // something. 1-10 are the Grows up stages; 11 adds the cape.
@@ -210,7 +210,9 @@ const VIEW = (() => {
     y0: Math.min(...p.map(q => tipOf(q)[1])) - 70, y1: SG.pad.cy + SG.pad.ry + 10 };
 })();
 // The picture is scaled to show VIEW as big as the room left by the readout and the ladder allows, centred in that room,
-// and never smaller than the stage: on a short stage the readout may then overlap the sky over the pillars.
+// and never smaller than the stage: on a short stage the readout may then overlap the sky over the pillars. The one
+// exception is a tall phone, where filling the stage would push the outer pillars off its sides: there the five pillars
+// set the size, the picture stands on the stage's foot, and draw() lets its ceiling fade up into the dark.
 function layout() {
   const b = stage.getBoundingClientRect(); W = b.width; H = b.height; DPR = Math.min(2, devicePixelRatio || 1);
   cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
@@ -221,7 +223,8 @@ function layout() {
   else x0 = bat.right - b.left + 4;
   const side = Math.max(x0, W - x1); x0 = side; x1 = W - side;   // the Brainer stays in the middle of the stage
   const kFit = Math.min((x1 - x0) / (VIEW.x1 - VIEW.x0), (y1 - y0) / (VIEW.y1 - VIEW.y0)), kCover = Math.max(W / SG.w, H / SG.h);
-  K = Math.max(kCover, Math.min(kFit, 1.2));
+  const cxs = SG.pillars.map(q => q.base[0]), kWide = (W - 16) / (Math.max(...cxs) - Math.min(...cxs) + 200);   // 100: the half width of a pillar's foot in the render
+  K = Math.min(Math.max(kCover, Math.min(kFit, 1.2)), kWide);
   OX = clamp((x0 + x1) / 2 - (VIEW.x0 + VIEW.x1) / 2 * K, W - SG.w * K, 0);
   view.badgeR = clamp(22 * K, 12, 20);
   const numbers = Math.min(...SG.pillars.map(q => tipOf(q)[1])) * K - 2 * view.badgeR - Math.max(8, 24 * K) - 4;   // the top of the pillars' numbers, at OY 0
@@ -374,6 +377,9 @@ function draw(now, dt) {
   const setA = SET.complete && SET.naturalWidth ? clamp((now - (view.setT || 0)) / 350, 0, 1) : 0;   // the full set fades in over its preview
   if (setA < 1 && PRE.complete && PRE.naturalWidth) { ctx.imageSmoothingQuality = 'high'; ctx.drawImage(PRE, OX, OY, SG.w * K, SG.h * K); }
   if (setA > 0) { ctx.globalAlpha = setA; ctx.drawImage(SET, OX, OY, SG.w * K, SG.h * K); ctx.globalAlpha = 1; }
+  if (OY > 0) {   // a tall phone: the picture stops short of the stage's top, so its ceiling fades into the dark over it
+    const fade = OY + 120 * K * 4, g = ctx.createLinearGradient(0, OY, 0, fade); g.addColorStop(0.05, '#0d1330'); g.addColorStop(1, 'rgba(13,19,48,0)'); ctx.fillStyle = g; ctx.fillRect(0, OY - 2, W, fade - OY + 2);
+  }
   const charging = r && r.status === 'charging', p = charging ? (now - r.t0) / CHARGE_MS : 0, asleep = !!(r && r.status === 'broken');
   const wind = charging && !r.struck ? clamp(p / STRIKE, 0, 1) : 0, after = view.strikeT && view.struckOk ? Math.max(0, 1 - (now - view.strikeT) / 450) : 0;
   // the pillars' glow: all five hum while waiting; the picked one winds up ring by ring; then each shows what it was
@@ -472,11 +478,11 @@ const put = (id, prop, v) => { const k = id + prop; if (cache[k] === v) return; 
 function updateUI(now) {
   const r = round, d = r ? r.d : LEVELS[S.level];
   let lvl = 'LVL 1', name = '', lvlCls = 'lvl', big, bigCls = 'mult', sub = '', subCls = 'sub';
-  if (!r || (!live() && starting)) { lvl = d.name; name = `up to ${d.reach} charges`; big = fxShort(topOf(d)); bigCls = 'mult idle'; sub = 'Top win · set your bet and press Play'; }
+  if (!r || (!live() && starting)) { lvl = d.name; name = `up to ${fxShort(topOf(d))} at ${money(S.stake)}`; big = ''; bigCls = 'mult idle'; }
   else {
     const cur = capAt(r.d, r.n, r.stake, r.rtp);
     lvl = `LVL ${r.n + 1}`; name = ''; big = fx(cur);   // no look names in play, as in Charge (Tornike, 2026-10-27)
-    if (r.status === 'ready') { const nx = capAt(r.d, r.n + 1, r.stake, r.rtp); sub = r.n < r.reach ? `Pick a pillar · a safe one pays ${fx(nx)}` : ''; }
+    if (r.status === 'ready') { const nx = capAt(r.d, r.n + 1, r.stake, r.rtp); sub = r.n < r.reach ? `Pick a pillar · next ${fx(nx)} · ${pct(r.d.safe[r.n])} safe` : ''; }
     else if (r.status === 'charging') sub = r.struck ? `Pillar ${r.pick + 1} was safe!` : `Pillar ${r.pick + 1} · charging…`;
     else if (r.status === 'broken') { lvl = 'OVERCHARGED'; lvlCls = 'lvl bust'; name = `at LVL ${r.n + 1}`; big = 'Battery flat'; bigCls = 'mult bust'; sub = `Pillar ${r.pick + 1} was overloaded · −${money(r.stake)}`; subCls = 'sub bad'; }
     else { lvlCls = 'lvl won'; big = fx(cur); bigCls = cur >= 10 ? 'mult win gold' : 'mult win'; sub = `Cashed out: you won ${money(r.payout)}`; subCls = 'sub ok'; }
@@ -499,9 +505,9 @@ function renderControls() {
   $('#cash').setAttribute('aria-disabled', String(!lv || r.status !== 'ready' || r.n < 1));
   if (had) { $(lv ? '#pillars button' : '#go').focus({ preventScroll: true }); ptrFocus = true; }   // to the first pillar as a round starts, to Play as it ends; moved by the game, so Space stays the game's
 }
-function renderLevels() {   // built once, as the tops never change; after that only the pressed one moves, so focus stays on the button
+function renderLevels() {   // built once; after that the pressed one moves and the tops follow the bet, so focus stays on the button
   const bs = document.querySelectorAll('#levels button[data-l]');
-  if (bs.length === LEVELS.length) { bs.forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.l === S.level))); return; }
+  if (bs.length === LEVELS.length) { bs.forEach(b => { b.setAttribute('aria-pressed', String(+b.dataset.l === S.level)); b.querySelector('span').textContent = `up to ${fxShort(topOf(LEVELS[+b.dataset.l]))}`; }); return; }
   $('#levels').innerHTML = LEVELS.map((d, i) => `<button type="button" data-l="${i}" aria-pressed="${i === S.level}"><b>${d.name}</b><span>up to ${fxShort(topOf(d))}</span></button>`).join('');
 }
 function renderPillars() {   // a little pillar and its number on each button, as the scene numbers them
@@ -509,7 +515,7 @@ function renderPillars() {   // a little pillar and its number on each button, a
   $('#pillars').innerHTML = PILLARS.map((nm, k) => `<button type="button" data-p="${k}" aria-label="Pillar ${k + 1}, ${nm}"><span class="n">${icon}${k + 1}</span><span class="nm">${nm}</span></button>`).join('');
 }
 function renderBattery() {
-  const r = round, d = r ? r.d : LEVELS[S.level], stake = r ? r.stake : cfg.minBet, reach = r ? r.reach : d.reach, n = r ? r.n : 0, st = r ? r.status : '';
+  const r = round, d = r ? r.d : LEVELS[S.level], stake = r ? r.stake : S.stake, reach = r ? r.reach : reachAt(d, S.stake), n = r ? r.n : 0, st = r ? r.status : '';
   const rows = [];
   for (let i = 0; i <= reach; i++) {
     const lk = lookAt(i, reach), newLook = i === 0 || lk !== lookAt(i - 1, reach);
@@ -580,7 +586,7 @@ async function checkFair() {
 /* ---------- sheets: fairness and how to play ---------- */
 const sheetOpen = () => !$('#tutorial').hidden || !$('#agegate').hidden || !$('#fairSheet').hidden;
 let lastFocus = null;
-function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; const f = $(id).querySelector('button[aria-pressed=true], button'); if (f) f.focus({ preventScroll: true }); }   // no scroll: inside the website's frame it would scroll the parent page
+function openSheet(id) { lastFocus = document.activeElement; $(id).hidden = false; const card = $(id).querySelector('.sheet-card'), f = id === '#agegate' ? card : $(id).querySelector('button[aria-pressed=true], button'); if (card) card.tabIndex = -1; if (f) f.focus({ preventScroll: true }); }   // no scroll: inside the website's frame it would scroll the parent page
 function closeSheet(id) { $(id).hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true }); }
 $('#help').addEventListener('click', () => openSheet('#tutorial'));
 $('#fair').addEventListener('click', () => { renderFair(); openSheet('#fairSheet'); });
@@ -596,7 +602,7 @@ document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e =
 
 /* ---------- input ---------- */
 const clampStake = v => Math.min(cfg.maxBet, Math.max(cfg.minBet, Math.round((Number.isFinite(v) ? v : cfg.minBet) * 100) / 100));
-function setStake(v) { if (live()) return; S.stake = clampStake(v); $('#amt').value = S.stake.toFixed(2); renderControls(); }
+function setStake(v) { if (live()) return; S.stake = clampStake(v); $('#amt').value = S.stake.toFixed(2); renderControls(); renderLevels(); renderBattery(); }
 $('#amt').addEventListener('change', () => setStake(parseFloat($('#amt').value)));
 $('#dec').addEventListener('click', () => setStake(S.stake - (S.stake > 10 ? 1 : 0.5)));
 $('#inc').addEventListener('click', () => setStake(S.stake + (S.stake >= 10 ? 1 : 0.5)));
