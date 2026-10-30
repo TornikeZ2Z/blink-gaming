@@ -76,14 +76,15 @@ const sha256 = async s => hex(await crypto.subtle.digest('SHA-256', enc.encode(s
 async function drawSteps(seed, client, nonce, d) {
   const key = await crypto.subtle.importKey('raw', enc.encode(seed), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const roll = async msg => parseInt(hex(await crypto.subtle.sign('HMAC', key, enc.encode(msg))).slice(0, 13), 16) / 2 ** 52;
-  const ns = Array.from({ length: d.steps }, (_, i) => i + 1), ks = Array.from({ length: cfg.paths }, (_, k) => k + 1);
+  const ns = Array.from({ length: d.steps }, (_, i) => i + 1), ks = Array.from({ length: cfg.paths + 1 }, (_, k) => k);
   return { rolls: await Promise.all(ns.map(n => roll(`${client}:${nonce}:${n}`))), show: await Promise.all(ns.map(n => Promise.all(ks.map(k => roll(`${client}:${nonce}:${n}:show:${k}`))))) };
 }
-// What row i shows with drone k picked. The others are for show: how many turn red follows the row's real danger, at least
-// one, the same on a win and a loss, and the "show" rolls say which.
-const rowAt = (d, i, show, k, hit) => {
-  const others = show.map((u, j) => [u, j]).filter(o => o[1] !== k).sort((a, b) => a[0] - b[0]), row = show.map(() => false);
-  for (const [, j] of others.slice(0, Math.max(1, Math.round(others.length * (1 - d.safe[i]))))) row[j] = true;
+// What a row shows with drone k picked. The others are for show (Tornike: "some random 2 win and some random 3 loose"): one
+// to three of them turn red at random and the rest look like winners, the same on a win and a loss. show[0] says how many
+// and the other show rolls say which.
+const rowAt = (show, k, hit) => {
+  const [many, ...cells] = show, others = cells.map((u, j) => [u, j]).filter(o => o[1] !== k).sort((a, b) => a[0] - b[0]), row = cells.map(() => false);
+  for (const [, j] of others.slice(0, 1 + Math.floor(many * 3))) row[j] = true;
   row[k] = hit; return row;
 };
 // The game commits first: the next flight's server seed is drawn and hashed before the player sets a client seed or
@@ -133,7 +134,7 @@ function choose(k) {
   r.pick = k; r.picks[r.n] = k; r.status = 'flying'; r.t0 = performance.now(); r.hit = r.rolls[r.n] >= r.d.safe[r.n]; r.struck = false; r.landed = false;
   if (window.pcTest && window.pcTest.next) { r.hit = window.pcTest.next === 'boom'; r.forced[r.n] = true; window.pcTest.next = ''; }   // ?test only: force this step, to show either outcome on demand
   if (window.MaxMode && MaxMode.on) { r.hit = false; r.forced[r.n] = true; }   // Max Mode Test: this step is safe
-  sceneFly(k, rowAt(r.d, r.n, r.show[r.n], k, r.hit), r.t0);
+  sceneFly(k, rowAt(r.show[r.n], k, r.hit), r.t0);
   sound.fire();
   renderControls();
 }
@@ -1093,15 +1094,16 @@ function shatter(now) {   // the shield bursts into its hex tiles, which tumble 
 // The targets are shield drones (Tornike's pick B, 2026-10-27): Blender stills of a pearl drone behind a hex shield.
 // The deeper the row, the tougher its shield looks (his pick A on the second board): cyan for rows 1-3, a double violet
 // shield for 4-7, gold with armour for 8-12, a red-and-black elite with spikes from 13 on. Looks only: every row's odds
-// are the maths' own. A drone that would hold glows red; one shot through goes dark and drops away.
-const TIERS = [1, 2, 3, 4].map(n => { const on = new Image(), off = new Image(); on.src = `assets/aim/tier${n}.webp`; off.src = `assets/aim/tier${n}-off.webp`; return { on, off, red: null }; });
+// are the maths' own. The other drones glow red or green for show; one shot through goes dark and drops away.
+const TIERS = [1, 2, 3, 4].map(n => { const on = new Image(), off = new Image(); on.src = `assets/aim/tier${n}.webp`; off.src = `assets/aim/tier${n}-off.webp`; return { on, off, red: null, green: null }; });
 const tierOf = row => row <= 3 ? 0 : row <= 7 ? 1 : row <= 12 ? 2 : 3;   // row counts from 1
-function redOf(t) {   // the tier's still tinted red, made once it has loaded
-  if (t.red || !t.on.complete || !t.on.naturalWidth) return t.red;
+function tintOf(t, key, col) {   // the tier's still tinted, made once it has loaded
+  if (t[key] || !t.on.complete || !t.on.naturalWidth) return t[key];
   const c = document.createElement('canvas'); c.width = t.on.naturalWidth; c.height = t.on.naturalHeight; const g = c.getContext('2d');
-  g.drawImage(t.on, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(255,40,72,.5)'; g.fillRect(0, 0, c.width, c.height);
-  return (t.red = c);
+  g.drawImage(t.on, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = col; g.fillRect(0, 0, c.width, c.height);
+  return (t[key] = c);
 }
+const redOf = t => tintOf(t, 'red', 'rgba(255,40,72,.5)'), greenOf = t => tintOf(t, 'green', 'rgba(40,230,130,.5)');
 const HEX = 0.27;   // a shield tile's size, as a fraction of the drone's radius
 function hexPath(r) { ctx.beginPath(); for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + i * Math.PI / 3; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); } ctx.closePath(); }
 function drawTarget(k, now) {
@@ -1112,15 +1114,16 @@ function drawTarget(k, now) {
   const broken = mine && view.struck && !blocked, down = broken ? clamp((now - (view.downAt || now)) / 380, 0, 1) : 0;
   const landed = mine && p >= SHOT, crack = landed && !blocked ? clamp((p - SHOT) / (IMPACT - SHOT), 0, 1) : 0;
   const angry = mine ? (landed && blocked ? clamp((p - SHOT) / 0.12, 0, 1) : 0) : view.struck && blocked ? 1 : 0;   // once the shot is decided, some of the others show red too, for show
+  const clear = shot && !mine && view.struck && !blocked;   // and the rest green
   const others = shot && !mine ? clamp((now - view.pickT) / 250, 0, 1) : 0, hov = st === 'choose' && view.hover === k;
   const R = g.r * (1 - 0.1 * others) * (hov ? 1.06 : 1), jit = crack && !reduced ? R * 0.04 * crack : 0;
   const bob = !reduced ? Math.sin(now / 700 + k * 1.3) * R * 0.05 : 0;
   const x = g.x + (Math.random() - 0.5) * jit, y = g.y + bob + down * down * R * 0.9 + (Math.random() - 0.5) * jit;
   view.hit[k] = { x, y, r: R, z: g.z };
   const arrive = easeOut(clamp((now - view.introT - k * 70) / 450, 0, 1));   // they fly in one after another
-  ctx.save(); ctx.globalAlpha = arrive * (1 - 0.45 * others * (1 - angry)) * (1 - down); ctx.translate(x, y + (1 - arrive) * -R * 1.5); ctx.scale(0.6 + 0.4 * arrive, 0.6 + 0.4 * arrive);
+  ctx.save(); ctx.globalAlpha = arrive * (1 - 0.45 * others * (clear ? 0 : 1 - angry)) * (1 - down); ctx.translate(x, y + (1 - arrive) * -R * 1.5); ctx.scale(0.6 + 0.4 * arrive, 0.6 + 0.4 * arrive);
   const T = TIERS[tierOf((r ? r.n : 0) + 1)], S = R * 3.1;
-  const img = broken ? T.off : angry > 0.5 ? redOf(T) || T.on : crack && !reduced && (now / 45 | 0) % 2 ? T.off : T.on;   // under fire the shield flickers out
+  const img = broken ? T.off : angry > 0.5 ? redOf(T) || T.on : clear ? greenOf(T) || T.on : crack && !reduced && (now / 45 | 0) % 2 ? T.off : T.on;   // under fire the shield flickers out
   if (img && (img.naturalWidth || img instanceof HTMLCanvasElement)) { ctx.rotate(broken ? down * 0.3 : 0); ctx.drawImage(img, -S / 2, -S / 2, S, S); ctx.rotate(broken ? -down * 0.3 : 0); }
   else { hexPath(R * 0.8); ctx.fillStyle = 'rgba(56,216,255,.2)'; ctx.fill(); ctx.strokeStyle = '#3fe6ff'; ctx.lineWidth = 2; ctx.stroke(); }   // until the stills load
   if (hov || (mine && st === 'flying' && !landed)) {   // the reticle on the target you point at; it tightens as the shot goes
@@ -1481,7 +1484,7 @@ async function checkFair() {
   const rollsOk = JSON.stringify([rolls, show]) === JSON.stringify([r.rolls, r.show]) && rolls.slice(0, played).every((u, i) => r.forced[i] || (u >= r.d.safe[i]) === (r.status === 'crashed' && i === r.n));
   const ok = (good, text) => `<p class="fair-ok${good ? '' : ' bad'}">${good ? '✓' : '✕'} ${text}</p>`;
   const rows = Array.from({ length: shown }, (_, i) => {
-    const u = rolls[i], no = u >= r.d.safe[i], row = r.picks[i] != null ? rowAt(r.d, i, show[i], r.picks[i], r.status === 'crashed' && i === r.n) : show[i].map(() => false);
+    const u = rolls[i], no = u >= r.d.safe[i], row = r.picks[i] != null ? rowAt(show[i], r.picks[i], r.status === 'crashed' && i === r.n) : Array(cfg.paths).fill(false);
     const say = `Row ${i + 1}${i >= played ? ', skipped by cashing out' : ''}: roll ${u.toFixed(4)}, ${no ? 'no' : 'yes'}${r.picks[i] != null ? `; you shot drone ${r.picks[i] + 1}` : ''}`;   // each row also reads out in words: the colours alone tell a screen reader nothing
     return `<div class="frow${no ? ' no' : ''}${i >= played ? ' next' : ''}" role="img" aria-label="${say}"><span class="st">${i + 1}</span>`
       + row.map((b, k) => `<i class="${b ? 'bomb' : ''}${r.picks[i] === k ? ' pick' : ''}"></i>`).join('') + `<span class="roll">${u.toFixed(4)}</span><span class="ans">${no ? 'No' : 'Yes'}</span></div>`;

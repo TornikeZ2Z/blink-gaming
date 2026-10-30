@@ -45,7 +45,7 @@ The math is Chicken Road's, one to one, with an RTP of up to 97% (98% until 2026
 | Hard | 5 | 20 | 1.22× → 52,067.40× |
 | Hardcore | 10 | up to 14 | 1.63× → 100,000.00× |
 
-The $10,000 max win caps every payout, so a flight jumps out automatically when it reaches it. That is 100,000× at the $0.10 minimum bet, so a Hardcore flight never goes past path 14 and its ladder's path 15 (3,203,384.80×) is never offered; the tops above are what a flight can pay. Each step rolls HMAC-SHA256(server seed, "client seed:nonce:step") for its yes or no, and "client seed:nonce:step:show:path" for which other paths look bombed, with a client seed the player can set in the game's own fairness sheet, as in FogRush. The shield button in the game shows the next flight's seed hash and re-checks the last flight: it re-hashes the revealed seed and redraws every answer.
+The $10,000 max win caps every payout, so a flight jumps out automatically when it reaches it. That is 100,000× at the $0.10 minimum bet, so a Hardcore flight never goes past path 14 and its ladder's path 15 (3,203,384.80×) is never offered; the tops above are what a flight can pay. Each step rolls HMAC-SHA256(server seed, "client seed:nonce:step") for its yes or no, and "client seed:nonce:step:show:0" and "client seed:nonce:step:show:path" for how many other paths look bombed and which, with a client seed the player can set in the game's own fairness sheet, as in FogRush. The shield button in the game shows the next flight's seed hash and re-checks the last flight: it re-hashes the revealed seed and redraws every answer.
 
 ### Look
 

@@ -69,14 +69,15 @@ const sha256 = async s => hex(await crypto.subtle.digest('SHA-256', enc.encode(s
 async function drawSteps(seed, client, nonce, d) {
   const key = await crypto.subtle.importKey('raw', enc.encode(seed), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const roll = async msg => parseInt(hex(await crypto.subtle.sign('HMAC', key, enc.encode(msg))).slice(0, 13), 16) / 2 ** 52;
-  const ns = Array.from({ length: d.steps }, (_, i) => i + 1), ks = Array.from({ length: cfg.paths }, (_, k) => k + 1);
+  const ns = Array.from({ length: d.steps }, (_, i) => i + 1), ks = Array.from({ length: cfg.paths + 1 }, (_, k) => k);
   return { rolls: await Promise.all(ns.map(n => roll(`${client}:${nonce}:${n}`))), show: await Promise.all(ns.map(n => Promise.all(ks.map(k => roll(`${client}:${nonce}:${n}:show:${k}`))))) };
 }
-// What step i shows with path k picked. The others are for show: how many look bombed follows the step's real danger, at least
-// one, the same on a win and a loss, and the "show" rolls say which.
-const rowAt = (d, i, show, k, hit) => {
-  const others = show.map((u, j) => [u, j]).filter(o => o[1] !== k).sort((a, b) => a[0] - b[0]), row = show.map(() => false);
-  for (const [, j] of others.slice(0, Math.max(1, Math.round(others.length * (1 - d.safe[i]))))) row[j] = true;
+// What a step shows with path k picked. The others are for show (Tornike: "some random 2 win and some random 3 loose"): one
+// to three of them look bombed at random and the rest look like winners, the same on a win and a loss. show[0] says how many
+// and the other show rolls say which.
+const rowAt = (show, k, hit) => {
+  const [many, ...cells] = show, others = cells.map((u, j) => [u, j]).filter(o => o[1] !== k).sort((a, b) => a[0] - b[0]), row = cells.map(() => false);
+  for (const [, j] of others.slice(0, 1 + Math.floor(many * 3))) row[j] = true;
   row[k] = hit; return row;
 };
 // The game commits first: the next flight's server seed is drawn and hashed before the player sets a client seed or
@@ -123,7 +124,7 @@ function choose(k) {
   if (!r || r.status !== 'choose' || k < 0 || k >= cfg.paths || sheetOpen()) return;
   r.pick = k; r.picks[r.n] = k; r.status = 'flying'; r.t0 = performance.now(); r.hit = r.rolls[r.n] >= r.d.safe[r.n]; r.struck = false;
   if (window.MaxMode && MaxMode.on) { r.hit = false; r.forced[r.n] = true; }   // Max Mode Test: this step is safe
-  sceneFly(k, rowAt(r.d, r.n, r.show[r.n], k, r.hit), r.t0);
+  sceneFly(k, rowAt(r.show[r.n], k, r.hit), r.t0);
   sound.pick();
   renderControls();
 }
@@ -856,12 +857,12 @@ function drawGate(k, now, front) {
   const intro = clamp((now - view.introT) / 450, 0, 1);
   const passing = g.z < ZP ? clamp((g.z / ZP - 0.45) / 0.45, 0, 1) : 1;
   let st = 'idle';
-  if (view.struck && view.row) st = view.row[k] ? 'boom' : k === view.pick ? 'safe' : 'idle';
+  if (view.struck && view.row) st = view.row[k] ? 'boom' : 'safe';   // every path shows, the other ones just for show
   else if (k === view.pick) st = 'picked';
   const hov = choosing && view.hover === k;
   const others = view.row && k !== view.pick ? clamp((now - view.pickT) / 250, 0, 1) : 0;   // the paths not taken shrink back and fade
   g.r *= 1 - 0.12 * others;
-  ctx.save(); ctx.globalAlpha = easeOut(intro) * passing * (1 - 0.6 * others);
+  ctx.save(); ctx.globalAlpha = easeOut(intro) * passing * (1 - (st === 'safe' ? 0.15 : 0.6) * others);
   const lw = Math.max(4, g.r * 0.2);
   if (!front) {
     if (st === 'picked' || hov) { const gl = ctx.createRadialGradient(g.x, g.y, g.r * 0.5, g.x, g.y, g.r * 1.5); gl.addColorStop(0, 'rgba(132,71,251,.45)'); gl.addColorStop(1, 'rgba(132,71,251,0)'); ctx.fillStyle = gl; ctx.fillRect(g.x - g.r * 1.6, g.y - g.r * 1.6, g.r * 3.2, g.r * 3.2); }
@@ -1172,7 +1173,7 @@ async function checkFair() {
   const rollsOk = JSON.stringify([rolls, show]) === JSON.stringify([r.rolls, r.show]) && rolls.slice(0, played).every((u, i) => r.forced[i] || (u >= r.d.safe[i]) === (r.status === 'crashed' && i === r.n));
   const ok = (good, text) => `<p class="fair-ok${good ? '' : ' bad'}">${good ? '✓' : '✕'} ${text}</p>`;
   const rows = Array.from({ length: shown }, (_, i) => {
-    const u = rolls[i], no = u >= r.d.safe[i], row = r.picks[i] != null ? rowAt(r.d, i, show[i], r.picks[i], r.status === 'crashed' && i === r.n) : show[i].map(() => false);
+    const u = rolls[i], no = u >= r.d.safe[i], row = r.picks[i] != null ? rowAt(show[i], r.picks[i], r.status === 'crashed' && i === r.n) : Array(cfg.paths).fill(false);
     const say = `Step ${i + 1}${i >= played ? ', skipped by jumping' : ''}: roll ${u.toFixed(4)}, ${no ? 'no' : 'yes'}${r.picks[i] != null ? `; you picked path ${r.picks[i] + 1}` : ''}`;   // each row also reads out in words: the colours alone tell a screen reader nothing
     return `<div class="frow${no ? ' no' : ''}${i >= played ? ' next' : ''}" role="img" aria-label="${say}"><span class="st">${i + 1}</span>`
       + row.map((b, k) => `<i class="${b ? 'bomb' : ''}${r.picks[i] === k ? ' pick' : ''}"></i>`).join('') + `<span class="roll">${u.toFixed(4)}</span><span class="ans">${no ? 'No' : 'Yes'}</span></div>`;

@@ -74,14 +74,15 @@ const sha256 = async s => hex(await crypto.subtle.digest('SHA-256', enc.encode(s
 async function drawSteps(seed, client, nonce, d) {
   const key = await crypto.subtle.importKey('raw', enc.encode(seed), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const roll = async msg => parseInt(hex(await crypto.subtle.sign('HMAC', key, enc.encode(msg))).slice(0, 13), 16) / 2 ** 52;
-  const ns = Array.from({ length: d.steps }, (_, i) => i + 1), ks = Array.from({ length: cfg.pillars }, (_, k) => k + 1);
+  const ns = Array.from({ length: d.steps }, (_, i) => i + 1), ks = Array.from({ length: cfg.pillars + 1 }, (_, k) => k);
   return { rolls: await Promise.all(ns.map(n => roll(`${client}:${nonce}:${n}`))), show: await Promise.all(ns.map(n => Promise.all(ks.map(k => roll(`${client}:${nonce}:${n}:show:${k}`))))) };
 }
-// What charge i shows with pillar k picked. The others are for show: how many look overloaded follows the charge's real danger, at least
-// one, the same on a win and a loss, and the "show" rolls say which.
-const rowAt = (d, i, show, k, hit) => {
-  const others = show.map((u, j) => [u, j]).filter(o => o[1] !== k).sort((a, b) => a[0] - b[0]), row = show.map(() => false);
-  for (const [, j] of others.slice(0, Math.max(1, Math.round(others.length * (1 - d.safe[i]))))) row[j] = true;
+// What a charge shows with pillar k picked. The others are for show (Tornike: "some random 2 win and some random 3 loose"): one
+// to three of them look overloaded at random and the rest look like winners, the same on a win and a loss. show[0] says how many
+// and the other show rolls say which.
+const rowAt = (show, k, hit) => {
+  const [many, ...cells] = show, others = cells.map((u, j) => [u, j]).filter(o => o[1] !== k).sort((a, b) => a[0] - b[0]), row = cells.map(() => false);
+  for (const [, j] of others.slice(0, 1 + Math.floor(many * 3))) row[j] = true;
   row[k] = hit; return row;
 };
 // The game commits first: the next round's server seed is drawn and hashed before the player sets a client seed or a
@@ -128,7 +129,7 @@ function charge(k) {   // charge from pillar k (0-4)
   const now = performance.now(); let hit = r.rolls[r.n] >= r.d.safe[r.n];   // the charge's answer, as drawn
   if (TEST && window.chargeTest.next) { hit = window.chargeTest.next === 'boom'; r.forced[r.n] = true; window.chargeTest.next = null; }
   if (window.MaxMode && MaxMode.on) { hit = false; r.forced[r.n] = true; }   // Max Mode Test: this charge is safe
-  r.status = 'charging'; r.t0 = now; r.struck = false; r.pick = k; r.picks[r.n] = k; r.hit = hit; r.row = rowAt(r.d, r.n, r.show[r.n], k, hit);
+  r.status = 'charging'; r.t0 = now; r.struck = false; r.pick = k; r.picks[r.n] = k; r.hit = hit; r.row = rowAt(r.show[r.n], k, hit);
   sceneCharge(now, k); sound.pick(); sound.hum(CHARGE_MS * STRIKE);
   renderControls(); renderBattery();
 }
@@ -579,7 +580,7 @@ async function checkFair() {
   const rollsOk = JSON.stringify([rolls, show]) === JSON.stringify([r.rolls, r.show]) && rolls.slice(0, played).every((u, i) => r.forced[i] || (u >= r.d.safe[i]) === (r.status === 'broken' && i === r.n));
   const ok = (good, text) => `<p class="fair-ok${good ? '' : ' bad'}">${good ? '✓' : '✕'} ${text}</p>`;
   const rows = Array.from({ length: shown }, (_, i) => {
-    const u = rolls[i], no = u >= r.d.safe[i], row = r.picks[i] != null ? rowAt(r.d, i, show[i], r.picks[i], r.status === 'broken' && i === r.n) : show[i].map(() => false);
+    const u = rolls[i], no = u >= r.d.safe[i], row = r.picks[i] != null ? rowAt(show[i], r.picks[i], r.status === 'broken' && i === r.n) : Array(cfg.pillars).fill(false);
     const say = `Charge ${i + 1}${i >= played ? ', skipped by cashing out' : ''}: roll ${u.toFixed(4)}, ${no ? 'no' : 'yes'}${r.picks[i] != null ? `; you picked pillar ${r.picks[i] + 1}` : ''}${r.forced[i] ? ' (forced in test mode)' : ''}`;   // each row also reads out in words: the colours alone tell a screen reader nothing
     return `<div class="frow${no ? ' no' : ''}${i >= played ? ' next' : ''}" role="img" aria-label="${say}"><span class="st">${i + 1}</span>`
       + row.map((x, k) => `<i class="${x ? 'boom' : ''}${r.picks[i] === k ? ' pick' : ''}"></i>`).join('') + `<span class="roll">${u.toFixed(4)}</span><span class="ans">${no ? 'No' : 'Yes'}</span><span class="res">${r.forced[i] ? 'test' : ''}</span></div>`;
