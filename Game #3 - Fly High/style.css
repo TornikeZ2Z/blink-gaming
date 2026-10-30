@@ -402,3 +402,39 @@ body{min-height:0}
   .hud-right{gap:4px} .round{width:28px;height:28px} .round svg{width:15px;height:15px}
   .wallet{font-size:12.5px;padding:3px 3px 3px 8px} .wallet button{padding:3px 6px}
 }
+
+/* A phone: one bet, and the second on request (Tornike's pick, 2026-10-30, for the play area and bigger buttons). Each bet is
+   one row, its amount and its button; a slim row under them holds each bet's Auto pill and "+ Second bet". .bet dissolves
+   (display:contents) so those can share that row. A phone held sideways keeps its column of two panels. */
+.second-btn{display:none}
+@media (max-width:760px) and (orientation:portrait),(max-width:760px) and (min-height:501px){
+  .app .controls .bets{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:6px;align-items:center}
+  .app .controls .bet{display:contents}
+  .app .controls .bet-main{grid-column:1/-1;grid-template-columns:minmax(0,1fr) 126px;gap:6px}
+  #b0 .bet-main{order:1} #b1 .bet-main{order:2}
+  .bets:not(.second) #b1 > *{display:none}
+  .app .controls .bet .bet-row{grid-template-columns:44px minmax(0,1fr) 44px;gap:6px}
+  .app .controls .bet .step{height:56px;font-size:22px}
+  .app .controls .bet .money-in span{display:block}
+  .app .controls .bet .money-in input{height:56px;padding:0 .35em 0 1.4em}
+  .app .controls .bet-main .act{height:56px;min-height:56px;padding:4px}
+  .app .controls .act .l1{font-size:18px}
+  .app .controls .act .l2{font-size:12px}
+  .app .controls .tabs{display:block;order:3;width:auto;margin:0;padding:0;background:none}
+  .app .controls .tabs [data-tab=bet]{display:none}
+  .app .controls .tabs [data-tab=auto],.second-btn{position:relative;display:block;height:30px;padding:0 14px;border-radius:999px;font:700 12px/1 var(--font);white-space:nowrap}
+  .app .controls .tabs [data-tab=auto]{border:1px solid var(--line);background:var(--navy-3);color:#dfe3f5;box-shadow:none}
+  .app .controls .tabs [data-tab=auto][aria-selected=true]{background:var(--grad);border-color:transparent;color:#fff}
+  .bets.second #b0 [data-tab=auto]::before{content:"Auto 1";font-size:12px}
+  .bets.second #b1 [data-tab=auto]::before{content:"Auto 2";font-size:12px}
+  .bets.second .tabs [data-tab=auto]{font-size:0}
+  .app .controls .tabs [data-tab=auto]::after,.second-btn::after{content:"";position:absolute;inset:-7px -2px}   /* a thumb's height, the pill stays slim */
+  .second-btn{order:4;grid-column:-2/-1;justify-self:end;border:1px dashed rgba(201,184,255,.55);background:none;color:#c9b8ff}
+  .app .controls .auto-row{display:flex;order:5;grid-column:1/-1;gap:6px 10px;padding:0}
+  .app .controls .sw{font-size:12px}
+}
+@media (max-width:360px) and (orientation:portrait),(max-width:360px) and (min-height:501px){
+  .app .controls .bet-main{grid-template-columns:minmax(0,1fr) 104px}
+  .app .controls .bet .bet-row{grid-template-columns:40px minmax(0,1fr) 40px;gap:4px}
+  .app .controls .tabs [data-tab=auto],.second-btn{padding:0 11px}
+}

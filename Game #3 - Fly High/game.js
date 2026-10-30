@@ -749,7 +749,12 @@ function panelHTML(b) {
     </div>
   </div>`;
 }
-$('#bets').innerHTML = bets.map(panelHTML).join('');
+$('#bets').innerHTML = bets.map(panelHTML).join('') + '<button type="button" class="second-btn" id="secondBet" aria-controls="b1"></button>';
+// On a phone one bet shows and "+ Second bet" opens the other (Tornike's pick, 2026-10-30); style.css keeps both in view on
+// bigger screens. Bet 2 can't be closed while it has money on it or bets by itself.
+let secondOpen = store.get('brainer.fh.second', '') === '1';
+const secondBusy = () => ['placed', 'live', 'queued'].includes(bets[1].st) || bets[1].autoBet;
+const onPhone = matchMedia('(max-width:760px)');
 function renderBets() {
   for (const b of bets) {
     const el = $('#b' + b.i), go = el.querySelector('[data-act=go]'), lock = b.st === 'placed' || b.st === 'live' || b.st === 'queued';
@@ -768,6 +773,8 @@ function renderBets() {
     el.querySelectorAll('[data-act=tab]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === b.tab)));
     el.querySelector('.auto-row').hidden = b.tab !== 'auto';
   }
+  const open = secondOpen || secondBusy(), sb = $('#secondBet');
+  $('#bets').classList.toggle('second', open); sb.textContent = open ? '− Remove' : '+ Second bet'; sb.setAttribute('aria-expanded', String(open)); sb.setAttribute('aria-disabled', String(secondBusy()));
 }
 let lastCash = '';
 function renderCash() {   // the live Cash out amounts, every frame they change
@@ -786,11 +793,12 @@ function act(b) {   // the panel's big button
   renderBets();
 }
 const clampStake = v => Math.min(cfg.maxBet, Math.max(cfg.minBet, Math.round((Number.isFinite(v) ? v : cfg.minBet) * 100) / 100));
+$('#secondBet').addEventListener('click', () => { if (secondBusy()) return; secondOpen = !secondOpen; store.set('brainer.fh.second', secondOpen ? '1' : ''); renderBets(); });
 $('#bets').addEventListener('click', e => {
   const x = e.target.closest('[data-act]'), el = e.target.closest('.bet'); if (!x || !el) return;
   const b = bets[+el.dataset.i], a = x.dataset.act;
   if (a === 'go') act(b);
-  else if (a === 'tab') { b.tab = x.dataset.tab; renderBets(); }
+  else if (a === 'tab') { b.tab = onPhone.matches && b.tab === 'auto' ? 'bet' : x.dataset.tab; renderBets(); }   // a phone has only the Auto pill, which toggles
   else if (a === 'dec' || a === 'inc') { b.stake = clampStake(b.stake + (a === 'inc' ? 1 : -1) * (b.stake >= 10 ? 1 : b.stake >= 1 ? 0.5 : 0.1)); renderBets(); }
   else if (a === 'chip') { b.stake = clampStake(+x.dataset.v); renderBets(); }
 });
