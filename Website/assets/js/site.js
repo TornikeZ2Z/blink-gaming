@@ -82,11 +82,12 @@ function row(el) {
   track.addEventListener('scroll', sync, { passive: true }); addEventListener('resize', sync); sync();
 }
 $$('[data-row]').forEach(row);
-// The genre rows on the home page come from the catalogue: a genre gets its own row once it has three games, with no HTML to write.
+// The genre rows on the home page come from the catalogue: a genre gets its own row once it has four games, with no HTML to write.
 $$('[data-genre-rows]').forEach(el => {
   const genres = [...new Set(live.map(g => g.genre).filter(Boolean))];
-  el.outerHTML = genres.map(gn => `<div class="row-block" data-row-wrap><h3 class="row-title">${esc(gn)} games</h3><div class="row" data-row="${esc(gn)}" data-min="3"></div></div>`).join('');
+  el.outerHTML = genres.map(gn => `<div class="row-block" data-row-wrap><h3 class="row-title">${esc(gn)} games</h3><div class="row" data-row="${esc(gn)}" data-min="4"></div></div>`).join('');
   $$('[data-row]:not(:has(.row-track))').forEach(row);
+  if ($$('[data-row-wrap]').length === 1) $('[data-row-wrap] .row-title').remove();   // a row on its own needs no title
 });
 // The games page: every game as a tile, with genre filters once there is more than one genre.
 $$('[data-grid]').forEach(el => {
@@ -100,7 +101,8 @@ $$('[data-grid]').forEach(el => {
   });
 });
 // The home page's featured carousel: one slide per playable game, newest first as data.js lists them. It moves on by itself
-// every 6 s, and stops while the pointer or focus is on it, the tab is hidden, or the visitor prefers reduced motion.
+// every 6 s, pauses while the pointer or focus is on it or the tab is hidden, and stops for good once the visitor swipes or taps
+// it. With reduced motion it never moves by itself.
 $$('[data-feature]').forEach(el => {
   if (!live.length) { el.remove(); return; }
   el.innerHTML = `<div class="feat-track">${live.map((g, i) => `<article class="feat" style="--art:${g.color}" aria-roledescription="slide" aria-label="${i + 1} of ${live.length}: ${esc(g.title)}">
@@ -122,7 +124,8 @@ $$('[data-feature]').forEach(el => {
   track.addEventListener('scroll', mark, { passive: true }); mark();
   el.addEventListener('click', e => { const b = e.target.closest('[data-step],[data-i]'); if (!b) return; go(b.dataset.i != null ? +b.dataset.i : cur + +b.dataset.step); });
   for (const [ev, v] of [['pointerenter', true], ['pointerleave', false], ['focusin', true], ['focusout', false]]) el.addEventListener(ev, () => { hold = v; });
-  if (live.length > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) setInterval(() => { if (!hold && !document.hidden) go(cur + 1); }, 6000);
+  const auto = live.length > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches ? setInterval(() => { if (!hold && !document.hidden) go(cur + 1); }, 6000) : 0;
+  el.addEventListener('pointerdown', () => clearInterval(auto));
   addEventListener('resize', () => track.scrollTo({ left: cur * track.clientWidth }));
 });
 
@@ -132,25 +135,28 @@ $$('[data-hero-stats]').forEach(el => {
   const stats = [[String(live.length), live.length === 1 ? 'Playable demo' : 'Playable demos'], [`Up to ${Math.max(...live.map(x => x.rtp))}%`, 'RTP'], ['Every round', 'Provably fair'], ['Phone and desktop', 'One build, no app']];
   el.innerHTML = stats.map(([v, l]) => `<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('');
 });
-// The brain-level teaser on the home page: the ten looks in one line, small, linking to the full ladder on the operators page.
+// What every game has in common, for the games page; what differs is on each game's page.
+$$('[data-all-facts]').forEach(el => {
+  const g = live[0], bets = g.specs.find(s => s[0] === 'Bet range')[1];
+  el.textContent = `Every game: RTP up to ${Math.max(...live.map(x => x.rtp))}%, bets ${bets}, max win $${g.maxWin.toLocaleString('en-US')}.`;
+});
+// The brain-level teaser on the home page: the ten looks in one line, small, linking to the full ladder on the operators
+// page. Phones show three of them (1, 6 and 10), so those load at once.
 $$('[data-brain-strip]').forEach(el => {
-  el.innerHTML = Array.from({ length: BRAIN.stages }, (_, i) => `<img src="${BRAIN.robot(i + 1)}" alt="" loading="lazy" decoding="async" style="--tier:${BRAIN.colours[i]}">`).join('');
+  el.innerHTML = Array.from({ length: BRAIN.stages }, (_, i) => `<img src="${BRAIN.robot(i + 1)}" alt=""${i % 5 && i !== 9 ? ' loading="lazy"' : ''} decoding="async" style="--tier:${BRAIN.colours[i]}">`).join('');
 });
 
-/* ---------- brain-level ladder: [data-ladder] gets the ten stages (one robot look per ten levels, each in its stage colour), [data-tiers] the five tiers ---------- */
+/* ---------- brain-level ladder: [data-ladder] gets the ten stages (one robot look per ten levels, each in its stage colour) ---------- */
 const per = BRAIN.levels / BRAIN.stages;
 // The demo keeps the visitor's brain level (1-100) under this key on the same site, so their own stage can be marked.
 const myLevel = parseInt(store.get('brainer.level'), 10), mine = myLevel >= 1 ? Math.min(BRAIN.stages, Math.ceil(myLevel / per)) : 0;
 $$('[data-ladder]').forEach(el => {
   el.innerHTML = Array.from({ length: BRAIN.stages }, (_, i) => i + 1).map(n => {
-    const lo = (n - 1) * per + 1, hi = n * per, unlock = BRAIN.unlocks.find(u => u.at >= lo && u.at <= hi);
+    const lo = (n - 1) * per + 1, hi = n * per;
     const name = BRAIN.names[n - 1];
-    return `<div class="lv${n === mine ? ' me' : ''}" style="--tier:${BRAIN.colours[n - 1]}">${n === mine ? '<span class="you">Your Brainer</span>' : ''}<img src="${BRAIN.robot(n)}" alt="The Brainer at stage ${n}, ${esc(name)}, for brain levels ${lo} to ${hi}" loading="lazy" decoding="async">`
-      + `<b>${esc(name)}</b><span class="cells">Levels ${lo}–${hi}</span>${unlock ? `<span class="unlock">${esc(unlock.name)} at ${unlock.at}</span>` : ''}</div>`;
+    return `<div class="lv${n === mine ? ' me' : ''}" style="--tier:${BRAIN.colours[n - 1]}">${n === mine ? '<span class="you">Your Brainer</span>' : ''}<img src="${BRAIN.robot(n)}" alt="The Brainer at stage ${n}, ${esc(name)}, for brain levels ${lo} to ${hi}"${n > 5 ? ' loading="lazy"' : ''} decoding="async">`
+      + `<b>${esc(name)}</b><span class="cells">Levels ${lo}–${hi}</span></div>`;
   }).join('');
-});
-$$('[data-tiers]').forEach(el => {
-  el.innerHTML = BRAIN.tiers.map(t => `<span class="tier" style="--tier:${t.css}"><i></i>${esc(t.label)}</span>`).join('');
 });
 
 /* ---------- toast ---------- */
@@ -174,6 +180,8 @@ const cur = key => (key === page ? ' aria-current="page"' : '');
 // screen, 80 by 44, in screen blue inside a white rim, with the line and the rim one weight. It is drawn inline so the
 // screen can light up and the eyes blink open when a page loads; classes stand in for the file's ids, which would repeat.
 const visor = () => `<svg class="visor" viewBox="0 0 80 44" aria-hidden="true"><rect class="rim" width="80" height="44" rx="15.5" fill="#fff"/><rect class="off" x="3" y="3" width="74" height="38" rx="12.5"/><rect class="screen" x="3" y="3" width="74" height="38" rx="12.5" fill="#3550F0"/><path class="gloss" d="M24 10H56" stroke="#fff" stroke-width="3" stroke-linecap="round"/><rect class="eye" x="21.6" y="15" width="10" height="17" rx="4.6" fill="#fff"/><rect class="eye" x="48.4" y="15" width="10" height="17" rx="4.6" fill="#fff"/></svg>`;
+// It powers on once a visit: on later pages it is already on.
+try { if (sessionStorage.getItem('brainer.logo-on')) document.documentElement.classList.add('logo-on'); sessionStorage.setItem('brainer.logo-on', '1'); } catch { /* storage blocked: it powers on each time */ }
 const logo = () => `<a class="logo" href="index.html" aria-label="${esc(SITE.brand)} home">${visor()}<span class="word">Brainer</span></a>`;
 
 const header = $('#site-header');
@@ -211,7 +219,7 @@ document.body.insertAdjacentHTML('beforeend', `
   <dialog class="modal" id="age" aria-labelledby="ageTitle" closedby="none">
     <div class="modal-body">
       <div class="age-mark">${SITE.minAge}+</div>
-      <h2 id="ageTitle">Are you ${SITE.minAge} or older?</h2>
+      <h2 id="ageTitle" tabindex="-1" autofocus>Are you ${SITE.minAge} or older?</h2>
       <p>This site has playable demos of gambling games. You must be at least ${SITE.minAge} to enter.</p>
       <div class="age-actions"><button class="btn" type="button" data-age="no">No</button><button class="btn btn-red" type="button" data-age="yes">Yes, I am ${SITE.minAge}+</button></div>
       <p class="fine" id="ageNo" role="alert" hidden>Sorry, you cannot use this site.</p>

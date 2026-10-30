@@ -7,7 +7,7 @@
   color-scheme: light;
   --surface:#FFFFFF; --header-bg:rgba(255,255,255,.92); --ring:#C9C3F2; --tint-3:#E1DCFF;
   --main:#532aff; --main-2:#4b36fc; --g1:linear-gradient(135deg,#4b36fc,#8447fb);
-  --green:#00b865; --red:#E3264A;   /* state colours (success, error), not brand */
+  --green:#00b865; --ok:#067A4B; --red:#E3264A;   /* state colours (success, success text, error), not brand */
   --dark:#0B0F1E;   /* night */ --ink:#1B1838; --ink-2:#4A4766; --muted:#6E6B8A;
   --bg:#FFFFFF; --tint:#F5F4FF; --tint-2:#ECE9FF; --line:#E4E1F7;
   --shadow:0 20px 44px rgba(75,54,252,.13); --shadow-sm:0 6px 18px rgba(27,24,56,.08);
@@ -19,7 +19,7 @@
 }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html{scroll-padding-top:calc(var(--header-h) + 16px)}
+html{scroll-padding-top:16px}
 html,body{margin:0}
 body{min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:clamp(15.5px,.5vw + 9.5px,17.5px);font-weight:400;line-height:1.6;-webkit-font-smoothing:antialiased}
 main{flex:1}
@@ -38,11 +38,11 @@ p{margin:0}
 .mark{background:var(--g1);-webkit-background-clip:text;background-clip:text;color:transparent}
 .eyebrow{display:block;margin-bottom:10px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--main)}
 .lead{font-size:clamp(15px,1.15vw,20px);color:var(--ink-2);max-width:48ch}
+.lead a{color:var(--main)}
 
 /* pills */
 .sticker{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:999px;background:var(--tint-2);color:var(--main);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
 .sticker.red{background:#FFE8EC;color:var(--red)}
-.sticker.sky{background:#E2FAF0;color:#067A4B}
 .sticker.paper{background:var(--surface);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line)}
 .sticker.on-grad{background:rgba(255,255,255,.18);color:#fff}
 
@@ -66,7 +66,8 @@ p{margin:0}
 .icon-btn svg{width:20px;height:20px}
 
 /* ---------- header ---------- */
-.site-header{position:sticky;top:0;z-index:40;height:var(--header-h);background:var(--header-bg);backdrop-filter:saturate(1.4) blur(12px);-webkit-backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--line)}
+/* the header scrolls away with the page: nothing sticky takes space from the content (Tornike, 2026-10-28) */
+.site-header{height:var(--header-h);background:var(--header-bg);border-bottom:1px solid var(--line)}
 .site-header .wrap{height:100%;display:flex;align-items:center;gap:30px}
 .logo{display:inline-flex;align-items:center;text-decoration:none;flex:none}
 /* the visor logo: on load the screen lights up from black and the eyes blink open, the start of every Brainer game */
@@ -77,6 +78,8 @@ p{margin:0}
 .logo .gloss{animation:fade-in .6s .7s both}
 .logo .eye{transform-box:fill-box;transform-origin:center;animation:eyes-on 1.6s .35s both}
 .logo:hover .eye{animation:blink .32s}
+/* it powers on once a visit; later pages open with it already on (site.js) */
+.logo-on .logo .screen,.logo-on .logo .gloss,.logo-on .logo:not(:hover) .eye{animation:none}
 @keyframes screen-on{0%{opacity:0}35%{opacity:.25}45%{opacity:.08}100%{opacity:1}}
 @keyframes fade-in{from{opacity:0}}
 @keyframes eyes-on{0%{opacity:0;transform:scaleY(.15)}30%{opacity:1;transform:scaleY(.15)}45%{transform:scaleY(1)}70%{transform:scaleY(1)}76%{transform:scaleY(.15)}84%,100%{transform:scaleY(1)}}
@@ -101,7 +104,7 @@ dialog::backdrop{background:rgba(11,15,30,.5);backdrop-filter:blur(3px)}
 .drawer .btn{margin-top:auto}
 .modal{margin:auto;width:min(440px,calc(100vw - 32px));background:var(--surface);border-radius:var(--r-lg);box-shadow:0 30px 80px rgba(11,15,30,.35)}
 .modal-body{padding:28px;display:flex;flex-direction:column;gap:14px;align-items:flex-start}
-.modal h2{font-size:24px}
+.modal h2{font-size:24px;outline:none}   /* the 18+ check opens on its question, so neither answer looks picked */
 .modal p{color:var(--ink-2)}
 .age-mark{width:64px;height:64px;border-radius:20px;display:grid;place-items:center;background:var(--g1);color:#fff;font-weight:700;font-size:22px}
 .age-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;margin-top:4px}
@@ -156,12 +159,8 @@ dialog::backdrop{background:rgba(11,15,30,.5);backdrop-filter:blur(3px)}
 .lv .boost{font-family:var(--mono);font-size:clamp(12px,.8vw,14.5px);font-weight:500;color:var(--main)}
 .lv .boost i{font-style:normal}
 .lv .cells{font-size:clamp(11px,.72vw,13px);color:var(--muted);margin-top:-4px}
-.lv .unlock{padding:2px 8px;border-radius:999px;background:var(--tint-2);color:var(--main);font-size:clamp(10.5px,.7vw,12.5px);font-weight:700;text-align:center;line-height:1.3}
 .lv.me{box-shadow:0 0 0 2.5px #8447fb,var(--shadow)}
 .lv .you{position:absolute;top:7px;left:50%;z-index:1;transform:translateX(-50%);padding:2px 8px;border-radius:999px;background:var(--g1);color:#fff;font-size:10px;font-weight:700;white-space:nowrap}
-.tiers{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
-.tier{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow-sm);font-size:12.5px;color:var(--ink-2)}
-.tier i{width:14px;height:14px;border-radius:50%;background:var(--tier)}
 .aside-note{margin-top:18px;font-size:13px;color:var(--muted)}
 
 /* ---------- game cards ---------- */
@@ -206,7 +205,7 @@ dialog::backdrop{background:rgba(11,15,30,.5);backdrop-filter:blur(3px)}
 .kv > span{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .kv code{font-family:var(--mono);font-size:12.5px;line-height:1.55;padding:11px 13px;border-radius:12px;background:var(--tint);word-break:break-all}
 .kv code.blur{filter:blur(5px);user-select:none}
-.ok{display:flex;align-items:center;gap:8px;padding-top:14px;border-top:1px dashed var(--line);font-weight:700;color:#067A4B}
+.ok{display:flex;align-items:center;gap:8px;padding-top:14px;border-top:1px dashed var(--line);font-weight:700;color:var(--ok)}
 .ok svg{width:20px;height:20px}
 .bad{color:var(--red)}
 
@@ -232,13 +231,12 @@ dialog::backdrop{background:rgba(11,15,30,.5);backdrop-filter:blur(3px)}
 .note{display:flex;gap:12px;align-items:flex-start;padding:14px 18px;margin-bottom:16px;border-radius:var(--r);background:var(--tint-2);color:var(--ink);font-size:clamp(14px,.9vw,16px)}
 .note.after{margin:16px 0 0}
 .note svg{width:20px;height:20px;flex:none;margin-top:1px;color:var(--main)}
-/* the demo fills the window under the header on any desktop; no upper limit, so big screens get a big game */
-.frame{position:relative;height:max(640px,calc(100dvh - var(--header-h) - 28px));border-radius:var(--r-lg);overflow:hidden;background:var(--dark);box-shadow:var(--shadow);scroll-margin-top:calc(var(--header-h) + 14px)}
+/* the demo fills the first screen under the header and the title row on any desktop; no upper limit, so big screens get a big game */
+.frame{position:relative;height:max(640px,calc(100dvh - var(--header-h) - 96px));border-radius:var(--r-lg);overflow:hidden;background:var(--dark);box-shadow:var(--shadow);scroll-margin-top:14px}
 .frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-.frame:fullscreen{height:100%;border-radius:0;box-shadow:none}
 /* game focus (the game's full-screen button): the frame covers the whole window, header and game bar out of the way */
 .game-focus{overflow:hidden}
-.game-focus .site-header,.game-focus .play-head,.game-focus .crumbs{visibility:hidden}
+.game-focus .site-header,.game-focus .play-head{visibility:hidden}
 .game-focus .frame{position:fixed;inset:0;z-index:60;height:auto;min-height:0;margin:0;border-radius:0;box-shadow:none}
 .loader{position:absolute;inset:0;z-index:2;display:grid;place-items:center;background:var(--g1);transition:opacity .35s,visibility .35s}
 .loader.done{opacity:0;visibility:hidden}
@@ -256,11 +254,11 @@ dialog::backdrop{background:rgba(11,15,30,.5);backdrop-filter:blur(3px)}
 .list{list-style:none;counter-reset:n;margin:0;padding:0;display:grid;gap:10px}
 .list li{counter-increment:n;position:relative;padding:15px 18px 15px 62px;border-radius:var(--r);background:var(--tint);color:var(--ink-2)}
 .list li::before{content:counter(n);position:absolute;left:14px;top:12px;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;background:var(--g1);color:#fff;font-weight:700;font-size:13px}
-.facts{position:sticky;top:calc(var(--header-h) + 18px);padding:26px;border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:18px}
+.facts{position:sticky;top:18px;max-height:calc(100dvh - 36px);overflow:auto;padding:26px;border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:18px}
 .facts h3{font-size:20px}
-.facts dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:11px 16px;margin:0;font-size:13.5px}
+.facts dl{display:grid;grid-template-columns:112px minmax(0,1fr);gap:11px 14px;margin:0;font-size:13.5px}
 .facts dt{color:var(--muted)}
-.facts dd{margin:0;text-align:right;font-weight:700}
+.facts dd{margin:0;font-weight:700}
 .facts .fine{margin-top:-6px}
 .dl{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:14px;background:var(--tint);font-size:13.5px;font-weight:700;text-decoration:none}
 .dl svg{width:18px;height:18px;color:var(--main)}
@@ -282,6 +280,11 @@ td.num{font-family:var(--mono)}
 .box p{color:var(--ink-2);font-size:clamp(14px,.95vw,17px)}
 .box .ic{width:50px;height:50px;border-radius:16px;display:grid;place-items:center;background:var(--g1);color:#fff;margin-bottom:6px}
 .box .ic svg{width:24px;height:24px}
+.sheet-title{margin-top:clamp(28px,2.6vw,44px);font-size:clamp(18px,1.3vw,24px)}
+.sheet{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:clamp(24px,3vw,64px);margin:10px 0 0;font-size:14px}
+.sheet div{display:grid;grid-template-columns:116px minmax(0,1fr);gap:14px;padding:10px 0;border-top:1px solid var(--line)}
+.sheet dt{color:var(--muted)}
+.sheet dd{margin:0;font-weight:700}
 .ticks{list-style:none;margin:0;padding:0;display:grid;gap:12px}
 .ticks li{display:flex;gap:14px;align-items:flex-start;padding:16px 18px;border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow-sm)}
 .ticks li::before{content:"";flex:none;width:26px;height:26px;border-radius:9px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat,var(--green)}
@@ -294,13 +297,15 @@ td.num{font-family:var(--mono)}
 .verify-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .verify-head h3{font-size:20px}
 .verify .row{display:flex;gap:10px;flex-wrap:wrap}
-/* the scheme, term by term: each term beside its rule, above it on phones */
-.rules{display:grid;gap:10px;margin:0;max-width:1100px}
-.rules div{display:grid;grid-template-columns:140px minmax(0,1fr);gap:4px 24px;padding:16px 20px;border-radius:var(--r);background:var(--tint)}
-.rules dt{font-weight:700}
-.rules dd{margin:0;color:var(--ink-2);max-width:80ch}
+/* the scheme, term by term: open on wide screens, closed on phones so every term fits a screen or two (fairness.js) */
+.rules{display:grid;gap:8px;max-width:1100px}
+.rules details{border-radius:var(--r);background:var(--tint)}
+.rules summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:10px 18px;font-weight:700;cursor:pointer;list-style:none}
+.rules summary::-webkit-details-marker{display:none}
+.rules summary::after,.more summary::after{content:"";flex:none;width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:translateY(-2px) rotate(45deg);transition:transform .15s}
+.rules details[open] summary::after,.more[open] summary::after{transform:translateY(2px) rotate(225deg)}
+.rules p{padding:0 18px 16px;color:var(--ink-2);max-width:80ch}
 .rules code{font-family:var(--mono);font-size:.88em;color:var(--ink);overflow-wrap:anywhere}
-@media (max-width:620px){.rules div{grid-template-columns:minmax(0,1fr);padding:14px 16px}}
 
 /* ---------- contact page ---------- */
 .contact{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr);gap:36px;align-items:start}
@@ -318,6 +323,11 @@ td.num{font-family:var(--mono)}
 .field i{font-style:normal;font-weight:400;color:var(--muted)}
 .check a{color:var(--main)}
 .check > span:not(.err){flex:1;min-width:0}
+/* the optional fields fold away on phones (contact.js opens them on wide screens) */
+.more summary::-webkit-details-marker{display:none}
+.more summary{display:flex;align-items:center;gap:10px;min-height:44px;list-style:none;font-size:14px;font-weight:700;color:var(--main);cursor:pointer}
+.more-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding-top:10px}
+.form .fine.bad{font-size:14px}
 /* the honeypot: off screen for people, still in the form for bots */
 .hp{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
 .form.sent{display:flex;flex-direction:column;align-items:flex-start;gap:12px;outline:none}
@@ -329,7 +339,7 @@ td.num{font-family:var(--mono)}
 /* ---------- footer ---------- */
 .site-footer{margin-top:90px;background:var(--dark);color:#fff}
 .foot-top{display:grid;grid-template-columns:minmax(0,1.5fr) repeat(2,minmax(0,1fr));gap:36px;padding-block:50px 36px}
-.site-footer .logo img{filter:brightness(0) invert(1)}
+.site-footer .logo{color:#fff}
 .foot-brand p{margin-top:14px;color:#BCB9DE;font-size:14px;max-width:38ch}
 .foot-col h4{margin:0 0 14px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#A493FF}
 .foot-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
@@ -345,13 +355,13 @@ td.num{font-family:var(--mono)}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
   color-scheme:dark;
   --bg:#0B0F1E; --surface:#141A30; --tint:#10162B; --tint-2:#1E2550; --tint-3:#29317A; --line:#262E52; --ring:#3A3F78;
-  --ink:#EEEDFF; --ink-2:#BCB9DE; --muted:#8E8BB3; --main:#A493FF;
+  --ink:#EEEDFF; --ink-2:#BCB9DE; --muted:#8E8BB3; --main:#A493FF; --ok:#2FD38A; --red:#FF6B84;
   --header-bg:rgba(11,15,30,.86); --shadow:0 20px 44px rgba(0,0,0,.45); --shadow-sm:0 6px 18px rgba(0,0,0,.35);
 }}
 :root[data-theme=dark]{
   color-scheme:dark;
   --bg:#0B0F1E; --surface:#141A30; --tint:#10162B; --tint-2:#1E2550; --tint-3:#29317A; --line:#262E52; --ring:#3A3F78;
-  --ink:#EEEDFF; --ink-2:#BCB9DE; --muted:#8E8BB3; --main:#A493FF;
+  --ink:#EEEDFF; --ink-2:#BCB9DE; --muted:#8E8BB3; --main:#A493FF; --ok:#2FD38A; --red:#FF6B84;
   --header-bg:rgba(11,15,30,.86); --shadow:0 20px 44px rgba(0,0,0,.45); --shadow-sm:0 6px 18px rgba(0,0,0,.35);
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .feature,:root:not([data-theme=light]) .site-footer{box-shadow:0 0 0 1px var(--line)}}
@@ -378,9 +388,12 @@ td.num{font-family:var(--mono)}
 .feat-btn{display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.14);color:#fff}
 .feat-btn:hover{background:rgba(255,255,255,.26)}
 .feat-btn svg{width:20px;height:20px}
-.dots{display:flex;gap:8px}
-.dot{width:10px;height:10px;padding:0;border:0;border-radius:999px;background:rgba(255,255,255,.35);transition:width .3s,background .3s}
-.dot[aria-current=true]{width:30px;background:#fff}
+/* each dot is a 24px target around a 10px pill */
+.dots{display:flex}
+.dot{position:relative;width:24px;height:24px;padding:0;border:0;background:none;transition:width .3s}
+.dot::before{content:"";position:absolute;inset:7px;border-radius:999px;background:rgba(255,255,255,.35);transition:background .3s}
+.dot[aria-current=true]{width:44px}
+.dot[aria-current=true]::before{background:#fff}
 .feature :focus-visible{outline-color:#fff}
 
 .lobby .section-head{margin-bottom:clamp(20px,2vw,36px)}
@@ -441,7 +454,7 @@ td.num{font-family:var(--mono)}
   .points,.cards{grid-template-columns:repeat(2,minmax(0,1fr))}
   .ladder{grid-template-columns:repeat(5,minmax(0,1fr))}
   .detail,.contact{grid-template-columns:minmax(0,1fr)}
-  .facts{position:static}
+  .facts{position:static;max-height:none;order:-1}   /* the numbers come right after the demo */
 }
 @media (max-width:820px){
   .hero-panel{grid-template-columns:minmax(0,1fr);padding:40px 28px 36px;gap:20px;min-height:0}
@@ -471,19 +484,37 @@ td.num{font-family:var(--mono)}
   .feat-nav{left:20px;bottom:22px}
   .brain-strip{grid-template-columns:minmax(0,1fr);padding:24px 20px}
   .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .section{padding-block:60px}
+  .section{padding-block:40px}
+  .site-footer{margin-top:40px}
+  .page-head{padding-block:24px 16px}
+  .lobby-top{padding-top:12px}
+  .feat-btn{display:none}
+  .section-head{flex-direction:column;align-items:flex-start;gap:14px}
+  .lobby .section-head .btn{display:none}   /* the row below already shows every game */
   .hero-panel{border-radius:24px;padding:32px 20px 28px}
-  .points,.cards,.cards.two{grid-template-columns:minmax(0,1fr)}
-  .ladder{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
-  .lv{padding:8px 3px 10px;border-radius:14px}
-  .lv b{font-size:10.5px}
-  .lv .boost{font-size:10.5px}
-  .lv .boost i{display:none}
-  .lv .cells{font-size:10px}
+  .hero-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
+  .points,.cards,.cards.two{grid-template-columns:minmax(0,1fr);gap:18px}
+  /* one line each on a phone: the icon small beside its title and sentence, no card round it */
+  .point,.box,.band .box{display:grid;grid-template-columns:36px minmax(0,1fr);gap:2px 12px;align-content:start;padding:0;background:none;box-shadow:none}
+  .point .ic,.box .ic{grid-row:1 / span 2;width:36px;height:36px;border-radius:11px;margin:0}
+  .point .ic svg,.box .ic svg{width:18px;height:18px}
+  .receipt{display:none}
+  /* the ten looks: three on the home teaser, a swipe row on the ladder */
+  .faces{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .faces img:not(:nth-child(1),:nth-child(6),:nth-child(10)){display:none}
+  .ladder{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin-inline:calc(var(--gutter) * -1);padding:4px var(--gutter) 10px;scroll-padding-inline:var(--gutter)}
+  .ladder::-webkit-scrollbar{display:none}
+  .lv{flex:0 0 124px;scroll-snap-align:start;padding:10px 6px 14px}
+  .lv b{font-size:13px}
+  .lv .cells{font-size:12px}
   .form{grid-template-columns:minmax(0,1fr);padding:20px}
-  .play-head .tools .btn span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-  .play-head .tools .btn{width:46px;padding:0}
-  .frame{height:calc(100dvh - var(--header-h) - 60px);min-height:540px;margin-inline:calc(var(--gutter) * -1);border-radius:0;box-shadow:none}
+  .more-fields,.sheet{grid-template-columns:minmax(0,1fr)}
+  /* the game fills the first screen under the header and one slim row */
+  .play-head{flex-wrap:nowrap;gap:10px;margin:8px 0}
+  .play-head h1{min-width:0;font-size:20px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .play-head .sticker,.play-head .to-how{display:none}
+  .play-head .tools .btn{min-height:40px;padding:0 14px}
+  .frame{height:calc(100dvh - var(--header-h) - 60px);min-height:420px;margin-inline:calc(var(--gutter) * -1);border-radius:0;box-shadow:none}
   td,th{padding-inline:8px}
 }
 /* small phones: the five odds columns of Plane Crash fit at 320px (the 8px padding alone only from 386px) */

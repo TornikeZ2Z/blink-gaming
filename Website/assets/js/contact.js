@@ -7,7 +7,8 @@ const { $, $$, toast } = window.Brainer;
 const ENDPOINT = 'https://api.brainer.games/requests';
 const opened = Date.now();
 
-const form = $('#contactForm');
+const form = $('#contactForm'), more = $('.more', form);
+if (matchMedia('(min-width:621px)').matches) more.open = true;   // folded away on phones only
 const MSG = { name: 'Enter your name.', email: 'Enter a work email we can reply to, like name@casino.com.', company: 'Enter your company.', company_type: 'Choose what kind of company you are.', consent: 'Tick the box so we can reply to you.' };
 function check(input) {
   const err = input.closest('label').querySelector('.err');
@@ -29,18 +30,20 @@ form.addEventListener('submit', async e => {
   const btn = $('button[type=submit]', form), note = $('#formNote');
   const body = Object.fromEntries(new FormData(form));
   body.consent = form.consent.checked; body.news = form.news.checked; body.t = Date.now() - opened; body.page = location.pathname;
-  btn.disabled = true; note.textContent = 'Sending…';
+  btn.disabled = true; note.textContent = 'Sending…'; note.classList.remove('bad');
   try {
-    const r = await fetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await fetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
     const j = await r.json().catch(() => ({}));
     if (r.ok && j.ok) {
       form.hidden = true; const done = $('#formSent'); done.hidden = false; done.focus();
       return;
     }
-    if (r.status === 422 && j.fields) { j.fields.map(k => form.elements[k]).filter(Boolean).forEach(f => { f.setCustomValidity(' '); check(f); f.setCustomValidity(''); }); }
+    if (r.status === 422 && j.fields) { more.open = true; j.fields.map(k => form.elements[k]).filter(Boolean).forEach(f => { f.setCustomValidity(' '); check(f); f.setCustomValidity(''); }); }
+    note.classList.add('bad');
     note.textContent = r.status === 429 ? 'Too many requests from your network just now. Try again in an hour, or email partners@brainer.games.'
       : 'That didn’t go through. Check the fields above, or email partners@brainer.games.';
   } catch {
+    note.classList.add('bad');
     note.textContent = 'We couldn’t reach our server. Your answers are still here: try again, or email partners@brainer.games.';
     toast('Not sent. Check your connection and try again.');
   } finally { btn.disabled = false; }

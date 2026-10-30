@@ -1,16 +1,18 @@
 /* Fairness page: makes a sample round in the browser, shows its SHA-256 commit, then reveals the seed and re-hashes it to prove the match. */
 (() => {
 'use strict';
-const { $, ICON } = window.Brainer;
+const { $, $$, ICON } = window.Brainer;
 const enc = new TextEncoder();
 const hex = b => Array.from(new Uint8Array(b), x => x.toString(16).padStart(2, '0')).join('');
 const sha256 = async s => hex(await crypto.subtle.digest('SHA-256', enc.encode(s)));
+
+if (matchMedia('(min-width:621px)').matches) $$('.rules details').forEach(d => { d.open = true; });   // on phones the terms stay folded
 
 let round = null;
 async function newRound() {
   const seed = hex(crypto.getRandomValues(new Uint8Array(32)));
   round = { id: 1000 + Math.floor(Math.random() * 9000), seed, hash: await sha256(seed) };
-  $('#vRound').textContent = `Flight ${round.id}`;
+  $('#vRound').textContent = `Round ${round.id}`;
   $('#vHash').textContent = round.hash;
   const s = $('#vSeed'); s.innerHTML = `<span aria-hidden="true">${'•'.repeat(64)}</span><span class="sr-only">Hidden until you reveal it</span>`; s.classList.add('blur');   // a screen reader hears the label, not 64 bullets
   $('#vOut').hidden = true;

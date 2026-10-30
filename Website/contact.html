@@ -34,7 +34,7 @@
     <div class="page-head">
       <span class="sticker">Contact</span>
       <h1>Request a demo</h1>
-      <p class="lead">Tell us who you are and where you operate. We will set up a demo and walk you through the numbers.</p>
+      <p class="lead">Tell us who you are and where you operate. We will set up a demo and walk you through the numbers. Or email <a href="mailto:partners@brainer.games">partners@brainer.games</a>.</p>
     </div>
 
     <div class="contact">
@@ -50,17 +50,19 @@
           <option>Media / press</option>
           <option>Other</option>
         </select><span class="err" hidden></span></label>
+        <details class="more full"><summary>More about your setup (optional)</summary><div class="more-fields">
         <label class="field"><span>Company website <i>optional</i></span><input name="website" type="url" inputmode="url" autocomplete="url" maxlength="200" placeholder="https://"></label>
         <label class="field"><span>Markets and licences <i>optional</i></span><input name="markets" maxlength="400" placeholder="Brazil (SPA), Georgia, Curaçao"></label>
         <label class="field"><span>Aggregator or platform you use <i>optional</i></span><input name="platform" maxlength="200" placeholder="SOFTSWISS, Hub88, St8, own platform"></label>
         <label class="field"><span>Telegram or WhatsApp <i>optional</i></span><input name="messenger" maxlength="160" placeholder="@handle or +995…"></label>
+        </div></details>
         <label class="field full"><span>Message <i>optional</i></span><textarea name="message" maxlength="4000" placeholder="Which games interest you, and when do you plan to launch?"></textarea></label>
         <label class="check full"><input type="checkbox" name="consent" required> <span>I agree that Brainer may use these details to reply to my enquiry, as described in our <a href="privacy.html">privacy notice</a>.</span><span class="err" hidden></span></label>
         <label class="check full"><input type="checkbox" name="news"> <span>Send me new game releases, about once a month.</span></label>
         <label class="hp" aria-hidden="true">Leave this empty<input name="fax" tabindex="-1" autocomplete="off"></label>
         <div class="full" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
           <button class="btn btn-red btn-lg" type="submit">Send request</button>
-          <span class="fine" id="formNote">We reply within one business day.</span>
+          <span class="fine" id="formNote" role="status">We reply within one business day.</span>
         </div>
       </form>
       <div class="form sent" id="formSent" tabindex="-1" hidden>

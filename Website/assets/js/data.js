@@ -10,25 +10,16 @@ window.BRAINER = {
 
   // Mirrors cfg.brain in both games' game.js: 100 brain levels in ten stages of ten, each stage one look of the 3D
   // Brainer (stills from the game team's Brainer 3D/renders/stages, named as in shared/brainer-showcase.js). Every finished round (a Plane Crash flight or a FogRush round) earns the same 10 brain cells at any bet or
-  // difficulty, and brain levels never change the odds or payouts: they change the Brainer's look and, in Plane Crash,
-  // unlock worlds. Progress lives in localStorage brainer.xp (cells) and brainer.level (1-100), shared by every game on
+  // difficulty, and brain levels never change the odds or payouts: they change the Brainer's look. Progress lives in localStorage brainer.xp (cells) and brainer.level (1-100), shared by every game on
   // the site. Each stage has its colour from the core palette (Tornike, 2026-10-27), the robot's colour at that stage in
-  // the games; the five tiers pair the stages and show both colours.
+  // the games.
   BRAIN: {
     robot: n => `assets/brainer/robots/${n}.webp`,
     names: ['Baby', 'Toddler', 'Kid', 'School kid', 'Teen', 'Student', 'Young pro', 'Pro', 'Expert', 'Master'],
     colours: ['#58B7FF', '#16C79A', '#F2703F', '#F59A2A', '#E3488F', '#8447FB', '#5A3FFC', '#3B3A8F', '#9B2C5A', '#4A1C9E'],
     levels: 100,
     stages: 10,
-    perFlight: 10,
-    unlocks: [{ at: 20, name: 'Cloud sea' }, { at: 40, name: 'City at dusk' }],
-    tiers: [
-      { label: 'Levels 1–20', css: 'linear-gradient(90deg,#58B7FF 50%,#16C79A 50%)' },
-      { label: 'Levels 21–40', css: 'linear-gradient(90deg,#F2703F 50%,#F59A2A 50%)' },
-      { label: 'Levels 41–60', css: 'linear-gradient(90deg,#E3488F 50%,#8447FB 50%)' },
-      { label: 'Levels 61–80', css: 'linear-gradient(90deg,#5A3FFC 50%,#3B3A8F 50%)' },
-      { label: 'Levels 81–100', css: 'linear-gradient(90deg,#9B2C5A 50%,#4A1C9E 50%)' }
-    ]
+    perFlight: 10
   },
 
   // Listed first: Space Crash, by Tornike's call (2026-10-27: "place it as the first game"); Multi Charge, the other new
@@ -72,17 +63,15 @@ window.BRAINER = {
         { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.61, top: 3170697.2 }
       ],
       specs: [
-        ['Type', 'Instant, single player, Chicken Road style with a five-way pick'],
-        ['RTP', 'Up to 97%, the same for every player and every drone. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
-        ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 holding shields in 25 rows'],
-        ['Drones', 'Five in every row, each holding on its own with the same chance'],
+        ['Type', 'Instant, Chicken Road style, five-way pick'],
+        ['RTP', 'Up to 97%'],
+        ['Difficulties', '1, 3, 5 or 10 holding shields in 25 rows'],
         ['Rows per round', '24, 22, 20, up to 14'],
-        ['Looks', 'The pod gains one built-in upgrade per row and the shields look tougher deeper in; they never change odds or payouts'],
         ['Bet range', '$0.10 to $200'],
-        ['Max win', '$10,000 per round, which caps every payout: 100,000× at the $0.10 minimum bet'],
-        ['Currency', 'US dollars in the demo, local currencies per market'],
-        ['Fairness', 'Provably fair, with a client seed the player can set; every round can be checked in the game'],
-        ['Devices', 'Mobile and desktop (HTML5)'],
+        ['Max win', '$10,000 per round'],
+        ['Currency', 'US dollars in the demo, local per market'],
+        ['Fairness', 'Provably fair, with a player-set client seed'],
+        ['Devices', 'Phone and desktop (HTML5)'],
         ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
@@ -127,17 +116,15 @@ window.BRAINER = {
         { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.61, top: 3170697.2 }
       ],
       specs: [
-        ['Type', 'Instant, single player, Chicken Road style with a five-way pick'],
-        ['RTP', 'Up to 97%, the same for every player and every pillar. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
-        ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 overloads in 25 charges'],
-        ['Pillars', 'Five at every charge, each overloaded on its own with the same chance'],
+        ['Type', 'Instant, Chicken Road style, five-way pick'],
+        ['RTP', 'Up to 97%'],
+        ['Difficulties', '1, 3, 5 or 10 overloads in 25 charges'],
         ['Charges per round', '24, 22, 20, up to 14'],
-        ['Looks', 'Eleven, spread over the charges a round can reach, and a random piece of gear on every charge between. They never change odds or payouts'],
         ['Bet range', '$0.10 to $200'],
-        ['Max win', '$10,000 per round, which caps every payout: 100,000× at the $0.10 minimum bet'],
-        ['Currency', 'US dollars in the demo, local currencies per market'],
-        ['Fairness', 'Provably fair, with a client seed the player can set; every round can be checked in the game'],
-        ['Devices', 'Mobile and desktop (HTML5)'],
+        ['Max win', '$10,000 per round'],
+        ['Currency', 'US dollars in the demo, local per market'],
+        ['Fairness', 'Provably fair, with a player-set client seed'],
+        ['Devices', 'Phone and desktop (HTML5)'],
         ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
@@ -182,21 +169,21 @@ window.BRAINER = {
         { name: 'Hardcore', bombs: 10, steps: 15, reach: 14, first: 1.61, top: 3170697.2 }
       ],
       specs: [
-        ['Type', 'Crash, single player'],
-        ['RTP', 'Up to 97%, the same at every brain level. Payouts round down to the cent, and the $10,000 max win ends long or high-bet flights early, so some flights return less'],
-        ['Brain levels', '100 in ten looks; the same 10 brain cells for every finished flight. They never change odds or payouts'],
-        ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 bombs in 25 tiles'],
+        ['Type', 'Crash, single player, five-way pick'],
+        ['RTP', 'Up to 97%'],
+        ['Brain levels', 'Looks only, never the odds'],
+        ['Difficulties', '1, 3, 5 or 10 bombs in 25 tiles'],
         ['Paths per flight', '24, 22, 20, up to 14'],
         ['Bet range', '$0.10 to $200'],
-        ['Max win', '$10,000 per flight, which caps every payout: 100,000× at the $0.10 minimum bet'],
-        ['Currency', 'US dollars in the demo, local currencies per market'],
-        ['Fairness', 'Provably fair, with a client seed the player can set; every flight can be checked in the game'],
-        ['Devices', 'Mobile and desktop (HTML5)'],
+        ['Max win', '$10,000 per flight'],
+        ['Currency', 'US dollars in the demo, local per market'],
+        ['Fairness', 'Provably fair, with a player-set client seed'],
+        ['Devices', 'Phone and desktop (HTML5)'],
         ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
       fairness: 'Every flight is fixed before the bet: the game shows the SHA-256 hash of its server seed first, then the player can set their own client seed, and the server seed is revealed when the flight ends. The shield button in the game re-checks the hash and redraws every bomb of your last flight, so the player, the casino or a regulator can recompute it.',
-      demoNote: 'Demo build with play money in US dollars; the game’s final name is still being chosen. Brain levels change the Brainer’s look and unlock worlds; they never change the odds or payouts.',
+      demoNote: 'Demo build with play money in US dollars; the game’s final name is still being chosen. Brain levels change the Brainer’s look; they never change the odds or payouts.',
       levelsNote: 'The odds and payouts are the same for every player at every brain level. Whatever the multiplier, a single flight pays at most the $10,000 max win.'
     },
     {
@@ -228,17 +215,18 @@ window.BRAINER = {
       rtp: 97,
       minBet: 0.1,
       maxWin: 10000,
+      capEnds: 'high-bet',   // what the max win cuts short: only high bets here, since 10,000× at $0.10 is $1,000
       specs: [
         ['Type', 'Crash, Aviator style, rounds every few seconds'],
-        ['RTP', 'Up to 97%, the same at every brain level and for every cash-out point. Payouts round down to the cent, and the $10,000 max win ends high-bet rounds early, so some rounds return less'],
-        ['Brain levels', '100 in ten looks; the same 10 brain cells for every round played. They never change odds or payouts'],
-        ['Multiplier', 'From 1.00× up to 10,000×; about 4 rounds in 100 fly away at 1.00×'],
+        ['RTP', 'Up to 97%, at any cash-out point'],
+        ['Brain levels', 'Looks only, never the odds'],
+        ['Multiplier', '1.00× to 10,000×; about 4 rounds in 100 fly away at 1.00×'],
         ['Bets per round', 'Up to two, each with auto bet and auto cash-out'],
         ['Bet range', '$0.10 to $200'],
         ['Max win', '$10,000 per bet'],
-        ['Currency', 'US dollars in the demo, local currencies per market'],
-        ['Fairness', 'Provably fair, with a client seed the player can set; every recent round can be checked in the game'],
-        ['Devices', 'Mobile and desktop (HTML5)'],
+        ['Currency', 'US dollars in the demo, local per market'],
+        ['Fairness', 'Provably fair, with a player-set client seed'],
+        ['Devices', 'Phone and desktop (HTML5)'],
         ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
@@ -285,15 +273,14 @@ window.BRAINER = {
       ],
       specs: [
         ['Type', 'Instant, single player, Chicken Road style'],
-        ['RTP', 'Up to 97%, the same for every player. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
-        ['Difficulties', 'Easy, Medium, Hard, Hardcore: 1, 3, 5 or 10 overloads in 25 charges'],
+        ['RTP', 'Up to 97%'],
+        ['Difficulties', '1, 3, 5 or 10 overloads in 25 charges'],
         ['Charges per round', '24, 22, 20, up to 14'],
-        ['Looks', 'Eleven, spread over the charges a round can reach, and a random piece of gear on every charge between. They never change odds or payouts'],
         ['Bet range', '$0.10 to $200'],
-        ['Max win', '$10,000 per round, which caps every payout: 100,000× at the $0.10 minimum bet'],
-        ['Currency', 'US dollars in the demo, local currencies per market'],
-        ['Fairness', 'Provably fair, with a client seed the player can set; every round can be checked in the game'],
-        ['Devices', 'Mobile and desktop (HTML5)'],
+        ['Max win', '$10,000 per round'],
+        ['Currency', 'US dollars in the demo, local per market'],
+        ['Fairness', 'Provably fair, with a player-set client seed'],
+        ['Devices', 'Phone and desktop (HTML5)'],
         ['Languages', 'English'],
         ['Certification', 'Not yet tested by a lab']
       ],
@@ -344,7 +331,7 @@ window.BRAINER = {
       ],
       specs: [
         ['Type', 'Mines-style instant game, single player'],
-        ['RTP', 'Up to 97%, the same at every brain level. Payouts round down to the cent, and the $10,000 max win ends long or high-bet rounds early, so some rounds return less'],
+        ['RTP', 'Up to 97%'],
         ['Brain levels', 'Shared with Plane Crash: the same 100 levels and the same 10 brain cells for every finished round. They never change odds or payouts'],
         ['Map', '25 × 25 grass plots under fog; the start tile in the middle is always safe'],
         ['Bomb chance', '8% on every new tile; cleared tiles are safe to cross'],
