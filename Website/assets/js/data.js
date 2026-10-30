@@ -5,7 +5,7 @@ window.BRAINER = {
     brand: 'Brainer',   // the name everywhere; "Games" is only in the domain (Tornike, 2026-10-27)
     minAge: 18,
     email: '',
-    legal: 'Licensing in progress. The demos use play money only.'
+    legal: 'Not licensed yet. The demos use play money only.'
   },
 
   // Mirrors cfg.brain in both games' game.js: 100 brain levels in ten stages of ten, each stage one look of the 3D
