@@ -7,7 +7,7 @@ all on the account that owns `brainer.games` (Tornike, 2026-10-27).
 |---|---|---|
 | Form endpoint | `https://api.brainer.games/requests` | The contact form POSTs JSON here. The Worker checks the answers, keeps them in D1 and emails the team. Only `https://brainer.games` (and `www.`) may call it. |
 | Inbox | `https://admin.brainer.games` | Sign in with a one-time link sent by email, then: requests by status (New, Talking, Qualified, Won, Closed, Spam), search, notes, reply by email, delete, CSV export. |
-| Public email | `info@brainer.games` | Email Routing rule: forwards to tornike@datastudio.ge. The site shows this address. The old `info@brainer.games` rule stays on, so that address still reaches him. |
+| Public email | `info@brainer.games` | Email Routing rule: forwards to tornike@datastudio.ge. The site shows this address. The old `partners@brainer.games` rule stays on, so that address still reaches him. |
 | Notification email | from `inbox@brainer.games` | Sent by the Worker (send_email binding) to `NOTIFY_TO` for every new request, with Reply-To set to the requester. |
 
 ## Spam and abuse
