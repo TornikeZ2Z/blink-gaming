@@ -1,6 +1,6 @@
 /* The demo-request inbox for brainer.games: one Cloudflare Worker on two hostnames.
      api.brainer.games    POST /requests: the contact form sends here. It checks the answers, keeps them in D1 and emails
-                          the team (partners@brainer.games is the address people see; the note goes to the admins).
+                          the team (info@brainer.games is the address people see; the note goes to the admins).
      admin.brainer.games  the inbox itself: a one-time sign-in link by email, then a list of requests with statuses and notes.
    Settings live in wrangler.toml; SESSION_SECRET is a Worker secret (`npx wrangler secret put SESSION_SECRET`). */
 import { EmailMessage } from 'cloudflare:email';

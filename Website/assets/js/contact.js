@@ -40,11 +40,11 @@ form.addEventListener('submit', async e => {
     }
     if (r.status === 422 && j.fields) { more.open = true; j.fields.map(k => form.elements[k]).filter(Boolean).forEach(f => { f.setCustomValidity(' '); check(f); f.setCustomValidity(''); }); }
     note.classList.add('bad');
-    note.textContent = r.status === 429 ? 'Too many requests from your network just now. Try again in an hour, or email partners@brainer.games.'
-      : 'That didn’t go through. Check the fields above, or email partners@brainer.games.';
+    note.textContent = r.status === 429 ? 'Too many requests from your network just now. Try again in an hour, or email info@brainer.games.'
+      : 'That didn’t go through. Check the fields above, or email info@brainer.games.';
   } catch {
     note.classList.add('bad');
-    note.textContent = 'We couldn’t reach our server. Your answers are still here: try again, or email partners@brainer.games.';
+    note.textContent = 'We couldn’t reach our server. Your answers are still here: try again, or email info@brainer.games.';
     toast('Not sent. Check your connection and try again.');
   } finally { btn.disabled = false; }
 });
